@@ -17,7 +17,18 @@ const app = (0, express_1.default)();
 // Body parser
 app.use(express_1.default.json());
 // Enable CORS
-app.use((0, cors_1.default)());
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        // Allow requests from any localhost port (Vite may pick 5173, 5174, etc.)
+        if (!origin || origin.match(/^http:\/\/localhost:\d+$/)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+}));
 // Dev logging middleware
 if (process.env.NODE_ENV !== 'production') {
     app.use((0, morgan_1.default)('dev'));

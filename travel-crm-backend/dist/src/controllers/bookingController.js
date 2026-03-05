@@ -13,14 +13,12 @@ const prisma = new client_1.PrismaClient();
 // @access  Private
 exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10' } = req.query;
-    // Build the where clause
     const where = {};
-    // Role-based access control: Agents can only see their own assigned bookings
     if (req.user?.role === 'AGENT') {
-        where.assignedToId = req.user.id;
+        where.assignedToUserId = req.user.id;
     }
     else if (assignedTo) {
-        where.assignedToId = assignedTo;
+        where.assignedToUserId = assignedTo;
     }
     if (status) {
         where.status = status;
@@ -48,14 +46,17 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             take: Number(limit),
             orderBy: { createdAt: 'desc' },
             include: {
-                assignedTo: { select: { id: true, name: true } },
+                assignedToUser: { select: { id: true, name: true } },
+                createdByUser: { select: { id: true, name: true } },
+                comments: true,
+                travelers: true,
             },
         }),
         prisma.booking.count({ where }),
     ]);
     res.json({
         data: bookings,
-        pagination: {
+        meta: {
             total,
             page: Number(page),
             limit: Number(limit),
@@ -70,9 +71,10 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     const booking = await prisma.booking.findUnique({
         where: { id: req.params.id },
         include: {
-            assignedTo: { select: { id: true, name: true, email: true } },
+            assignedToUser: { select: { id: true, name: true, email: true } },
+            createdByUser: { select: { id: true, name: true } },
             comments: {
-                include: { user: { select: { id: true, name: true, role: true } } },
+                include: { createdBy: { select: { id: true, name: true, role: true } } },
                 orderBy: { createdAt: 'desc' },
             },
             travelers: true,
@@ -82,8 +84,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         res.status(404);
         throw new Error('Booking not found');
     }
-    // Role-based access control: Agents can only access their assigned bookings
-    if (req.user?.role === 'AGENT' && booking.assignedToId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to access this booking');
     }
@@ -101,9 +102,8 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const booking = await prisma.booking.create({
         data: {
             ...result.data,
-            createdById: req.user?.id,
-            // If agent creates it, auto-assign to them. Admin leaves it unassigned initially.
-            assignedToId: req.user?.role === 'AGENT' ? req.user.id : null,
+            createdByUserId: req.user?.id,
+            assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
         },
     });
     res.status(201).json(booking);
@@ -118,13 +118,12 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         res.status(400);
         throw new Error('Invalid status input');
     }
-    // Check if booking exists and check permissions
     const existingBooking = await prisma.booking.findUnique({ where: { id } });
     if (!existingBooking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && existingBooking.assignedToId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -146,18 +145,17 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(400);
         throw new Error('Invalid input');
     }
-    const { agentId } = result.data;
-    // Verify agent exists and is an agent
-    const agent = await prisma.user.findUnique({ where: { id: agentId } });
+    const { assignedToUserId } = result.data;
+    const agent = await prisma.user.findUnique({ where: { id: assignedToUserId } });
     if (!agent || agent.role !== 'AGENT') {
         res.status(400);
         throw new Error('Invalid agent selected');
     }
     const updatedBooking = await prisma.booking.update({
         where: { id },
-        data: { assignedToId: agentId },
+        data: { assignedToUserId },
         include: {
-            assignedTo: { select: { id: true, name: true } },
+            assignedToUser: { select: { id: true, name: true } },
         }
     });
     res.json(updatedBooking);
@@ -172,13 +170,12 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Invalid comment input');
     }
-    // Check if booking exists and permissions
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to comment on this booking');
     }
@@ -186,10 +183,10 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         data: {
             text: result.data.text,
             bookingId: id,
-            userId: req.user.id,
+            createdById: req.user.id,
         },
         include: {
-            user: { select: { id: true, name: true, role: true } },
+            createdBy: { select: { id: true, name: true, role: true } },
         }
     });
     res.status(201).json(comment);
@@ -204,25 +201,27 @@ exports.getComments = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to view comments for this booking');
     }
     const comments = await prisma.comment.findMany({
         where: { bookingId: id },
         include: {
-            user: { select: { id: true, name: true, role: true } },
+            createdBy: { select: { id: true, name: true, role: true } },
         },
         orderBy: { createdAt: 'desc' },
     });
     res.json(comments);
 });
-// @desc    Add travelers to a booking (used when converting to EDT/Booked)
+// @desc    Add travelers to a booking
 // @route   POST /api/bookings/:id/travelers
 // @access  Private
 exports.addTravelers = (0, express_async_handler_1.default)(async (req, res) => {
     const { id } = req.params;
-    const result = types_1.createTravelersSchema.safeParse(req.body);
+    // Support either single traveler object or array to match frontend requests
+    const inputData = Array.isArray(req.body) ? req.body : [req.body];
+    const result = types_1.createTravelersSchema.safeParse(inputData);
     if (!result.success) {
         res.status(400);
         throw new Error('Invalid traveler data');
@@ -232,11 +231,10 @@ exports.addTravelers = (0, express_async_handler_1.default)(async (req, res) => 
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add travelers to this booking');
     }
-    // Create all travelers in a transaction
     const travelersData = result.data.map(t => ({
         ...t,
         bookingId: id,
