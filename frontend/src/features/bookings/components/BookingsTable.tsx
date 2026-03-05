@@ -81,7 +81,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 }
 
                 return (
-                    <div className="flex flex-col gap-2 min-w-[300px] max-w-[400px] py-1 text-sm">
+                    <div className="flex flex-col gap-2 min-w-[250px] max-w-[350px] py-1 text-sm">
                         <span className="text-slate-800 font-medium whitespace-normal line-clamp-2" title={val}>
                             {val}
                         </span>
@@ -158,7 +158,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                         <th
                                             key={header.id}
                                             scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap"
+                                            className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap"
                                         >
                                             {header.isPlaceholder
                                                 ? null
@@ -177,7 +177,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                     {row.getVisibleCells().map((cell) => (
                                         <td
                                             key={cell.id}
-                                            className="px-6 py-4 whitespace-nowrap text-sm text-slate-700"
+                                            className="px-4 py-3 whitespace-nowrap text-sm text-slate-700"
                                         >
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>
