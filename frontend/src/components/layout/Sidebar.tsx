@@ -19,7 +19,7 @@ export const Sidebar: React.FC = () => {
     }
 
     return (
-        <aside className="w-64 bg-slate-900 text-white flex flex-col min-h-screen">
+        <aside className="w-64 bg-slate-900 text-white flex flex-col h-full border-r border-slate-800">
             <div className="p-6">
                 <h2 className="text-2xl font-bold tracking-tight text-indigo-400">Travel CRM</h2>
             </div>
