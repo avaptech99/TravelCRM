@@ -59,12 +59,25 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             header: 'Requirements',
             cell: (info) => {
                 const val = info.getValue();
-                return val ? (
-                    <span className="tooltip truncate max-w-[150px] inline-block" title={val}>
-                        {val}
-                    </span>
-                ) : (
-                    <span className="text-slate-400 italic">None</span>
+                const travelers = info.row.original.travelers;
+
+                return (
+                    <div className="flex flex-col gap-1.5">
+                        {val ? (
+                            <span className="tooltip truncate max-w-[150px] inline-block" title={val}>
+                                {val}
+                            </span>
+                        ) : (
+                            <span className="text-slate-400 italic">None</span>
+                        )}
+                        {travelers && travelers.length > 0 && (
+                            <div className="text-[11px] text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-md self-start truncate max-w-[150px]" title={travelers.map(t => `${t.name} (${t.travelDate || 'TBD'})`).join(', ')}>
+                                ✈ {travelers[0].travelDate ? dayjs(travelers[0].travelDate).format('MMM DD, YYYY') : 'Data needed'}
+                                {travelers[0].country ? ` • ${travelers[0].country}` : ''}
+                                {travelers.length > 1 ? ` (+${travelers.length - 1})` : ''}
+                            </div>
+                        )}
+                    </div>
                 );
             },
         }),
