@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Bookings } from './pages/Bookings';
 import { Dashboard } from './pages/Dashboard';
 import { BookedEDT } from './pages/BookedEDT';
+import { Users } from './pages/Users';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route path="/booked" element={<BookedEDT />} />
+                <Route path="/users" element={<Users />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Route>

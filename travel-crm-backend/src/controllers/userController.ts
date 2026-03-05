@@ -20,3 +20,21 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
 
     res.json(agents);
 });
+
+// @desc    Get all users (Admin only)
+// @route   GET /api/users
+// @access  Private/Admin
+export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const users = await prisma.user.findMany({
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(users);
+});
