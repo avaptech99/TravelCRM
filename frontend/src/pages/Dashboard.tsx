@@ -13,17 +13,17 @@ export const Dashboard: React.FC = () => {
     const { data: stats } = useQuery({
         queryKey: ['dashboard-stats'],
         queryFn: async () => {
-            // Assuming a generic bookings call for now to count lengths.
-            // In a real app backend would provide an aggregation endpoint.
-            const [{ data: all }, { data: booked }, { data: newb }] = await Promise.all([
+            const [{ data: all }, { data: booked }, { data: newb }, { data: agentsData }] = await Promise.all([
                 api.get('/bookings?limit=1'),
                 api.get('/bookings?status=Booked&limit=1'),
                 api.get('/bookings?status=Pending&limit=1'),
+                api.get('/users/agents').catch(() => ({ data: [] })),
             ]);
             return {
-                total: all.meta.total || 0,
-                booked: booked.meta.total || 0,
-                new: newb.meta.total || 0,
+                total: all.meta?.total || 0,
+                booked: booked.meta?.total || 0,
+                new: newb.meta?.total || 0,
+                agents: agentsData?.length || 0,
             };
         },
     });

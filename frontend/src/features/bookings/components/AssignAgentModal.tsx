@@ -31,7 +31,7 @@ export const AssignAgentModal: React.FC<AssignAgentModalProps> = ({ booking, isO
     const { data: agents, isLoading: isAgentsLoading } = useQuery({
         queryKey: ['agents'],
         queryFn: async () => {
-            const { data } = await api.get('/users?role=AGENT');
+            const { data } = await api.get('/users/agents');
             return data;
         },
         enabled: isOpen,
