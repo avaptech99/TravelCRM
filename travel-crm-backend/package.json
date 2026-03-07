@@ -5,7 +5,7 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "npx ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "node node_modules/prisma/build/index.js generate && tsc",
     "start": "node dist/src/server.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
