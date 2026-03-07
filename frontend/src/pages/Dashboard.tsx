@@ -35,7 +35,7 @@ export const Dashboard: React.FC = () => {
     ];
 
     if (user?.role === 'ADMIN') {
-        cards.push({ title: 'Active Agents', value: 8, icon: <Users className="text-indigo-600" size={22} />, bg: 'bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200' });
+        cards.push({ title: 'Active Agents', value: stats?.agents || 0, icon: <Users className="text-indigo-600" size={22} />, bg: 'bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200' });
     }
 
     // Fetch latest 5 bookings for Activity feed
