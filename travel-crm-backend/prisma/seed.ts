@@ -132,9 +132,9 @@ async function main() {
                         country: destination.split(',')[1]?.trim() || 'Europe',
                         flightFrom: 'JFK',
                         flightTo: t % 2 === 0 ? 'LHR' : 'CDG',
-                        departureTime: new Date(travelDate.getTime() - 86400000).toISOString().split('T')[0] + ' 10:00 AM',
-                        arrivalTime: new Date(travelDate.getTime() - 86400000).toISOString().split('T')[0] + ' 11:30 PM',
-                        travelDate: travelDate.toISOString(),
+                        departureTime: new Date(travelDate.getTime() - 86400000).toISOString().slice(0, 16),
+                        arrivalTime: new Date(travelDate.getTime() - 86400000 + 48600000).toISOString().slice(0, 16),
+                        tripType: i % 2 === 0 ? 'round-trip' : 'one-way',
                         dob: new Date(1980 + Math.floor(Math.random() * 20), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString().split('T')[0],
                         anniversary: t === 0 && i % 2 === 0 ? new Date(2010 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString().split('T')[0] : null,
                     }
