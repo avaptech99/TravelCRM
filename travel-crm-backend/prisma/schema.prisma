@@ -69,8 +69,11 @@ model Traveler {
   flightTo      String?
   departureTime String?
   arrivalTime   String?
-  travelDate    String?
-  dob           String?
+  tripType            String?
+  returnDate          String?
+  returnDepartureTime String?
+  returnArrivalTime   String?
+  dob                 String?
   anniversary   String?
   isPrimary     Boolean  @default(false)
 }

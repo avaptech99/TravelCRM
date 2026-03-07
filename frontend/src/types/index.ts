@@ -16,7 +16,10 @@ export interface Traveler {
     flightTo?: string;
     departureTime?: string;
     arrivalTime?: string;
-    travelDate?: string;
+    tripType?: string;
+    returnDate?: string;
+    returnDepartureTime?: string;
+    returnArrivalTime?: string;
     dob?: string;
     anniversary?: string;
 }

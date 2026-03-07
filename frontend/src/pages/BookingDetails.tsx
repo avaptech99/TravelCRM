@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2 } from 'lucide-react';
+import { TravelerModal } from '../features/bookings/components/TravelerModal';
 
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -15,6 +16,23 @@ export const BookingDetails: React.FC = () => {
             return data;
         },
         enabled: !!id,
+    });
+
+    const [isTravelerModalOpen, setIsTravelerModalOpen] = useState(false);
+
+    const [isEditingReqs, setIsEditingReqs] = useState(false);
+    const [editReqsText, setEditReqsText] = useState('');
+
+    const queryClient = useQueryClient();
+
+    const updateReqsMutation = useMutation({
+        mutationFn: async (requirements: string) => {
+            await api.put(`/bookings/${id}`, { requirements });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            setIsEditingReqs(false);
+        }
     });
 
     if (isLoading) {
@@ -31,6 +49,11 @@ export const BookingDetails: React.FC = () => {
             </div>
         );
     }
+
+    const startEditingReqs = () => {
+        setEditReqsText(booking.requirements || '');
+        setIsEditingReqs(true);
+    };
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -67,82 +90,183 @@ export const BookingDetails: React.FC = () => {
 
                     {/* Requirements Section */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Detailed Requirements</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-slate-900">Detailed Requirements</h2>
+                            {!isEditingReqs && (
+                                <button
+                                    onClick={startEditingReqs}
+                                    className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors"
+                                >
+                                    <Edit2 size={14} /> Edit
+                                </button>
+                            )}
+                        </div>
                         <div className="prose prose-slate max-w-none">
-                            {booking.requirements ? (
-                                <p className="text-slate-700 whitespace-pre-wrap">{booking.requirements}</p>
+                            {isEditingReqs ? (
+                                <div className="space-y-3">
+                                    <textarea
+                                        value={editReqsText}
+                                        onChange={(e) => setEditReqsText(e.target.value)}
+                                        className="w-full min-h-[150px] p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="Enter detailed requirements..."
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => updateReqsMutation.mutate(editReqsText)}
+                                            disabled={updateReqsMutation.isPending}
+                                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors"
+                                        >
+                                            {updateReqsMutation.isPending ? 'Saving...' : 'Save Notes'}
+                                        </button>
+                                        <button
+                                            onClick={() => setIsEditingReqs(false)}
+                                            disabled={updateReqsMutation.isPending}
+                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
                             ) : (
-                                <p className="text-slate-400 italic">No specific requirements provided.</p>
+                                booking.requirements ? (
+                                    <p className="text-slate-700 whitespace-pre-wrap">{booking.requirements}</p>
+                                ) : (
+                                    <p className="text-slate-400 italic">No specific requirements provided.</p>
+                                )
                             )}
                         </div>
                     </div>
 
                     {/* Travelers Section */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex justify-between items-center">
-                            <span>Travelers ({booking.travelers?.length || 0})</span>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                            Travelers ({booking.travelers?.length || 0})
                         </h2>
 
                         {booking.travelers && booking.travelers.length > 0 ? (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {booking.travelers.map((traveler: any, idx: number) => (
-                                    <div key={traveler.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                                        <div className="flex items-center space-x-2 text-indigo-700 font-medium mb-3">
-                                            <User size={16} />
-                                            <span>{traveler.name}</span>
-                                        </div>
-                                        <div className="space-y-2 text-sm text-slate-600">
-                                            {traveler.email && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Mail size={14} className="text-slate-400" />
-                                                    <span>{traveler.email}</span>
-                                                </div>
-                                            )}
-                                            {traveler.phoneNumber && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Phone size={14} className="text-slate-400" />
-                                                    <span>{traveler.phoneNumber}</span>
-                                                </div>
-                                            )}
-                                            {traveler.country && (
-                                                <div className="flex items-center space-x-2">
-                                                    <MapPin size={14} className="text-slate-400" />
-                                                    <span>{traveler.country}</span>
-                                                </div>
-                                            )}
-                                            {(traveler.flightFrom || traveler.flightTo) && (
-                                                <div className="flex items-start space-x-2 bg-indigo-50/70 p-2.5 rounded border border-indigo-100/50 mt-2">
-                                                    <Plane size={14} className="text-indigo-500 mt-0.5 shrink-0" />
-                                                    <div className="text-xs text-indigo-900 space-y-0.5">
-                                                        <div className="font-semibold mb-1">
-                                                            {traveler.flightFrom || 'TBD'} &rarr; {traveler.flightTo || 'TBD'}
-                                                        </div>
-                                                        {traveler.departureTime && <div><span className="text-indigo-600/70 font-medium">Departs:</span> {dayjs(traveler.departureTime).format('MMM DD, h:mm A')}</div>}
-                                                        {traveler.arrivalTime && <div><span className="text-indigo-600/70 font-medium">Arrives:</span> {dayjs(traveler.arrivalTime).format('MMM DD, h:mm A')}</div>}
+                            <div className="space-y-5">
+                                {/* Travel Details — shown once from primary traveler */}
+                                {(() => {
+                                    const primary = booking.travelers[0];
+                                    const hasFlightInfo = primary.flightFrom || primary.flightTo;
+                                    const hasTripInfo = primary.tripType || primary.country;
+
+                                    if (!hasFlightInfo && !hasTripInfo) return null;
+
+                                    return (
+                                        <div className="p-4 rounded-lg bg-indigo-50/60 border border-indigo-100">
+                                            <h3 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-1.5">
+                                                <Plane size={15} className="text-indigo-500" /> Travel Details
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {primary.country && (
+                                                    <div className="flex items-center space-x-2 text-sm text-indigo-800">
+                                                        <MapPin size={14} className="text-indigo-400" />
+                                                        <span className="font-medium">Destination:</span>
+                                                        <span>{primary.country}</span>
                                                     </div>
-                                                </div>
-                                            )}
-                                            {traveler.travelDate && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={14} className="text-slate-400" />
-                                                    <span>Travel: {dayjs(traveler.travelDate).format('MMM DD, YYYY')}</span>
-                                                </div>
-                                            )}
-                                            {traveler.dob && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={14} className="text-slate-400" />
-                                                    <span>DOB: {dayjs(traveler.dob).format('MMM DD, YYYY')}</span>
-                                                </div>
-                                            )}
-                                            {traveler.anniversary && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={14} className="text-slate-400" />
-                                                    <span>Anniversary: {dayjs(traveler.anniversary).format('MMM DD, YYYY')}</span>
-                                                </div>
-                                            )}
+                                                )}
+                                                {primary.tripType && (
+                                                    <div className="flex items-center space-x-2 text-sm text-indigo-800">
+                                                        <span className="font-medium">Trip Type:</span>
+                                                        <span className="capitalize">{primary.tripType}</span>
+                                                    </div>
+                                                )}
+                                                {hasFlightInfo && (
+                                                    <div className="bg-white/80 p-3 rounded-md border border-indigo-100/70">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded text-xs border border-indigo-200">{primary.flightFrom || 'TBD'}</span>
+                                                            <span className="text-indigo-400 text-lg">→</span>
+                                                            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded text-xs border border-indigo-200">{primary.flightTo || 'TBD'}</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2 text-xs text-indigo-800">
+                                                            {primary.departureTime && (
+                                                                <div>
+                                                                    <span className="font-medium text-indigo-600/70">🛫 Departs:</span>{' '}
+                                                                    {dayjs(primary.departureTime).format('MMM DD, h:mm A')}
+                                                                </div>
+                                                            )}
+                                                            {primary.arrivalTime && (
+                                                                <div>
+                                                                    <span className="font-medium text-indigo-600/70">🛬 Arrives:</span>{' '}
+                                                                    {dayjs(primary.arrivalTime).format('MMM DD, h:mm A')}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
+                                                            <div className="mt-3 pt-3 border-t border-indigo-100/70">
+                                                                <p className="text-xs font-semibold text-amber-700 mb-2">Return Flight</p>
+                                                                <div className="grid grid-cols-2 gap-2 text-xs text-indigo-800">
+                                                                    {primary.returnDate && (
+                                                                        <div>
+                                                                            <span className="font-medium text-indigo-600/70">📅 Date:</span>{' '}
+                                                                            {dayjs(primary.returnDate).format('MMM DD, YYYY')}
+                                                                        </div>
+                                                                    )}
+                                                                    {primary.returnDepartureTime && (
+                                                                        <div>
+                                                                            <span className="font-medium text-indigo-600/70">🛫 Departs:</span>{' '}
+                                                                            {dayjs(primary.returnDepartureTime).format('MMM DD, h:mm A')}
+                                                                        </div>
+                                                                    )}
+                                                                    {primary.returnArrivalTime && (
+                                                                        <div>
+                                                                            <span className="font-medium text-indigo-600/70">🛬 Arrives:</span>{' '}
+                                                                            {dayjs(primary.returnArrivalTime).format('MMM DD, h:mm A')}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
+                                    );
+                                })()}
+
+                                {/* Passenger Details */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                                        <User size={15} className="text-slate-400" /> Passengers
+                                    </h3>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {booking.travelers.map((traveler: any, idx: number) => (
+                                            <div key={traveler.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                                                <div className="flex items-center space-x-2 text-indigo-700 font-medium mb-2">
+                                                    <User size={16} />
+                                                    <span>{traveler.name}</span>
+                                                </div>
+                                                <div className="space-y-1.5 text-sm text-slate-600">
+                                                    {traveler.email && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <Mail size={13} className="text-slate-400" />
+                                                            <span>{traveler.email}</span>
+                                                        </div>
+                                                    )}
+                                                    {traveler.phoneNumber && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <Phone size={13} className="text-slate-400" />
+                                                            <span>{traveler.phoneNumber}</span>
+                                                        </div>
+                                                    )}
+                                                    {traveler.dob && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <Calendar size={13} className="text-slate-400" />
+                                                            <span>DOB: {dayjs(traveler.dob).format('MMM DD, YYYY')}</span>
+                                                        </div>
+                                                    )}
+                                                    {traveler.anniversary && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <Calendar size={13} className="text-slate-400" />
+                                                            <span>Anniversary: {dayjs(traveler.anniversary).format('MMM DD, YYYY')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
                             </div>
                         ) : (
                             <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-slate-200 border-dashed">
@@ -186,7 +310,7 @@ export const BookingDetails: React.FC = () => {
 
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {booking.comments && booking.comments.length > 0 ? (
-                                booking.comments.map((comment: any) => (
+                                booking.comments.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment: any) => (
                                     <div key={comment.id} className="relative pl-4 border-l-2 border-indigo-100">
                                         <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-indigo-400"></div>
                                         <div className="flex justify-between items-start mb-1">
@@ -209,6 +333,12 @@ export const BookingDetails: React.FC = () => {
 
                 </div>
             </div>
+
+            <TravelerModal
+                booking={booking}
+                isOpen={isTravelerModalOpen}
+                onClose={() => setIsTravelerModalOpen(false)}
+            />
         </div>
     );
 };

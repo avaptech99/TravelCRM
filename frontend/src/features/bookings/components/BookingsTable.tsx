@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
+    getPaginationRowModel,
     flexRender,
     createColumnHelper,
 } from '@tanstack/react-table';
@@ -9,12 +10,12 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import dayjs from 'dayjs';
-import { Link } from 'react-router-dom';
-import { CommentModal } from './CommentModal';
 import { ActionDropdown } from './ActionDropdown';
-import { StatusUpdateModal } from './StatusUpdateModal';
-import { AssignAgentModal } from './AssignAgentModal';
 import { TravelerModal } from './TravelerModal';
+import { EditModal } from './EditModal';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+import { RequirementsCell } from './RequirementsCell';
 
 interface BookingsTableProps {
     statusFilter?: string;
@@ -22,10 +23,8 @@ interface BookingsTableProps {
 }
 
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView }) => {
-    const [activeCommentBooking, setActiveCommentBooking] = useState<Booking | null>(null);
+    const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeTravelerBooking, setActiveTravelerBooking] = useState<Booking | null>(null);
-    const [activeStatusBooking, setActiveStatusBooking] = useState<Booking | null>(null);
-    const [activeAgentBooking, setActiveAgentBooking] = useState<Booking | null>(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['bookings', statusFilter, isEDTView],
@@ -58,46 +57,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         }),
         columnHelper.accessor('requirements', {
             header: 'Requirements & Flight Info',
-            cell: (info) => {
-                const val = info.getValue() || 'No specific requirements.';
-                const travelers = info.row.original.travelers;
-                const bookingId = info.row.original.id;
-
-                let summary = '';
-                if (travelers && travelers.length > 0) {
-                    const primary = travelers[0];
-                    const numOthers = travelers.length - 1;
-                    const othersText = numOthers > 0 ? ` alongside ${numOthers} other passenger${numOthers > 1 ? 's' : ''}` : '';
-
-                    if (primary.flightFrom || primary.flightTo) {
-                        const from = primary.flightFrom || 'TBD';
-                        const to = primary.flightTo || 'TBD';
-                        const dep = primary.departureTime ? dayjs(primary.departureTime).format('MMM DD, h:mm A') : 'TBD';
-                        const arr = primary.arrivalTime ? dayjs(primary.arrivalTime).format('MMM DD, h:mm A') : 'TBD';
-                        summary = `Primary traveler ${primary.name} is flying from ${from} to ${to}${othersText}. Departure is scheduled for ${dep} with arrival at ${arr}.`;
-                    } else if (primary.travelDate) {
-                        summary = `Primary traveler ${primary.name} is traveling to ${primary.country || 'unspecified location'} on ${dayjs(primary.travelDate).format('MMM DD, YYYY')}${othersText}. Flight schedules are currently TBD.`;
-                    }
-                }
-
-                return (
-                    <div className="flex flex-col gap-2 min-w-[250px] max-w-[350px] py-1 text-sm">
-                        <span className="text-slate-800 font-medium whitespace-normal line-clamp-2" title={val}>
-                            {val}
-                        </span>
-                        {summary ? (
-                            <div className="text-xs text-indigo-800 bg-indigo-50/70 p-2.5 rounded-md border border-indigo-100 leading-relaxed whitespace-normal mt-1">
-                                <span className="font-semibold block mb-1">✈ Flight Summary:</span>
-                                {summary}
-                            </div>
-                        ) : (
-                            <Link to={`/bookings/${bookingId}`} className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline inline-block mt-1">
-                                No flight data. Click to view or add details &rarr;
-                            </Link>
-                        )}
-                    </div>
-                );
-            },
+            cell: (info) => <RequirementsCell booking={info.row.original} />
         }),
         columnHelper.display({
             id: 'status',
@@ -130,19 +90,26 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             cell: (info) => (
                 <ActionDropdown
                     booking={info.row.original}
-                    onUpdateStatusClick={(b: Booking) => setActiveStatusBooking(b)}
-                    onChangeAgentClick={(b: Booking) => setActiveAgentBooking(b)}
-                    onAddCommentClick={(b: Booking) => setActiveCommentBooking(b)}
+                    onEditClick={(b: Booking) => setActiveEditBooking(b)}
+                    onUpdateTravelersClick={(b: Booking) => setActiveTravelerBooking(b)}
                 />
             ),
-        })
+        }),
     ];
 
     const table = useReactTable({
         data: data?.data || [],
         columns,
         getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        initialState: {
+            pagination: {
+                pageSize: 15,
+            },
+        },
     });
+
+    const allRows = data?.data?.length || 0;
 
     return (
         <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
@@ -158,7 +125,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                         <th
                                             key={header.id}
                                             scope="col"
-                                            className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap"
+                                            className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap"
                                         >
                                             {header.isPlaceholder
                                                 ? null
@@ -177,7 +144,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                     {row.getVisibleCells().map((cell) => (
                                         <td
                                             key={cell.id}
-                                            className="px-4 py-3 whitespace-nowrap text-sm text-slate-700"
+                                            className="px-3 py-2 text-sm text-slate-700"
                                         >
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>
@@ -196,35 +163,52 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 )}
             </div>
 
-            {!isLoading && (
+            {!isLoading && allRows > 0 && (
                 <div className="bg-white px-4 py-3 border-t border-slate-200 flex items-center justify-between sm:px-6">
-                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-slate-700">
-                                Showing total <span className="font-medium text-slate-900">{data?.meta?.total || 0}</span> results
-                            </p>
-                        </div>
+                    <div className="flex-1 flex items-center justify-between">
+                        <p className="text-sm text-slate-700">
+                            Showing{' '}
+                            <span className="font-medium text-slate-900">
+                                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+                            </span>
+                            {' '}to{' '}
+                            <span className="font-medium text-slate-900">
+                                {Math.min(
+                                    (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                                    allRows
+                                )}
+                            </span>
+                            {' '}of{' '}
+                            <span className="font-medium text-slate-900">{allRows}</span> results
+                        </p>
+                        <nav className="flex items-center gap-1">
+                            <button
+                                onClick={() => table.previousPage()}
+                                disabled={!table.getCanPreviousPage()}
+                                className="relative inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft size={16} className="mr-1" /> Previous
+                            </button>
+                            <span className="px-3 py-1.5 text-sm text-slate-600 font-medium">
+                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                            </span>
+                            <button
+                                onClick={() => table.nextPage()}
+                                disabled={!table.getCanNextPage()}
+                                className="relative inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Next <ChevronRight size={16} className="ml-1" />
+                            </button>
+                        </nav>
                     </div>
                 </div>
             )}
 
-            <CommentModal
-                booking={activeCommentBooking}
-                isOpen={!!activeCommentBooking}
-                onClose={() => setActiveCommentBooking(null)}
-            />
-
-            <StatusUpdateModal
-                booking={activeStatusBooking}
-                isOpen={!!activeStatusBooking}
-                onClose={() => setActiveStatusBooking(null)}
+            <EditModal
+                booking={activeEditBooking}
+                isOpen={!!activeEditBooking}
+                onClose={() => setActiveEditBooking(null)}
                 onStatusChangeToBooked={(b: Booking) => setActiveTravelerBooking(b)}
-            />
-
-            <AssignAgentModal
-                booking={activeAgentBooking}
-                isOpen={!!activeAgentBooking}
-                onClose={() => setActiveAgentBooking(null)}
             />
 
             <TravelerModal

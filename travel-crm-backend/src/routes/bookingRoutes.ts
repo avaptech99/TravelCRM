@@ -8,6 +8,9 @@ import {
     addComment,
     getComments,
     addTravelers,
+    deleteBooking,
+    updateBooking,
+    updateTravelers,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -21,7 +24,9 @@ router.route('/')
     .post(createBooking);
 
 router.route('/:id')
-    .get(getBookingById);
+    .get(getBookingById)
+    .put(updateBooking)
+    .delete(deleteBooking);
 
 router.route('/:id/status')
     .patch(updateBookingStatus);
@@ -34,6 +39,7 @@ router.route('/:id/comments')
     .post(addComment);
 
 router.route('/:id/travelers')
-    .post(addTravelers);
+    .post(addTravelers)
+    .put(updateTravelers);
 
 export default router;

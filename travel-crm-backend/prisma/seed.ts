@@ -25,9 +25,26 @@ async function main() {
             role: 'ADMIN',
         },
     });
-    console.log(`Created admin user with id: ${admin.id}`);
 
-    // 2. Create Agent Users
+    const admin2 = await prisma.user.create({
+        data: {
+            name: 'Admin 2',
+            email: 'admin2@travel.com',
+            passwordHash: adminPasswordHash,
+            role: 'ADMIN',
+        },
+    });
+    console.log(`Created admin user with id: ${admin.id} and ${admin2.id}`);
+
+    const agent1User = await prisma.user.create({
+        data: {
+            name: 'Memo Agent',
+            email: 'agent1@travel.com',
+            passwordHash: agentPasswordHash, // Uses agent123
+            role: 'AGENT',
+        },
+    });
+
     const agent1 = await prisma.user.create({
         data: {
             name: 'Sarah Agent',
@@ -48,7 +65,7 @@ async function main() {
 
     console.log(`Created agent users.`);
 
-    const agents = [agent1.id, agent2.id];
+    const agents = [agent1User.id, agent1.id, agent2.id];
     const statuses = ['Pending', 'Working', 'Sent', 'Booked', 'Booked']; // Skew towards Booked
 
     const mockDestinations = ['Paris, France', 'Bali, Indonesia', 'Tokyo, Japan', 'Cancun, Mexico', 'Rome, Italy', 'Maldives', 'Swiss Alps', 'Dubai, UAE'];

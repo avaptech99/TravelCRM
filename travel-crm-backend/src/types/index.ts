@@ -11,6 +11,10 @@ export const createBookingSchema = z.object({
     requirements: z.string().optional(),
 });
 
+export const updateBookingSchema = z.object({
+    requirements: z.string().optional(),
+});
+
 export const updateBookingStatusSchema = z.object({
     status: z.enum(['Pending', 'Working', 'Sent', 'Booked']),
 });
@@ -32,7 +36,10 @@ export const travelerSchema = z.object({
     flightTo: z.string().optional(),
     departureTime: z.string().optional(),
     arrivalTime: z.string().optional(),
-    travelDate: z.string().optional(),
+    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    returnDate: z.string().optional(),
+    returnDepartureTime: z.string().optional(),
+    returnArrivalTime: z.string().optional(),
     dob: z.string().optional(),
     anniversary: z.string().optional(),
     isPrimary: z.boolean().default(false).optional(),

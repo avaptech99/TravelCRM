@@ -7,6 +7,7 @@ import {
     assignBookingSchema,
     createCommentSchema,
     createTravelersSchema,
+    updateBookingSchema,
 } from '../types';
 
 const prisma = new PrismaClient();
@@ -103,6 +104,33 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     res.json(booking);
 });
 
+// @desc    Delete booking
+// @route   DELETE /api/bookings/:id
+// @access  Private
+export const deleteBooking = asyncHandler(async (req: Request, res: Response) => {
+    const booking = await prisma.booking.findUnique({
+        where: { id: req.params.id },
+    });
+
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id && booking.createdByUserId !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to delete this booking');
+    }
+
+    await prisma.$transaction([
+        prisma.comment.deleteMany({ where: { bookingId: req.params.id } }),
+        prisma.traveler.deleteMany({ where: { bookingId: req.params.id } }),
+        prisma.booking.delete({ where: { id: req.params.id } }),
+    ]);
+
+    res.json({ message: 'Booking removed successfully' });
+});
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private (Admin & Agent)
@@ -123,6 +151,40 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     });
 
     res.status(201).json(booking);
+});
+
+// @desc    Update a booking (currently requirements)
+// @route   PUT /api/bookings/:id
+// @access  Private
+export const updateBooking = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = updateBookingSchema.safeParse(req.body);
+
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid input');
+    }
+
+    const booking = await prisma.booking.findUnique({ where: { id } });
+
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id && booking.createdByUserId !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to update this booking');
+    }
+
+    const updatedBooking = await prisma.booking.update({
+        where: { id },
+        data: {
+            requirements: result.data.requirements,
+        },
+    });
+
+    res.json(updatedBooking);
 });
 
 // @desc    Update booking status
@@ -295,4 +357,47 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
     );
 
     res.status(201).json(createdTravelers);
+});
+
+// @desc    Update (replace) travelers for a booking
+// @route   PUT /api/bookings/:id/travelers
+// @access  Private
+export const updateTravelers = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const inputData = Array.isArray(req.body) ? req.body : [req.body];
+    const result = createTravelersSchema.safeParse(inputData);
+
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid traveler data');
+    }
+
+    const booking = await prisma.booking.findUnique({ where: { id } });
+
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to update travelers for this booking');
+    }
+
+    const travelersData = result.data.map(t => ({
+        ...t,
+        bookingId: id,
+    }));
+
+    // Delete existing travelers, then create new ones in a transaction
+    const updatedTravelers = await prisma.$transaction(async (tx) => {
+        await tx.traveler.deleteMany({ where: { bookingId: id } });
+        const created = await Promise.all(
+            travelersData.map(data => tx.traveler.create({ data }))
+        );
+        return created;
+    });
+
+    res.json(updatedTravelers);
 });
