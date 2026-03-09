@@ -5,14 +5,8 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "npx ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "node node_modules/prisma/build/index.js generate && tsc",
-    "start": "node dist/src/server.js",
-    "prisma:generate": "npx prisma generate",
-    "prisma:migrate": "npx prisma migrate dev",
-    "seed": "npx prisma db seed"
-  },
-  "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
+    "build": "tsc",
+    "start": "node dist/src/server.js"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
