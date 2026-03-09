@@ -1,6 +1,6 @@
 import express from 'express';
-import { getAgents, getAllUsers } from '../controllers/userController';
-import { protect } from '../middleware/auth';
+import { getAgents, getAllUsers, createUser, deleteUser } from '../controllers/userController';
+import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -8,6 +8,12 @@ const router = express.Router();
 router.get('/agents', protect, getAgents);
 
 // Get all users (Admin only)
-router.get('/', protect, getAllUsers);
+router.get('/', protect, adminGuard, getAllUsers);
+
+// Create user (Admin only)
+router.post('/', protect, adminGuard, createUser);
+
+// Delete user (Admin only)
+router.delete('/:id', protect, adminGuard, deleteUser);
 
 export default router;

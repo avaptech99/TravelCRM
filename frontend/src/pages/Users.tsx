@@ -1,7 +1,10 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
+import { AddUserModal } from '../features/users/components/AddUserModal';
+import { Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface User {
     id: string;
@@ -12,12 +15,34 @@ interface User {
 }
 
 export const Users: React.FC = () => {
+    const queryClient = useQueryClient();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
             const { data } = await api.get('/users');
             return data;
         },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            if (window.confirm('Are you sure you want to delete this user?')) {
+                await api.delete(`/users/${id}`);
+            } else {
+                return Promise.reject(new Error('Cancelled'));
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast.success('User deleted successfully');
+        },
+        onError: (error: any) => {
+            if (error.message !== 'Cancelled') {
+                toast.error(error.response?.data?.message || 'Failed to delete user');
+            }
+        }
     });
 
     return (
@@ -27,6 +52,12 @@ export const Users: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
                     <p className="text-slate-500 text-sm mt-1">View and manage all system administrators and agents.</p>
                 </div>
+                <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                >
+                    <Plus size={18} /> Add New User
+                </button>
             </div>
 
             <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
@@ -41,6 +72,7 @@ export const Users: React.FC = () => {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Role</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Joined On</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-200">
@@ -61,6 +93,15 @@ export const Users: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                             {dayjs(user.createdAt).format('MMM DD, YYYY')}
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                            <button
+                                                onClick={() => deleteMutation.mutate(user.id)}
+                                                className="text-slate-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                title="Delete user"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                                 {!users?.length && (
@@ -75,6 +116,8 @@ export const Users: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            <AddUserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
         </div>
     );
 };
