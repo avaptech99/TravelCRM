@@ -299,17 +299,6 @@ export const TravelerModal: React.FC<TravelerModalProps> = ({ booking, isOpen, o
                                                             <option value="round-trip">Round Trip</option>
                                                         </select>
                                                     </div>
-                                                    {watch(`travelers.${index}.tripType`) === 'round-trip' && (
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-slate-700 mb-1">Return Date</label>
-                                                            <input
-                                                                type="date"
-                                                                min={new Date().toISOString().split('T')[0]}
-                                                                {...register(`travelers.${index}.returnDate` as const)}
-                                                                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                                                            />
-                                                        </div>
-                                                    )}
                                                 </div>
 
                                                 {watch(`travelers.${index}.tripType`) === 'round-trip' && (
