@@ -220,15 +220,17 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const { assignedToUserId } = result.data;
 
-    const agent = await User.findById(assignedToUserId);
-    if (!agent || agent.role !== 'AGENT') {
-        res.status(400);
-        throw new Error('Invalid agent selected');
+    if (assignedToUserId) {
+        const agent = await User.findById(assignedToUserId);
+        if (!agent || agent.role !== 'AGENT') {
+            res.status(400);
+            throw new Error('Invalid agent selected');
+        }
     }
 
     const updatedBooking = await Booking.findByIdAndUpdate(
         id,
-        { assignedToUserId },
+        { assignedToUserId: assignedToUserId || null },
         { new: true }
     ).populate('assignedToUser', 'name');
 

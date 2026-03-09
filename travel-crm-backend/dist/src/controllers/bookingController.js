@@ -3,56 +3,54 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.createBooking = exports.getBookingById = exports.getBookings = void 0;
+exports.updateTravelers = exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
-const client_1 = require("@prisma/client");
+const Booking_1 = __importDefault(require("../models/Booking"));
+const Comment_1 = __importDefault(require("../models/Comment"));
+const Traveler_1 = __importDefault(require("../models/Traveler"));
+const User_1 = __importDefault(require("../models/User"));
 const types_1 = require("../types");
-const prisma = new client_1.PrismaClient();
 // @desc    Get all bookings (with filtering & pagination)
 // @route   GET /api/bookings
 // @access  Private
 exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10' } = req.query;
-    const where = {};
+    const query = {};
     if (req.user?.role === 'AGENT') {
-        where.assignedToUserId = req.user.id;
+        query.assignedToUserId = req.user.id;
     }
     else if (assignedTo) {
-        where.assignedToUserId = assignedTo;
+        query.assignedToUserId = assignedTo;
     }
     if (status) {
-        where.status = status;
+        query.status = status;
     }
     if (search) {
         const searchStr = search;
-        where.OR = [
-            { contactPerson: { contains: searchStr } },
-            { contactNumber: { contains: searchStr } },
-            { requirements: { contains: searchStr } },
+        query.$or = [
+            { contactPerson: { $regex: searchStr, $options: 'i' } },
+            { contactNumber: { $regex: searchStr, $options: 'i' } },
+            { requirements: { $regex: searchStr, $options: 'i' } },
         ];
     }
     if (fromDate || toDate) {
-        where.createdAt = {};
+        query.createdAt = {};
         if (fromDate)
-            where.createdAt.gte = new Date(fromDate);
+            query.createdAt.$gte = new Date(fromDate);
         if (toDate)
-            where.createdAt.lte = new Date(toDate);
+            query.createdAt.$lte = new Date(toDate);
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [bookings, total] = await Promise.all([
-        prisma.booking.findMany({
-            where,
-            skip,
-            take: Number(limit),
-            orderBy: { createdAt: 'desc' },
-            include: {
-                assignedToUser: { select: { id: true, name: true } },
-                createdByUser: { select: { id: true, name: true } },
-                comments: true,
-                travelers: true,
-            },
-        }),
-        prisma.booking.count({ where }),
+        Booking_1.default.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(Number(limit))
+            .populate('assignedToUser', 'name')
+            .populate('createdByUser', 'name')
+            .populate('comments')
+            .populate('travelers'),
+        Booking_1.default.countDocuments(query),
     ]);
     res.json({
         data: bookings,
@@ -68,27 +66,42 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
 // @route   GET /api/bookings/:id
 // @access  Private
 exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) => {
-    const booking = await prisma.booking.findUnique({
-        where: { id: req.params.id },
-        include: {
-            assignedToUser: { select: { id: true, name: true, email: true } },
-            createdByUser: { select: { id: true, name: true } },
-            comments: {
-                include: { createdBy: { select: { id: true, name: true, role: true } } },
-                orderBy: { createdAt: 'desc' },
-            },
-            travelers: true,
-        },
-    });
+    const booking = await Booking_1.default.findById(req.params.id)
+        .populate('assignedToUser', 'name email')
+        .populate('createdByUser', 'name')
+        .populate({
+        path: 'comments',
+        populate: { path: 'createdBy', select: 'name role' },
+        options: { sort: { createdAt: -1 } },
+    })
+        .populate('travelers');
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to access this booking');
     }
     res.json(booking);
+});
+// @desc    Delete booking
+// @route   DELETE /api/bookings/:id
+// @access  Private
+exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) => {
+    const booking = await Booking_1.default.findById(req.params.id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to delete this booking');
+    }
+    await Comment_1.default.deleteMany({ bookingId: req.params.id });
+    await Traveler_1.default.deleteMany({ bookingId: req.params.id });
+    await Booking_1.default.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Booking removed successfully' });
 });
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -99,14 +112,35 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(400);
         throw new Error('Invalid input');
     }
-    const booking = await prisma.booking.create({
-        data: {
-            ...result.data,
-            createdByUserId: req.user?.id,
-            assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
-        },
+    const booking = await Booking_1.default.create({
+        ...result.data,
+        createdByUserId: req.user?.id,
+        assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
     res.status(201).json(booking);
+});
+// @desc    Update a booking (currently requirements)
+// @route   PUT /api/bookings/:id
+// @access  Private
+exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const result = types_1.updateBookingSchema.safeParse(req.body);
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid input');
+    }
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to update this booking');
+    }
+    booking.requirements = result.data.requirements || null;
+    const updatedBooking = await booking.save();
+    res.json(updatedBooking);
 });
 // @desc    Update booking status
 // @route   PATCH /api/bookings/:id/status
@@ -118,21 +152,20 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         res.status(400);
         throw new Error('Invalid status input');
     }
-    const existingBooking = await prisma.booking.findUnique({ where: { id } });
+    const existingBooking = await Booking_1.default.findById(id);
     if (!existingBooking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
     const { status } = result.data;
     const isConvertedToEDT = status === 'Booked';
-    const updatedBooking = await prisma.booking.update({
-        where: { id },
-        data: { status, isConvertedToEDT },
-    });
+    existingBooking.status = status;
+    existingBooking.isConvertedToEDT = isConvertedToEDT;
+    const updatedBooking = await existingBooking.save();
     res.json(updatedBooking);
 });
 // @desc    Assign an agent to a booking
@@ -146,18 +179,18 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Invalid input');
     }
     const { assignedToUserId } = result.data;
-    const agent = await prisma.user.findUnique({ where: { id: assignedToUserId } });
-    if (!agent || agent.role !== 'AGENT') {
-        res.status(400);
-        throw new Error('Invalid agent selected');
-    }
-    const updatedBooking = await prisma.booking.update({
-        where: { id },
-        data: { assignedToUserId },
-        include: {
-            assignedToUser: { select: { id: true, name: true } },
+    if (assignedToUserId) {
+        const agent = await User_1.default.findById(assignedToUserId);
+        if (!agent || agent.role !== 'AGENT') {
+            res.status(400);
+            throw new Error('Invalid agent selected');
         }
-    });
+    }
+    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { assignedToUserId: assignedToUserId || null }, { new: true }).populate('assignedToUser', 'name');
+    if (!updatedBooking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
     res.json(updatedBooking);
 });
 // @desc    Add comment to a booking
@@ -170,25 +203,21 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Invalid comment input');
     }
-    const booking = await prisma.booking.findUnique({ where: { id } });
+    const booking = await Booking_1.default.findById(id);
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to comment on this booking');
     }
-    const comment = await prisma.comment.create({
-        data: {
-            text: result.data.text,
-            bookingId: id,
-            createdById: req.user.id,
-        },
-        include: {
-            createdBy: { select: { id: true, name: true, role: true } },
-        }
+    let comment = await Comment_1.default.create({
+        text: result.data.text,
+        bookingId: id,
+        createdById: req.user.id,
     });
+    comment = await comment.populate('createdBy', 'name role');
     res.status(201).json(comment);
 });
 // @desc    Get comments for a booking
@@ -196,22 +225,18 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
 // @access  Private
 exports.getComments = (0, express_async_handler_1.default)(async (req, res) => {
     const { id } = req.params;
-    const booking = await prisma.booking.findUnique({ where: { id } });
+    const booking = await Booking_1.default.findById(id);
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to view comments for this booking');
     }
-    const comments = await prisma.comment.findMany({
-        where: { bookingId: id },
-        include: {
-            createdBy: { select: { id: true, name: true, role: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-    });
+    const comments = await Comment_1.default.find({ bookingId: id })
+        .populate('createdBy', 'name role')
+        .sort({ createdAt: -1 });
     res.json(comments);
 });
 // @desc    Add travelers to a booking
@@ -226,12 +251,12 @@ exports.addTravelers = (0, express_async_handler_1.default)(async (req, res) => 
         res.status(400);
         throw new Error('Invalid traveler data');
     }
-    const booking = await prisma.booking.findUnique({ where: { id } });
+    const booking = await Booking_1.default.findById(id);
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add travelers to this booking');
     }
@@ -239,6 +264,34 @@ exports.addTravelers = (0, express_async_handler_1.default)(async (req, res) => 
         ...t,
         bookingId: id,
     }));
-    const createdTravelers = await prisma.$transaction(travelersData.map(data => prisma.traveler.create({ data })));
+    const createdTravelers = await Traveler_1.default.insertMany(travelersData);
     res.status(201).json(createdTravelers);
+});
+// @desc    Update (replace) travelers for a booking
+// @route   PUT /api/bookings/:id/travelers
+// @access  Private
+exports.updateTravelers = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const inputData = Array.isArray(req.body) ? req.body : [req.body];
+    const result = types_1.createTravelersSchema.safeParse(inputData);
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid traveler data');
+    }
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to update travelers for this booking');
+    }
+    const travelersData = result.data.map(t => ({
+        ...t,
+        bookingId: id,
+    }));
+    await Traveler_1.default.deleteMany({ bookingId: id });
+    const createdTravelers = await Traveler_1.default.insertMany(travelersData);
+    res.json(createdTravelers);
 });

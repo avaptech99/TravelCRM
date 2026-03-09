@@ -6,8 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.adminGuard = exports.protect = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const jwt_1 = require("../utils/jwt");
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const User_1 = __importDefault(require("../models/User"));
 exports.protect = (0, express_async_handler_1.default)(async (req, res, next) => {
     let token;
     if (req.headers.authorization &&
@@ -18,10 +17,7 @@ exports.protect = (0, express_async_handler_1.default)(async (req, res, next) =>
             // Verify token
             const decoded = (0, jwt_1.verifyToken)(token);
             // Check if user still exists
-            const user = await prisma.user.findUnique({
-                where: { id: decoded.id },
-                select: { id: true, role: true },
-            });
+            const user = await User_1.default.findById(decoded.id).select('role');
             if (!user) {
                 res.status(401);
                 throw new Error('Not authorized, user not found');

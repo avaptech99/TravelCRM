@@ -13,7 +13,9 @@ router.route('/')
     .get(bookingController_1.getBookings)
     .post(bookingController_1.createBooking);
 router.route('/:id')
-    .get(bookingController_1.getBookingById);
+    .get(bookingController_1.getBookingById)
+    .put(bookingController_1.updateBooking)
+    .delete(bookingController_1.deleteBooking);
 router.route('/:id/status')
     .patch(bookingController_1.updateBookingStatus);
 router.route('/:id/assign')
@@ -22,5 +24,6 @@ router.route('/:id/comments')
     .get(bookingController_1.getComments)
     .post(bookingController_1.addComment);
 router.route('/:id/travelers')
-    .post(bookingController_1.addTravelers);
+    .post(bookingController_1.addTravelers)
+    .put(bookingController_1.updateTravelers);
 exports.default = router;

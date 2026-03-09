@@ -20,7 +20,7 @@ export const updateBookingStatusSchema = z.object({
 });
 
 export const assignBookingSchema = z.object({
-    assignedToUserId: z.string().uuid(),
+    assignedToUserId: z.string().nullable().optional(),
 });
 
 export const createCommentSchema = z.object({
