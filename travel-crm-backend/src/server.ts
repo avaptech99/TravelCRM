@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
-
+import mongoose from 'mongoose';
 // Load env vars
 dotenv.config();
 
@@ -49,6 +49,19 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Travel CRM Backend API is running...');
 });
 
+// Test DB route
+app.get('/test-db', async (req: Request, res: Response) => {
+    try {
+        const isConnected = mongoose.connection.readyState === 1;
+        if (isConnected) {
+            res.json({ message: "MongoDB connected successfully", host: mongoose.connection.host });
+        } else {
+            res.status(500).json({ message: "MongoDB connection error: Database not connected", readyState: mongoose.connection.readyState });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "MongoDB connection error", error });
+    }
+});
 // Custom Error Handler middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
