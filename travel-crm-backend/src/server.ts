@@ -7,11 +7,16 @@ import morgan from 'morgan';
 dotenv.config();
 
 // Route files
+// Route files
 import authRoutes from './routes/authRoutes';
 import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
+import connectDB from './config/db';
 
 const app: Express = express();
+
+// Connect to MongoDB
+connectDB();
 
 // Body parser
 app.use(express.json());

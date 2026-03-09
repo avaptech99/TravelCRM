@@ -16,10 +16,10 @@ export const RequirementsCell: React.FC<RequirementsCellProps> = ({ booking }) =
     if (travelers && travelers.length > 0) {
         const primary = travelers[0];
 
-        // Build passenger names list (up to 3)
-        const names = travelers.slice(0, 3).map(t => t.name.split(' ')[0]);
-        const extraCount = travelers.length - 3;
-        const namesList = names.join(', ') + (extraCount > 0 ? ` +${extraCount}` : '');
+        // Build passenger names list (only 1)
+        const name = travelers[0].name.split(' ')[0];
+        const extraCount = travelers.length - 1;
+        const namesList = name + (extraCount > 0 ? ` +${extraCount}` : '');
 
         if (primary.flightFrom || primary.flightTo) {
             const from = primary.flightFrom || 'TBD';
@@ -27,18 +27,37 @@ export const RequirementsCell: React.FC<RequirementsCellProps> = ({ booking }) =
             const dep = primary.departureTime ? dayjs(primary.departureTime).format('MMM DD, HH:mm') : 'TBD';
             const arr = primary.arrivalTime ? dayjs(primary.arrivalTime).format('MMM DD, HH:mm') : 'TBD';
 
+            let returnNode = null;
+            if (primary.tripType === 'round-trip' && (primary.returnDate || primary.returnDepartureTime || primary.returnArrivalTime)) {
+                const retDep = primary.returnDepartureTime ? dayjs(primary.returnDepartureTime).format('MMM DD, HH:mm') : 'TBD';
+                const retArr = primary.returnArrivalTime ? dayjs(primary.returnArrivalTime).format('MMM DD, HH:mm') : 'TBD';
+                returnNode = (
+                    <div className="mt-1.5 pt-1.5 border-t border-indigo-100">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-amber-700">Return</span>
+                            <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded flex-1 text-center text-xs border border-indigo-200 shadow-sm">{to} ⟶ {from}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100">
+                            <div className="flex items-center gap-1"><span title="Departure">🛫</span> {retDep}</div>
+                            <div className="flex items-center gap-1"><span title="Arrival">🛬</span> {retArr}</div>
+                        </div>
+                    </div>
+                );
+            }
+
             summaryNode = (
                 <div className="flex flex-col gap-1.5 mt-2">
                     <div className="flex items-center gap-2">
-                        <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-xs border border-indigo-200 shadow-sm">{from}</span>
+                        <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded flex-1 text-center text-xs border border-indigo-200 shadow-sm">{from}</span>
                         <span className="text-indigo-400">⟶</span>
-                        <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-xs border border-indigo-200 shadow-sm">{to}</span>
+                        <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded flex-1 text-center text-xs border border-indigo-200 shadow-sm">{to}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100">
+                    <div className="flex items-center justify-between text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100">
                         <div className="flex items-center gap-1"><span title="Departure">🛫</span> {dep}</div>
                         <div className="flex items-center gap-1"><span title="Arrival">🛬</span> {arr}</div>
                     </div>
-                    <div className="text-xs text-slate-600 font-medium flex items-center gap-1">
+                    {returnNode}
+                    <div className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-0.5">
                         👤 {namesList}
                     </div>
                 </div>

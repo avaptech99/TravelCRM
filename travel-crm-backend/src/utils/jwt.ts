@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { User } from '@prisma/client';
+import { IUser } from '../models/User';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
 
@@ -8,9 +8,9 @@ export type JwtPayload = {
     role: string;
 };
 
-export const generateToken = (user: User): string => {
+export const generateToken = (user: IUser): string => {
     return jwt.sign(
-        { id: user.id, role: user.role },
+        { id: user._id, role: user.role },
         JWT_SECRET,
         { expiresIn: '30d' }
     );

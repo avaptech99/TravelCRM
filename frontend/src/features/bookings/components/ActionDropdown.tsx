@@ -22,13 +22,15 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
             >
                 <Edit size={16} />
             </button>
-            <button
-                onClick={() => onUpdateTravelersClick(booking)}
-                className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
-                title="Update Travelers"
-            >
-                <Users size={16} />
-            </button>
+            {booking.status === 'Booked' && (
+                <button
+                    onClick={() => onUpdateTravelersClick(booking)}
+                    className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
+                    title="Update Travelers"
+                >
+                    <Users size={16} />
+                </button>
+            )}
         </div>
     );
 };

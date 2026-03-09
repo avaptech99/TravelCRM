@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import asyncHandler from 'express-async-handler';
 import { verifyToken, JwtPayload } from '../utils/jwt';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import User from '../models/User';
 
 // Extend the Express Request type to include the user
 declare global {
@@ -30,10 +28,7 @@ export const protect = asyncHandler(
                 const decoded = verifyToken(token);
 
                 // Check if user still exists
-                const user = await prisma.user.findUnique({
-                    where: { id: decoded.id },
-                    select: { id: true, role: true },
-                });
+                const user = await User.findById(decoded.id).select('role');
 
                 if (!user) {
                     res.status(401);

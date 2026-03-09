@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import { PrismaClient } from '@prisma/client';
+import User from '../models/User';
 import { loginSchema } from '../types';
 import { matchPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
-
-const prisma = new PrismaClient();
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -21,14 +19,12 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = result.data;
 
     // Find user by email
-    const user = await prisma.user.findUnique({
-        where: { email },
-    });
+    const user = await User.findOne({ email });
 
     // Verify user exists and password matches
     if (user && (await matchPassword(password, user.passwordHash))) {
         res.json({
-            id: user.id,
+            id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
