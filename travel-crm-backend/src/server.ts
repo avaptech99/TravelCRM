@@ -39,6 +39,14 @@ if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
 }
 
+// Prevent aggressive caching from CDNs/browsers
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
+
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);

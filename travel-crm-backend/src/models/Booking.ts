@@ -31,6 +31,11 @@ const bookingSchema = new Schema<IBooking>(
     }
 );
 
+// Indexes to speed up queries
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ status: 1 });
+bookingSchema.index({ assignedToUserId: 1 });
+
 // Virtual properties to mirror Prisma include logic
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
