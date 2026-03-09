@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npx ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/src/server.js"
+    "start": "node dist/src/server.js",
+    "seed": "npx ts-node src/seed.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
