@@ -34,51 +34,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const bookingSchema = new mongoose_1.Schema({
-    createdOn: { type: Date, default: Date.now },
-    createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
-    contactPerson: { type: String, required: true },
-    contactNumber: { type: String, required: true },
-    requirements: { type: String, default: null },
-    assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
-    status: { type: String, default: 'Pending' },
-    isConvertedToEDT: { type: Boolean, default: false },
+const paymentSchema = new mongoose_1.Schema({
+    bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true },
+    amount: { type: Number, required: true },
+    paymentMethod: { type: String, required: true },
+    transactionId: { type: String, default: null },
+    remarks: { type: String, default: null },
+    date: { type: Date, default: Date.now, required: true },
 }, {
-    timestamps: true, // Automatically manages createdAt and updatedAt
+    timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
-// Indexes to speed up queries
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ status: 1 });
-bookingSchema.index({ assignedToUserId: 1 });
-// Virtual properties to mirror Prisma include logic
-bookingSchema.virtual('assignedToUser', {
-    ref: 'User',
-    localField: 'assignedToUserId',
-    foreignField: '_id',
-    justOne: true,
-});
-bookingSchema.virtual('createdByUser', {
-    ref: 'User',
-    localField: 'createdByUserId',
-    foreignField: '_id',
-    justOne: true,
-});
-bookingSchema.virtual('comments', {
-    ref: 'Comment',
-    localField: '_id',
-    foreignField: 'bookingId',
-});
-bookingSchema.virtual('payments', {
-    ref: 'Payment',
-    localField: '_id',
-    foreignField: 'bookingId',
-});
-bookingSchema.virtual('travelers', {
-    ref: 'Traveler',
-    localField: '_id',
-    foreignField: 'bookingId',
-});
-const Booking = mongoose_1.default.model('Booking', bookingSchema);
-exports.default = Booking;
+paymentSchema.index({ bookingId: 1 });
+paymentSchema.index({ date: -1 });
+const Payment = mongoose_1.default.model('Payment', paymentSchema);
+exports.default = Payment;

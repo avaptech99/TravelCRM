@@ -11,6 +11,8 @@ import {
     deleteBooking,
     updateBooking,
     updateTravelers,
+    addPayment,
+    getPayments,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -41,5 +43,9 @@ router.route('/:id/comments')
 router.route('/:id/travelers')
     .post(addTravelers)
     .put(updateTravelers);
+
+router.route('/:id/payments')
+    .get(getPayments)
+    .post(addPayment);
 
 export default router;

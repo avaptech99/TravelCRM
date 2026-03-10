@@ -57,6 +57,12 @@ bookingSchema.virtual('comments', {
     foreignField: 'bookingId',
 });
 
+bookingSchema.virtual('payments', {
+    ref: 'Payment',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
+
 bookingSchema.virtual('travelers', {
     ref: 'Traveler',
     localField: '_id',

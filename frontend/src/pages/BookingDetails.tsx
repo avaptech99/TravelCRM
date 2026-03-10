@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2 } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus } from 'lucide-react';
 import { TravelerModal } from '../features/bookings/components/TravelerModal';
+import { PaymentModal } from '../features/bookings/components/PaymentModal';
 
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ export const BookingDetails: React.FC = () => {
     });
 
     const [isTravelerModalOpen, setIsTravelerModalOpen] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     const [isEditingReqs, setIsEditingReqs] = useState(false);
     const [editReqsText, setEditReqsText] = useState('');
@@ -274,6 +276,52 @@ export const BookingDetails: React.FC = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Payments Section */}
+                    {booking.status === 'Booked' && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5"><CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})</span>
+                                <button
+                                    onClick={() => setIsPaymentModalOpen(true)}
+                                    className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
+                                >
+                                    <Plus size={14} /> Add Payment
+                                </button>
+                            </h2>
+
+                            {booking.payments && booking.payments.length > 0 ? (
+                                <div className="space-y-3">
+                                    {booking.payments.map((payment: any, idx: number) => (
+                                        <div key={payment.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-bold text-slate-800 text-lg">${payment.amount.toFixed(2)}</span>
+                                                    <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-medium rounded">{payment.paymentMethod}</span>
+                                                </div>
+                                                <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                                                    <Calendar size={13} /> {dayjs(payment.date).format('MMM DD, YYYY')}
+                                                    {payment.transactionId && (
+                                                        <>
+                                                            <span className="text-slate-300">•</span>
+                                                            <span className="font-mono text-xs">TXN: {payment.transactionId}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                {payment.remarks && (
+                                                    <p className="mt-2 text-sm text-slate-600 italic">"{payment.remarks}"</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-slate-200 border-dashed">
+                                    No payments recorded yet.
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Sidebar Area */}
@@ -339,6 +387,14 @@ export const BookingDetails: React.FC = () => {
                 isOpen={isTravelerModalOpen}
                 onClose={() => setIsTravelerModalOpen(false)}
             />
+
+            {booking && (
+                <PaymentModal
+                    bookingId={booking.id}
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                />
+            )}
         </div>
     );
 };

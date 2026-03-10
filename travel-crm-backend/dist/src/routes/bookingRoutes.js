@@ -26,4 +26,7 @@ router.route('/:id/comments')
 router.route('/:id/travelers')
     .post(bookingController_1.addTravelers)
     .put(bookingController_1.updateTravelers);
+router.route('/:id/payments')
+    .get(bookingController_1.getPayments)
+    .post(bookingController_1.addPayment);
 exports.default = router;

@@ -4,6 +4,7 @@ import Booking from '../models/Booking';
 import Comment from '../models/Comment';
 import Traveler from '../models/Traveler';
 import User from '../models/User';
+import Payment from '../models/Payment';
 import mongoose from 'mongoose';
 import {
     createBookingSchema,
@@ -12,6 +13,7 @@ import {
     createCommentSchema,
     createTravelersSchema,
     updateBookingSchema,
+    createPaymentSchema,
 } from '../types';
 
 // @desc    Get all bookings (with filtering & pagination)
@@ -57,7 +59,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .populate('assignedToUser', 'name')
             .populate('createdByUser', 'name')
             .populate('comments')
-            .populate('travelers'),
+            .populate('travelers')
+            .populate('payments'),
         Booking.countDocuments(query),
     ]);
 
@@ -84,7 +87,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             populate: { path: 'createdBy', select: 'name role' },
             options: { sort: { createdAt: -1 } },
         })
-        .populate('travelers');
+        .populate('travelers')
+        .populate('payments');
 
     if (!booking) {
         res.status(404);
@@ -375,3 +379,59 @@ export const updateTravelers = asyncHandler(async (req: Request, res: Response) 
 
     res.json(createdTravelers);
 });
+
+// @desc    Add a payment to a booking
+// @route   POST /api/bookings/:id/payments
+// @access  Private
+export const addPayment = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = createPaymentSchema.safeParse(req.body);
+
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid payment data');
+    }
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to add payment to this booking');
+    }
+
+    const payment = await Payment.create({
+        ...result.data,
+        bookingId: id,
+    });
+
+    res.status(201).json(payment);
+});
+
+// @desc    Get payments for a booking
+// @route   GET /api/bookings/:id/payments
+// @access  Private
+export const getPayments = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to view payments for this booking');
+    }
+
+    const payments = await Payment.find({ bookingId: id }).sort({ date: -1 });
+
+    res.json(payments);
+});
+

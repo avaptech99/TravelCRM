@@ -12,7 +12,8 @@ import {
     DialogTitle,
 } from '../../../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, Calendar, Plane } from 'lucide-react';
+import { Plus, Trash2, Calendar, Plane, CreditCard } from 'lucide-react';
+import { PaymentModal } from './PaymentModal';
 
 const travelerSchema = z.object({
     name: z.string().min(1, 'Name is required'),
@@ -49,6 +50,7 @@ interface TravelerModalProps {
 
 export const TravelerModal: React.FC<TravelerModalProps> = ({ booking, isOpen, onClose }) => {
     const queryClient = useQueryClient();
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = React.useState(false);
 
     const emptyTraveler = {
         name: '',
@@ -347,24 +349,45 @@ export const TravelerModal: React.FC<TravelerModalProps> = ({ booking, isOpen, o
                         <span>+ Add Another Member</span>
                     </button>
 
-                    <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={mutation.isPending}
-                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-                        >
-                            Save Travelers
-                        </button>
+                    <div className="flex justify-between space-x-3 pt-4 border-t border-slate-200">
+                        <div>
+                            {booking?.status === 'Booked' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPaymentModalOpen(true)}
+                                    className="px-4 py-2 flex items-center gap-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md shadow-sm hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
+                                >
+                                    <CreditCard size={16} /> Add Payment
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex space-x-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={mutation.isPending}
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+                            >
+                                Save Travelers
+                            </button>
+                        </div>
                     </div>
                 </form>
             </DialogContent>
+
+            {booking && (
+                <PaymentModal
+                    bookingId={booking.id}
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                />
+            )}
         </Dialog>
     );
 };

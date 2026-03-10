@@ -53,3 +53,11 @@ export const travelerSchema = z.object({
 });
 
 export const createTravelersSchema = z.array(travelerSchema);
+
+export const createPaymentSchema = z.object({
+    amount: z.number().positive(),
+    paymentMethod: z.string().min(1),
+    transactionId: z.string().optional(),
+    remarks: z.string().optional(),
+    date: z.string().optional(), // ISO date string
+});

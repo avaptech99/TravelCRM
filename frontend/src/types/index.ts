@@ -33,6 +33,17 @@ export interface Comment {
     createdAt: string;
 }
 
+export interface Payment {
+    id: string;
+    bookingId: string;
+    amount: number;
+    paymentMethod: string;
+    transactionId?: string;
+    remarks?: string;
+    date: string;
+    createdAt: string;
+}
+
 export interface Booking {
     id: string;
     createdOn: string;
@@ -47,6 +58,7 @@ export interface Booking {
     isConvertedToEDT: boolean;
     travelers: Traveler[];
     comments: Comment[];
+    payments: Payment[];
 }
 
 export interface PaginatedResponse<T> {

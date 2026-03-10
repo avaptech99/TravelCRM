@@ -3,12 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateTravelers = exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = void 0;
+exports.getPayments = exports.addPayment = exports.updateTravelers = exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Comment_1 = __importDefault(require("../models/Comment"));
 const Traveler_1 = __importDefault(require("../models/Traveler"));
 const User_1 = __importDefault(require("../models/User"));
+const Payment_1 = __importDefault(require("../models/Payment"));
 const types_1 = require("../types");
 // @desc    Get all bookings (with filtering & pagination)
 // @route   GET /api/bookings
@@ -49,7 +50,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             .populate('assignedToUser', 'name')
             .populate('createdByUser', 'name')
             .populate('comments')
-            .populate('travelers'),
+            .populate('travelers')
+            .populate('payments'),
         Booking_1.default.countDocuments(query),
     ]);
     res.json({
@@ -74,7 +76,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         populate: { path: 'createdBy', select: 'name role' },
         options: { sort: { createdAt: -1 } },
     })
-        .populate('travelers');
+        .populate('travelers')
+        .populate('payments');
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -294,4 +297,46 @@ exports.updateTravelers = (0, express_async_handler_1.default)(async (req, res) 
     await Traveler_1.default.deleteMany({ bookingId: id });
     const createdTravelers = await Traveler_1.default.insertMany(travelersData);
     res.json(createdTravelers);
+});
+// @desc    Add a payment to a booking
+// @route   POST /api/bookings/:id/payments
+// @access  Private
+exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const result = types_1.createPaymentSchema.safeParse(req.body);
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid payment data');
+    }
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to add payment to this booking');
+    }
+    const payment = await Payment_1.default.create({
+        ...result.data,
+        bookingId: id,
+    });
+    res.status(201).json(payment);
+});
+// @desc    Get payments for a booking
+// @route   GET /api/bookings/:id/payments
+// @access  Private
+exports.getPayments = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to view payments for this booking');
+    }
+    const payments = await Payment_1.default.find({ bookingId: id }).sort({ date: -1 });
+    res.json(payments);
 });

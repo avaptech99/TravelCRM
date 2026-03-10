@@ -38,6 +38,13 @@ app.use((0, cors_1.default)({
 if (process.env.NODE_ENV !== 'production') {
     app.use((0, morgan_1.default)('dev'));
 }
+// Prevent aggressive caching from CDNs/browsers
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
 // Mount routers
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/bookings', bookingRoutes_1.default);

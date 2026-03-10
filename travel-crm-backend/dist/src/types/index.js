@@ -1,10 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createTravelersSchema = exports.travelerSchema = exports.createCommentSchema = exports.assignBookingSchema = exports.updateBookingStatusSchema = exports.updateBookingSchema = exports.createBookingSchema = exports.loginSchema = void 0;
+exports.createPaymentSchema = exports.createTravelersSchema = exports.travelerSchema = exports.createCommentSchema = exports.assignBookingSchema = exports.updateBookingStatusSchema = exports.updateBookingSchema = exports.createBookingSchema = exports.createUserSchema = exports.loginSchema = void 0;
 const zod_1 = require("zod");
 exports.loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(6),
+});
+exports.createUserSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2),
+    email: zod_1.z.string().email(),
+    password: zod_1.z.string().min(6),
+    role: zod_1.z.enum(['ADMIN', 'AGENT']),
 });
 exports.createBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().min(2),
@@ -41,3 +47,10 @@ exports.travelerSchema = zod_1.z.object({
     isPrimary: zod_1.z.boolean().default(false).optional(),
 });
 exports.createTravelersSchema = zod_1.z.array(exports.travelerSchema);
+exports.createPaymentSchema = zod_1.z.object({
+    amount: zod_1.z.number().positive(),
+    paymentMethod: zod_1.z.string().min(1),
+    transactionId: zod_1.z.string().optional(),
+    remarks: zod_1.z.string().optional(),
+    date: zod_1.z.string().optional(), // ISO date string
+});
