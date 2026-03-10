@@ -9,6 +9,8 @@ export interface IBooking extends Document {
     assignedToUserId: mongoose.Types.ObjectId | null;
     status: string;
     isConvertedToEDT: boolean;
+    pricePerTicket?: number;
+    totalAmount?: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -23,6 +25,8 @@ const bookingSchema = new Schema<IBooking>(
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
         status: { type: String, default: 'Pending' },
         isConvertedToEDT: { type: Boolean, default: false },
+        pricePerTicket: { type: Number, default: 0 },
+        totalAmount: { type: Number, default: 0 },
     },
     {
         timestamps: true, // Automatically manages createdAt and updatedAt

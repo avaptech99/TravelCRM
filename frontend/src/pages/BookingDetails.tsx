@@ -4,8 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
 import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus } from 'lucide-react';
-import { TravelerModal } from '../features/bookings/components/TravelerModal';
-import { PaymentModal } from '../features/bookings/components/PaymentModal';
+import { useNavigate } from 'react-router-dom';
 
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,10 +18,8 @@ export const BookingDetails: React.FC = () => {
         enabled: !!id,
     });
 
-    const [isTravelerModalOpen, setIsTravelerModalOpen] = useState(false);
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-
     const [isEditingReqs, setIsEditingReqs] = useState(false);
+    const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
 
     const queryClient = useQueryClient();
@@ -141,9 +138,17 @@ export const BookingDetails: React.FC = () => {
 
                     {/* Travelers Section */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
-                            Travelers ({booking.travelers?.length || 0})
-                        </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-slate-900">
+                                Travelers ({booking.travelers?.length || 0})
+                            </h2>
+                            <button
+                                onClick={() => navigate(`/bookings/${id}/travelers`)}
+                                className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors"
+                            >
+                                <Edit2 size={14} /> Edit Travelers & Pricing
+                            </button>
+                        </div>
 
                         {booking.travelers && booking.travelers.length > 0 ? (
                             <div className="space-y-5">
@@ -283,7 +288,7 @@ export const BookingDetails: React.FC = () => {
                             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
                                 <span className="flex items-center gap-1.5"><CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})</span>
                                 <button
-                                    onClick={() => setIsPaymentModalOpen(true)}
+                                    onClick={() => navigate(`/bookings/${id}/travelers`)}
                                     className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
                                 >
                                     <Plus size={14} /> Add Payment
@@ -382,19 +387,6 @@ export const BookingDetails: React.FC = () => {
                 </div>
             </div>
 
-            <TravelerModal
-                booking={booking}
-                isOpen={isTravelerModalOpen}
-                onClose={() => setIsTravelerModalOpen(false)}
-            />
-
-            {booking && (
-                <PaymentModal
-                    bookingId={booking.id}
-                    isOpen={isPaymentModalOpen}
-                    onClose={() => setIsPaymentModalOpen(false)}
-                />
-            )}
         </div>
     );
 };

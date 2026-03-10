@@ -11,6 +11,7 @@ import {
 } from '../../../components/ui/dialog';
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 
 interface EditModalProps {
@@ -22,6 +23,7 @@ interface EditModalProps {
 
 export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, onStatusChangeToBooked }) => {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const { user } = useAuth();
 
     const [status, setStatus] = useState<string>('');
@@ -80,9 +82,10 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
             onClose();
 
-            // Trigger traveler modal if status changed to Booked AND no travelers exist yet
+            // Trigger traveler page redirect if status changed to Booked AND no travelers exist yet
             if (data?.newStatus === 'Booked' && data?.oldStatus !== 'Booked' && booking && (!booking.travelers || booking.travelers.length === 0)) {
-                onStatusChangeToBooked({ ...booking, status: 'Booked' });
+                navigate(`/bookings/${booking.id}/travelers`);
+                onStatusChangeToBooked({ ...booking, status: 'Booked' }); // keep for any other side effects, but navigation happens
             }
         },
         onError: () => {

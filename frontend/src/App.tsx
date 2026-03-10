@@ -12,6 +12,7 @@ import { Dashboard } from './pages/Dashboard';
 import { BookedEDT } from './pages/BookedEDT';
 import { Users } from './pages/Users';
 import { BookingDetails } from './pages/BookingDetails';
+import { BookingTravelers } from './pages/BookingTravelers';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route path="/bookings/:id" element={<BookingDetails />} />
+                <Route path="/bookings/:id/travelers" element={<BookingTravelers />} />
                 <Route path="/booked" element={<BookedEDT />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

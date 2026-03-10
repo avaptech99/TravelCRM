@@ -11,7 +11,6 @@ import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
-import { TravelerModal } from './TravelerModal';
 import { EditModal } from './EditModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -24,7 +23,6 @@ interface BookingsTableProps {
 
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView }) => {
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
-    const [activeTravelerBooking, setActiveTravelerBooking] = useState<Booking | null>(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['bookings', statusFilter, isEDTView],
@@ -91,7 +89,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 <ActionDropdown
                     booking={info.row.original}
                     onEditClick={(b: Booking) => setActiveEditBooking(b)}
-                    onUpdateTravelersClick={(b: Booking) => setActiveTravelerBooking(b)}
                 />
             ),
         }),
@@ -208,13 +205,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 booking={activeEditBooking}
                 isOpen={!!activeEditBooking}
                 onClose={() => setActiveEditBooking(null)}
-                onStatusChangeToBooked={(b: Booking) => setActiveTravelerBooking(b)}
-            />
-
-            <TravelerModal
-                booking={activeTravelerBooking}
-                isOpen={!!activeTravelerBooking}
-                onClose={() => setActiveTravelerBooking(null)}
+                onStatusChangeToBooked={() => { }}
             />
         </div>
     );

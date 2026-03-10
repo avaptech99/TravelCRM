@@ -170,7 +170,16 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Not authorized to update this booking');
     }
 
-    booking.requirements = result.data.requirements || null;
+    if (result.data.requirements !== undefined) {
+        booking.requirements = result.data.requirements || null;
+    }
+    if (result.data.pricePerTicket !== undefined) {
+        booking.pricePerTicket = result.data.pricePerTicket;
+    }
+    if (result.data.totalAmount !== undefined) {
+        booking.totalAmount = result.data.totalAmount;
+    }
+
     const updatedBooking = await booking.save();
 
     res.json(updatedBooking);
@@ -435,3 +444,31 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
     res.json(payments);
 });
 
+
+// @desc    Delete a payment from a booking
+// @route   DELETE /api/bookings/:id/payments/:paymentId
+// @access  Private
+export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
+    const { id, paymentId } = req.params;
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to delete payment from this booking');
+    }
+
+    const payment = await Payment.findById(paymentId);
+    if (!payment || payment.bookingId.toString() !== id) {
+        res.status(404);
+        throw new Error('Payment not found for this booking');
+    }
+
+    await Payment.findByIdAndDelete(paymentId);
+
+    res.json({ message: 'Payment removed successfully' });
+});

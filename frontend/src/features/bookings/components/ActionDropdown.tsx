@@ -1,18 +1,19 @@
 import React from 'react';
 import { Edit, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Booking } from '../../../types';
 
 interface ActionDropdownProps {
     booking: Booking;
     onEditClick: (booking: Booking) => void;
-    onUpdateTravelersClick: (booking: Booking) => void;
 }
 
 export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     booking,
     onEditClick,
-    onUpdateTravelersClick,
 }) => {
+    const navigate = useNavigate();
+
     return (
         <div className="flex items-center gap-1">
             <button
@@ -24,7 +25,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
             </button>
             {booking.status === 'Booked' && (
                 <button
-                    onClick={() => onUpdateTravelersClick(booking)}
+                    onClick={() => navigate(`/bookings/${booking.id}/travelers`)}
                     className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
                     title="Update Travelers"
                 >

@@ -59,6 +59,8 @@ export interface Booking {
     travelers: Traveler[];
     comments: Comment[];
     payments: Payment[];
+    pricePerTicket?: number;
+    totalAmount?: number;
 }
 
 export interface PaginatedResponse<T> {

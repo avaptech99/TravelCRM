@@ -13,6 +13,7 @@ import {
     updateTravelers,
     addPayment,
     getPayments,
+    deletePayment,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -47,5 +48,8 @@ router.route('/:id/travelers')
 router.route('/:id/payments')
     .get(getPayments)
     .post(addPayment);
+
+router.route('/:id/payments/:paymentId')
+    .delete(deletePayment);
 
 export default router;
