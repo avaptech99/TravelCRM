@@ -28,6 +28,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     const [status, setStatus] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
+    const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
 
     // Reset state when booking changes
@@ -35,6 +36,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
         if (booking) {
             setStatus(booking.status);
             setAssignedToUserId(booking.assignedToUserId || '');
+            setInterested(booking.interested || 'No');
             setCommentText('');
         }
     }, [booking]);
@@ -64,7 +66,12 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
-            // 3. Add Comment
+            // 3. Update Pricing/Other Details (Interested)
+            if (interested !== (booking.interested || 'No')) {
+                promises.push(api.put(`/bookings/${booking.id}`, { interested }));
+            }
+
+            // 4. Add Comment
             if (commentText.trim()) {
                 promises.push(api.post(`/bookings/${booking.id}/comments`, { text: commentText }));
             }
@@ -116,6 +123,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     const isDirty = (booking && status !== booking.status) ||
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
+        (booking && interested !== (booking.interested || 'No')) ||
         commentText.trim().length > 0;
 
     if (!booking) return null;
@@ -162,6 +170,19 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                             </select>
                         </div>
                     )}
+
+                    {/* Interested Selection */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-700">Interested</label>
+                        <select
+                            value={interested}
+                            onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                        >
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
 
                     {/* Add Comment */}
                     <div className="flex flex-col gap-2">

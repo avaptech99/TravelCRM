@@ -179,6 +179,9 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.totalAmount !== undefined) {
         booking.totalAmount = result.data.totalAmount;
     }
+    if (result.data.interested !== undefined) {
+        booking.interested = result.data.interested;
+    }
 
     const updatedBooking = await booking.save();
 

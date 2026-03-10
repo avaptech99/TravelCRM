@@ -61,6 +61,7 @@ export interface Booking {
     payments: Payment[];
     pricePerTicket?: number;
     totalAmount?: number;
+    interested?: 'Yes' | 'No';
 }
 
 export interface PaginatedResponse<T> {

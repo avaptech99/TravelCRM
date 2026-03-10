@@ -21,7 +21,8 @@ export const createBookingSchema = z.object({
 export const updateBookingSchema = z.object({
     requirements: z.string().optional(),
     pricePerTicket: z.number().nonnegative().optional(),
-    totalAmount: z.number().nonnegative().optional(),
+    totalAmount: z.number().optional(),
+    interested: z.enum(['Yes', 'No']).optional(),
 });
 
 export const updateBookingStatusSchema = z.object({
