@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-table';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../../api/client';
+import { useAuth } from '../../../context/AuthContext';
 import type { Booking } from '../../../types';
 import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
@@ -24,11 +25,12 @@ interface BookingsTableProps {
 }
 
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm }) => {
+    const { user } = useAuth();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', statusFilter, isEDTView, searchTerm],
+        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);

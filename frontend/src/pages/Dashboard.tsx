@@ -11,7 +11,7 @@ export const Dashboard: React.FC = () => {
 
     // Fetch some summary data for dashboard
     const { data: stats } = useQuery({
-        queryKey: ['dashboard-stats'],
+        queryKey: ['dashboard-stats', user?.id],
         queryFn: async () => {
             const [{ data: all }, { data: booked }, { data: newb }, { data: agentsData }] = await Promise.all([
                 api.get('/bookings?limit=1'),
@@ -40,7 +40,7 @@ export const Dashboard: React.FC = () => {
 
     // Fetch latest 5 bookings for Activity feed
     const { data: recentBookings } = useQuery({
-        queryKey: ['recent-bookings'],
+        queryKey: ['recent-bookings', user?.id],
         queryFn: async () => {
             const { data } = await api.get('/bookings?limit=5');
             return data.data;
