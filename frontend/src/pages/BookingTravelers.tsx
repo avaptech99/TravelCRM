@@ -9,8 +9,9 @@ import type { Booking } from '../types';
 import { toast } from 'sonner';
 import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText } from 'lucide-react';
 import { countryCodes } from '../utils/countryCodes';
+import dayjs from 'dayjs';
 
-const travelerSchema = z.object({
+const travelerBaseSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     countryCode: z.string(),
     phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits').optional().or(z.literal('')),
@@ -26,6 +27,30 @@ const travelerSchema = z.object({
     returnArrivalTime: z.string().optional(),
     dob: z.string().optional(),
     anniversary: z.string().optional(),
+});
+
+const travelerSchema = travelerBaseSchema.superRefine((data, ctx) => {
+    // Arrival must be after Departure
+    if (data.departureTime && data.arrivalTime) {
+        if (dayjs(data.arrivalTime).isBefore(dayjs(data.departureTime))) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Arrival time cannot be before departure time',
+                path: ['arrivalTime'],
+            });
+        }
+    }
+
+    // Return Arrival must be after Return Departure
+    if (data.tripType === 'round-trip' && data.returnDepartureTime && data.returnArrivalTime) {
+        if (dayjs(data.returnArrivalTime).isBefore(dayjs(data.returnDepartureTime))) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Return arrival time cannot be before return departure time',
+                path: ['returnArrivalTime'],
+            });
+        }
+    }
 });
 
 const formSchema = z.object({

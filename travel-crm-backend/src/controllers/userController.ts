@@ -82,6 +82,14 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('User not found');
     }
 
+    if (user.role === 'ADMIN') {
+        const adminCount = await User.countDocuments({ role: 'ADMIN' });
+        if (adminCount <= 1) {
+            res.status(400);
+            throw new Error('Cannot delete the last admin user');
+        }
+    }
+
     await User.findByIdAndDelete(id);
 
     res.json({ message: 'User removed successfully' });

@@ -21,9 +21,15 @@ export const RequirementsCell: React.FC<RequirementsCellProps> = ({ booking }) =
     }
 
     const flightInfo = travelers?.find(t => t.flightFrom || t.flightTo);
-    const tooltip = flightInfo 
-        ? `FLIGHT: ${flightInfo.flightFrom || 'TBD'} ⟶ ${flightInfo.flightTo || 'TBD'}${flightInfo.departureTime ? ' (' + dayjs(flightInfo.departureTime).format('MMM DD') + ')' : ''}`
-        : '';
+    
+    let tooltip = '';
+    if (flightInfo) {
+        tooltip = `FLIGHT: ${flightInfo.flightFrom || 'TBD'} ⟶ ${flightInfo.flightTo || 'TBD'}${flightInfo.departureTime ? ' (' + dayjs(flightInfo.departureTime).format('MMM DD') + ')' : ''}`;
+        
+        if (flightInfo.tripType === 'round-trip') {
+            tooltip += ` | RETURN: ${flightInfo.flightTo || 'TBD'} ⟶ ${flightInfo.flightFrom || 'TBD'}${flightInfo.returnDate || flightInfo.returnDepartureTime ? ' (' + dayjs(flightInfo.returnDate || flightInfo.returnDepartureTime).format('MMM DD') + ')' : ''}`;
+        }
+    }
 
     return (
         <div className="flex flex-col w-full max-w-[280px] py-1 text-sm">
