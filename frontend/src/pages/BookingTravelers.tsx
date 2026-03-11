@@ -30,6 +30,24 @@ const travelerBaseSchema = z.object({
 });
 
 const travelerSchema = travelerBaseSchema.superRefine((data, ctx) => {
+    // Flight From and Flight To are compulsory IF any other flight details are provided
+    const hasFlightDetails = !!(data.departureTime || data.arrivalTime || (data.tripType === 'round-trip') || data.returnDate || data.returnDepartureTime || data.returnArrivalTime);
+
+    if (hasFlightDetails && (!data.flightFrom || data.flightFrom.trim() === '')) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Flight From is required when entering flight details',
+            path: ['flightFrom'],
+        });
+    }
+    if (hasFlightDetails && (!data.flightTo || data.flightTo.trim() === '')) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Flight To is required when entering flight details',
+            path: ['flightTo'],
+        });
+    }
+
     // Arrival must be after Departure
     if (data.departureTime && data.arrivalTime) {
         if (dayjs(data.arrivalTime).isBefore(dayjs(data.departureTime))) {
@@ -49,6 +67,22 @@ const travelerSchema = travelerBaseSchema.superRefine((data, ctx) => {
                 message: 'Return arrival time cannot be before return departure time',
                 path: ['returnArrivalTime'],
             });
+        }
+    }
+
+    // Return Flight must be after Initial Flight
+    if (data.tripType === 'round-trip') {
+        const initialDate = data.arrivalTime || data.departureTime;
+        const returnDate = data.returnDepartureTime || data.returnDate;
+
+        if (initialDate && returnDate) {
+            if (dayjs(returnDate).isBefore(dayjs(initialDate))) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Return flight cannot be earlier than the initial flight',
+                    path: [data.returnDepartureTime ? 'returnDepartureTime' : 'returnDate'],
+                });
+            }
         }
     }
 });
@@ -417,7 +451,7 @@ export const BookingTravelers: React.FC = () => {
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From</label>
+                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From <span className="text-red-500">*</span></label>
                                                         <input
                                                             {...register(`travelers.${index}.flightFrom` as const, {
                                                                 onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
@@ -425,9 +459,12 @@ export const BookingTravelers: React.FC = () => {
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
                                                             placeholder="JFK"
                                                         />
+                                                        {errors.travelers?.[index]?.flightFrom && (
+                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightFrom?.message}</p>
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight To</label>
+                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight To <span className="text-red-500">*</span></label>
                                                         <input
                                                             {...register(`travelers.${index}.flightTo` as const, {
                                                                 onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
@@ -435,6 +472,9 @@ export const BookingTravelers: React.FC = () => {
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
                                                             placeholder="LHR"
                                                         />
+                                                        {errors.travelers?.[index]?.flightTo && (
+                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightTo?.message}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
@@ -448,6 +488,9 @@ export const BookingTravelers: React.FC = () => {
                                                             {...register(`travelers.${index}.departureTime` as const)}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
                                                         />
+                                                        {errors.travelers?.[index]?.departureTime && (
+                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.departureTime?.message}</p>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
@@ -459,6 +502,9 @@ export const BookingTravelers: React.FC = () => {
                                                             {...register(`travelers.${index}.arrivalTime` as const)}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
                                                         />
+                                                        {errors.travelers?.[index]?.arrivalTime && (
+                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.arrivalTime?.message}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div>
@@ -487,6 +533,9 @@ export const BookingTravelers: React.FC = () => {
                                                                 {...register(`travelers.${index}.returnDepartureTime` as const)}
                                                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
                                                             />
+                                                            {errors.travelers?.[index]?.returnDepartureTime && (
+                                                                <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.returnDepartureTime?.message}</p>
+                                                            )}
                                                         </div>
                                                         <div>
                                                             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
@@ -498,6 +547,9 @@ export const BookingTravelers: React.FC = () => {
                                                                 {...register(`travelers.${index}.returnArrivalTime` as const)}
                                                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
                                                             />
+                                                            {errors.travelers?.[index]?.returnArrivalTime && (
+                                                                <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.returnArrivalTime?.message}</p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 )}
