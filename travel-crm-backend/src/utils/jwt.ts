@@ -6,11 +6,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
 export type JwtPayload = {
     id: string;
     role: string;
+    name: string;
+    email: string;
 };
 
 export const generateToken = (user: IUser): string => {
     return jwt.sign(
-        { id: user._id, role: user.role },
+        { id: user._id, role: user.role, name: user.name, email: user.email },
         JWT_SECRET,
         { expiresIn: '30d' }
     );
