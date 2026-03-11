@@ -20,12 +20,17 @@ export const RequirementsCell: React.FC<RequirementsCellProps> = ({ booking }) =
         namesList = name + (extraCount > 0 ? ` +${extraCount}` : '');
     }
 
+    const flightInfo = travelers?.find(t => t.flightFrom || t.flightTo);
+    const tooltip = flightInfo 
+        ? `FLIGHT: ${flightInfo.flightFrom || 'TBD'} ⟶ ${flightInfo.flightTo || 'TBD'}${flightInfo.departureTime ? ' (' + dayjs(flightInfo.departureTime).format('MMM DD') + ')' : ''}`
+        : '';
+
     return (
         <div className="flex flex-col w-full max-w-[280px] py-1 text-sm">
             <Link
                 to={`/bookings/${bookingId}`}
                 className="group block mb-1 relative"
-                title={`${val}${travelers && travelers.length > 0 ? '\n\n' + (travelers[0].flightFrom && travelers[0].flightTo ? `FLIGHT: ${travelers[0].flightFrom} ⟶ ${travelers[0].flightTo}${travelers[0].departureTime ? ' (' + dayjs(travelers[0].departureTime).format('MMM DD') + ')' : ''}` : '') : ''}`}
+                title={tooltip}
             >
                 <span className="text-slate-800 font-medium whitespace-normal group-hover:text-indigo-600 transition-colors block line-clamp-2">
                     {val}
