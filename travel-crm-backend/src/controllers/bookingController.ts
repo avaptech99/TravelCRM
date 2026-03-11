@@ -246,16 +246,45 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         }
     }
 
-    const updatedBooking = await Booking.findByIdAndUpdate(
-        id,
-        { assignedToUserId: assignedToUserId || null },
-        { new: true }
-    ).populate('assignedToUser', 'name');
-
-    if (!updatedBooking) {
+    const booking = await Booking.findById(id);
+    if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
+
+    const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+    const newAssignedUserId = assignedToUserId || null;
+
+    if (previousAssignedUserId !== newAssignedUserId) {
+        booking.assignedToUserId = newAssignedUserId as any;
+        await booking.save();
+
+        let previousAgentName = 'Unassigned';
+        if (previousAssignedUserId) {
+            const prevAgent = await User.findById(previousAssignedUserId);
+            if (prevAgent) {
+                previousAgentName = prevAgent.name;
+            }
+        }
+
+        let newAgentName = 'Unassigned';
+        if (newAssignedUserId) {
+            const newAgent = await User.findById(newAssignedUserId);
+            if (newAgent) {
+                newAgentName = newAgent.name;
+            }
+        }
+
+        const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+
+        await Comment.create({
+            text: commentText,
+            bookingId: id,
+            createdById: req.user!.id,
+        });
+    }
+
+    const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
 
     res.json(updatedBooking);
 });
