@@ -178,14 +178,6 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         throw new Error('Not authorized to update this booking');
     }
     const { status } = result.data;
-    if (status === 'Booked') {
-        const travelers = await Traveler_1.default.find({ bookingId: id });
-        const hasFlightInfo = travelers.some(t => t.flightFrom && t.flightTo);
-        if (!hasFlightInfo) {
-            res.status(400);
-            throw new Error('Please enter flight details for at least one traveler before marking as Booked');
-        }
-    }
     const isConvertedToEDT = status === 'Booked';
     existingBooking.status = status;
     existingBooking.isConvertedToEDT = isConvertedToEDT;

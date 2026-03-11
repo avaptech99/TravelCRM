@@ -215,16 +215,6 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     const { status } = result.data;
-
-    if (status === 'Booked') {
-        const travelers = await Traveler.find({ bookingId: id });
-        const hasFlightInfo = travelers.some(t => t.flightFrom && t.flightTo);
-        if (!hasFlightInfo) {
-            res.status(400);
-            throw new Error('Please enter flight details for at least one traveler before marking as Booked');
-        }
-    }
-
     const isConvertedToEDT = status === 'Booked';
 
     existingBooking.status = status;

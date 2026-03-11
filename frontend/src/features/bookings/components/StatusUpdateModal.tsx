@@ -24,12 +24,6 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
 
     const mutation = useMutation({
         mutationFn: async (newStatus: string) => {
-            if (newStatus === 'Booked') {
-                const hasFlightInfo = booking?.travelers?.some(t => t.flightFrom && t.flightTo);
-                if (!hasFlightInfo) {
-                    throw new Error('Please enter flight details first to change status to Booked');
-                }
-            }
             await api.patch(`/bookings/${booking?.id}/status`, { status: newStatus });
         },
         onSuccess: (_, variables) => {
