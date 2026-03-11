@@ -394,7 +394,9 @@ export const BookingTravelers: React.FC = () => {
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From</label>
                                                         <input
-                                                            {...register(`travelers.${index}.flightFrom` as const)}
+                                                            {...register(`travelers.${index}.flightFrom` as const, {
+                                                                onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
+                                                            })}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
                                                             placeholder="JFK"
                                                         />
@@ -402,7 +404,9 @@ export const BookingTravelers: React.FC = () => {
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight To</label>
                                                         <input
-                                                            {...register(`travelers.${index}.flightTo` as const)}
+                                                            {...register(`travelers.${index}.flightTo` as const, {
+                                                                onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
+                                                            })}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
                                                             placeholder="LHR"
                                                         />
