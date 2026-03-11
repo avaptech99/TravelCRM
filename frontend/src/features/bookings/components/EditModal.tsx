@@ -56,6 +56,12 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
             // 1. Update Status
             if (status !== booking.status) {
+                if (status === 'Booked') {
+                    const hasFlightInfo = booking.travelers?.some(t => t.flightFrom && t.flightTo);
+                    if (!hasFlightInfo) {
+                        throw new Error('Please enter flight details first to change status to Booked');
+                    }
+                }
                 promises.push(api.patch(`/bookings/${booking.id}/status`, { status }));
             }
 
@@ -93,8 +99,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 onStatusChangeToBooked({ ...booking, status: 'Booked' }); // keep for any other side effects, but navigation happens
             }
         },
-        onError: () => {
-            toast.error('Failed to update booking.');
+        onError: (err: any) => {
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to update booking.';
+            toast.error(errorMessage);
         }
     });
 

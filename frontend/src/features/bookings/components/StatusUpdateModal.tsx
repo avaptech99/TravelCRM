@@ -42,7 +42,8 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
             }
         },
         onError: (err: any) => {
-            toast.error(err.message || 'Failed to update status');
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to update status';
+            toast.error(errorMessage);
         },
     });
 
