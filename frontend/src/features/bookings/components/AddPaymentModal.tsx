@@ -105,21 +105,29 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
                                     <span className="text-slate-400 sm:text-sm font-bold">$</span>
                                 </div>
                                 <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max={currentOutstanding > 0 ? currentOutstanding : 0}
+                                    type="text"
+                                    inputMode="decimal"
                                     value={paymentAmount}
                                     onChange={(e) => {
-                                        const val = e.target.value;
+                                        let val = e.target.value;
+                                        val = val.replace(/[^0-9.]/g, '');
+                                        const parts = val.split('.');
+                                        if (parts.length > 2) {
+                                            val = parts[0] + '.' + parts.slice(1).join('');
+                                        }
                                         if (val === '') {
                                             setPaymentAmount('');
                                             return;
                                         }
                                         const num = parseFloat(val);
                                         if (!isNaN(num)) {
-                                            const clamped = Math.min(num, Math.max(0, currentOutstanding));
-                                            setPaymentAmount(clamped.toString());
+                                            if (num > currentOutstanding && currentOutstanding > 0) {
+                                                setPaymentAmount(currentOutstanding.toString());
+                                            } else {
+                                                setPaymentAmount(val);
+                                            }
+                                        } else {
+                                            setPaymentAmount(val);
                                         }
                                     }}
                                     className="bg-white border border-slate-200 text-sm font-bold text-slate-900 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 block w-full pl-6 p-2.5 shadow-sm transition-all"
