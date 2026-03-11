@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { useAuth } from '../context/AuthContext';
@@ -383,6 +383,20 @@ export const BookingDetails: React.FC = () => {
                                 <Phone size={18} className="text-slate-400" />
                                 <span>{booking.contactNumber}</span>
                             </div>
+                            {booking.bookingType && (
+                                <div className="flex items-center space-x-3 text-slate-700 pt-2 border-t border-slate-100">
+                                    {booking.bookingType === 'B2B' ? (
+                                        <Building2 size={18} className="text-indigo-400" />
+                                    ) : (
+                                        <UserCircle size={18} className="text-emerald-400" />
+                                    )}
+                                    <span className="font-medium">
+                                        Source: <span className={booking.bookingType === 'B2B' ? 'text-indigo-600' : 'text-emerald-600'}>
+                                            {booking.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)'}
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-6 pt-6 border-t border-slate-200">
