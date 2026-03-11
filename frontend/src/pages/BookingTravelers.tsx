@@ -8,10 +8,12 @@ import api from '../api/client';
 import type { Booking } from '../types';
 import { toast } from 'sonner';
 import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText } from 'lucide-react';
+import { countryCodes } from '../utils/countryCodes';
 
 const travelerSchema = z.object({
     name: z.string().min(1, 'Name is required'),
-    phoneNumber: z.string().optional(),
+    countryCode: z.string(),
+    phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits').optional().or(z.literal('')),
     email: z.string().email('Invalid email').optional().or(z.literal('')),
     country: z.string().optional(),
     flightFrom: z.string().optional(),
@@ -58,6 +60,7 @@ export const BookingTravelers: React.FC = () => {
 
     const emptyTraveler = {
         name: '',
+        countryCode: '+91',
         phoneNumber: '',
         email: '',
         country: '',
@@ -104,22 +107,36 @@ export const BookingTravelers: React.FC = () => {
         if (booking && !isInitialized.current) {
             if (booking.travelers && booking.travelers.length > 0) {
                 reset({
-                    travelers: booking.travelers.map(t => ({
-                        name: t.name || '',
-                        phoneNumber: t.phoneNumber || '',
-                        email: t.email || '',
-                        country: t.country || '',
-                        flightFrom: t.flightFrom || '',
-                        flightTo: t.flightTo || '',
-                        departureTime: t.departureTime || '',
-                        arrivalTime: t.arrivalTime || '',
-                        tripType: (t.tripType as 'one-way' | 'round-trip') || 'one-way',
-                        returnDate: t.returnDate || '',
-                        returnDepartureTime: t.returnDepartureTime || '',
-                        returnArrivalTime: t.returnArrivalTime || '',
-                        dob: t.dob || '',
-                        anniversary: t.anniversary || '',
-                    })),
+                    travelers: booking.travelers.map(t => {
+                        const rawPhone = t.phoneNumber || '';
+                        let cCode = '+91';
+                        let pNumber = rawPhone;
+
+                        // Try to find the matching country code from our list
+                        const matchedCC = countryCodes.find(cc => rawPhone.startsWith(cc.code));
+                        if (matchedCC) {
+                            cCode = matchedCC.code;
+                            pNumber = rawPhone.slice(matchedCC.code.length);
+                        }
+
+                        return {
+                            name: t.name || '',
+                            countryCode: cCode,
+                            phoneNumber: pNumber,
+                            email: t.email || '',
+                            country: t.country || '',
+                            flightFrom: t.flightFrom || '',
+                            flightTo: t.flightTo || '',
+                            departureTime: t.departureTime || '',
+                            arrivalTime: t.arrivalTime || '',
+                            tripType: (t.tripType as 'one-way' | 'round-trip') || 'one-way',
+                            returnDate: t.returnDate || '',
+                            returnDepartureTime: t.returnDepartureTime || '',
+                            returnArrivalTime: t.returnArrivalTime || '',
+                            dob: t.dob || '',
+                            anniversary: t.anniversary || '',
+                        };
+                    }),
                 });
             } else {
                 reset({ travelers: [emptyTraveler] });
@@ -185,11 +202,16 @@ export const BookingTravelers: React.FC = () => {
             const promises = [];
 
             // 1. Save Travelers
+            const travelersWithCombinedPhone = data.travelers.map(t => ({
+                ...t,
+                phoneNumber: t.phoneNumber ? `${t.countryCode}${t.phoneNumber}` : ''
+            }));
+
             const hasExisting = booking?.travelers && booking.travelers.length > 0;
             if (hasExisting) {
-                promises.push(api.put(`/bookings/${id}/travelers`, data.travelers));
+                promises.push(api.put(`/bookings/${id}/travelers`, travelersWithCombinedPhone));
             } else {
-                promises.push(api.post(`/bookings/${id}/travelers`, data.travelers));
+                promises.push(api.post(`/bookings/${id}/travelers`, travelersWithCombinedPhone));
             }
 
             // 2. Save Pricing
@@ -296,11 +318,21 @@ export const BookingTravelers: React.FC = () => {
                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                                             Phone Number {index > 0 ? '*' : ''}
                                         </label>
-                                        <input
-                                            {...register(`travelers.${index}.phoneNumber` as const, { required: index > 0 ? "Phone is required for additional members" : false })}
-                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
-                                            placeholder="+1 234 567 890"
-                                        />
+                                        <div className="flex gap-2">
+                                            <select
+                                                {...register(`travelers.${index}.countryCode` as const)}
+                                                className="w-[100px] px-2 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                            >
+                                                {countryCodes.map(cc => (
+                                                    <option key={cc.code} value={cc.code}>{cc.code} ({cc.name})</option>
+                                                ))}
+                                            </select>
+                                            <input
+                                                {...register(`travelers.${index}.phoneNumber` as const)}
+                                                className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                                placeholder="9876543210"
+                                            />
+                                        </div>
                                         {errors.travelers?.[index]?.phoneNumber && (
                                             <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.phoneNumber?.message}</p>
                                         )}

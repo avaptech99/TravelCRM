@@ -14,7 +14,7 @@ export const createUserSchema = z.object({
 
 export const createBookingSchema = z.object({
     contactPerson: z.string().min(2, 'Name must be at least 2 characters'),
-    contactNumber: z.string().min(5, 'Phone number must be at least 5 characters'),
+    contactNumber: z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits'),
     requirements: z.string().min(1, 'Requirements are compulsory'),
     bookingType: z.enum(['B2B', 'B2C']).default('B2C'),
 });
@@ -41,7 +41,7 @@ export const createCommentSchema = z.object({
 
 export const travelerSchema = z.object({
     name: z.string().min(1),
-    phoneNumber: z.string().optional(),
+    phoneNumber: z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits').optional().or(z.literal('')),
     email: z.string().email().optional().or(z.literal('')),
     country: z.string().optional(),
     flightFrom: z.string().optional(),

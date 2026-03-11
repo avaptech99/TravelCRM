@@ -12,9 +12,12 @@ import {
 } from '../../../components/ui/dialog';
 import { toast } from 'sonner';
 
+import { countryCodes } from '../../../utils/countryCodes';
+
 const bookingSchema = z.object({
     contactPerson: z.string().min(2, 'Name must be at least 2 characters'),
-    contactNumber: z.string().min(5, 'Phone number must be at least 5 characters'),
+    countryCode: z.string(),
+    contactNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
     requirements: z.string().min(1, 'Requirements are compulsory'),
     bookingType: z.enum(['B2B', 'B2C']),
 });
@@ -38,6 +41,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
         resolver: zodResolver(bookingSchema),
         defaultValues: {
             contactPerson: '',
+            countryCode: '+91',
             contactNumber: '',
             requirements: '',
             bookingType: 'B2C',
@@ -46,7 +50,11 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
 
     const mutation = useMutation({
         mutationFn: async (data: BookingFormValues) => {
-            const response = await api.post('/bookings', data);
+            const combinedData = {
+                ...data,
+                contactNumber: `${data.countryCode}${data.contactNumber}`,
+            };
+            const response = await api.post('/bookings', combinedData);
             return response.data;
         },
         onSuccess: () => {
@@ -128,15 +136,30 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                         <label htmlFor="contactNumber" className="text-sm font-medium text-slate-700">
                             Contact Number <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            id="contactNumber"
-                            type="text"
-                            {...register('contactNumber')}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="+1 555-0123"
-                        />
+                        <div className="flex gap-2">
+                            <select
+                                {...register('countryCode')}
+                                className="w-[100px] px-2 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                            >
+                                {countryCodes.map((cc) => (
+                                    <option key={cc.code} value={cc.code}>
+                                        {cc.code} ({cc.name})
+                                    </option>
+                                ))}
+                            </select>
+                            <input
+                                id="contactNumber"
+                                type="text"
+                                {...register('contactNumber')}
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="9876543210"
+                            />
+                        </div>
                         {errors.contactNumber && (
                             <p className="text-red-500 text-xs mt-1">{errors.contactNumber.message}</p>
+                        )}
+                        {errors.countryCode && (
+                            <p className="text-red-500 text-xs mt-1">{errors.countryCode.message}</p>
                         )}
                     </div>
 
