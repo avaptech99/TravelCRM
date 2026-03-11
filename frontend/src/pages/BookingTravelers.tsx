@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -43,6 +43,9 @@ export const BookingTravelers: React.FC = () => {
     const [paymentTransactionId, setPaymentTransactionId] = useState<string>('');
     const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [paymentRemarks, setPaymentRemarks] = useState<string>('');
+
+    const isInitialized = useRef(false);
+    const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
 
     const { data: booking, isLoading } = useQuery({
         queryKey: ['booking', id],
@@ -98,7 +101,7 @@ export const BookingTravelers: React.FC = () => {
     const finalOutstanding = currentOutstanding - parseFloat(paymentAmount || '0');
 
     useEffect(() => {
-        if (booking) {
+        if (booking && !isInitialized.current) {
             if (booking.travelers && booking.travelers.length > 0) {
                 reset({
                     travelers: booking.travelers.map(t => ({
@@ -129,6 +132,7 @@ export const BookingTravelers: React.FC = () => {
                 const passengerCount = booking.travelers ? booking.travelers.length : 1;
                 setLumpSumAmount(booking.pricePerTicket * passengerCount);
             }
+            isInitialized.current = true;
         }
     }, [booking, reset]);
 
@@ -379,6 +383,7 @@ export const BookingTravelers: React.FC = () => {
                                                         </label>
                                                         <input
                                                             type="datetime-local"
+                                                            min={todayString}
                                                             {...register(`travelers.${index}.departureTime` as const)}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
                                                         />
@@ -389,6 +394,7 @@ export const BookingTravelers: React.FC = () => {
                                                         </label>
                                                         <input
                                                             type="datetime-local"
+                                                            min={todayString}
                                                             {...register(`travelers.${index}.arrivalTime` as const)}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
                                                         />
@@ -416,6 +422,7 @@ export const BookingTravelers: React.FC = () => {
                                                             </label>
                                                             <input
                                                                 type="datetime-local"
+                                                                min={todayString}
                                                                 {...register(`travelers.${index}.returnDepartureTime` as const)}
                                                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
                                                             />
@@ -426,6 +433,7 @@ export const BookingTravelers: React.FC = () => {
                                                             </label>
                                                             <input
                                                                 type="datetime-local"
+                                                                min={todayString}
                                                                 {...register(`travelers.${index}.returnArrivalTime` as const)}
                                                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
                                                             />

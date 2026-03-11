@@ -35,7 +35,7 @@ export const BookingDetails: React.FC = () => {
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
-            await api.put(`/bookings/${id}/assign`, {
+            await api.patch(`/bookings/${id}/assign`, {
                 assignedToUserId: user?.id
             });
         },
@@ -324,7 +324,21 @@ export const BookingDetails: React.FC = () => {
                     {booking.status === 'Booked' && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
-                                <span className="flex items-center gap-1.5"><CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})</span>
+                                <span className="flex items-center gap-1.5">
+                                    <CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})
+                                    {(() => {
+                                        const totalAmount = booking.totalAmount !== undefined && booking.totalAmount !== null 
+                                            ? booking.totalAmount 
+                                            : (booking.pricePerTicket ? booking.pricePerTicket * (booking.travelers?.length || 1) : 0);
+                                        const totalPaid = booking.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+                                        const outstanding = totalAmount - totalPaid;
+                                        return (
+                                            <span className="ml-4 px-2.5 py-1 bg-red-50 text-red-600 text-sm font-medium rounded-md border border-red-100">
+                                                Outstanding: ${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        );
+                                    })()}
+                                </span>
                                 {!isReadOnly && (
                                     <button
                                         onClick={() => setIsPaymentModalOpen(true)}

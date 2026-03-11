@@ -9,7 +9,11 @@ export const Bookings: React.FC = () => {
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+        const timer = setTimeout(() => {
+            if (searchTerm.length === 0 || searchTerm.length >= 3) {
+                setDebouncedSearch(searchTerm);
+            }
+        }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
 

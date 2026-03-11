@@ -47,7 +47,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             header: 'Created On',
             cell: (info) => dayjs(info.getValue()).format('DD MMM YYYY'),
         }),
-        columnHelper.accessor((row) => row.createdByUser.name, {
+        columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
             id: 'createdBy',
             header: 'Created By',
         }),
@@ -56,17 +56,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         }),
         columnHelper.accessor('contactNumber', {
             header: 'Contact Number',
-        }),
-        columnHelper.accessor('totalAmount', {
-            header: 'Amount',
-            cell: (info) => {
-                const amount = info.getValue() || 0;
-                return (
-                    <span className="font-semibold text-slate-900">
-                        ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                );
-            }
         }),
         columnHelper.accessor('requirements', {
             header: 'Requirements & Flight Info',

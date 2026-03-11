@@ -178,6 +178,14 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         throw new Error('Not authorized to update this booking');
     }
     const { status } = result.data;
+    if (status === 'Booked') {
+        const travelers = await Traveler_1.default.find({ bookingId: id });
+        const hasFlightInfo = travelers.some(t => t.flightFrom && t.flightTo);
+        if (!hasFlightInfo) {
+            res.status(400);
+            throw new Error('Please enter flight details for at least one traveler before marking as Booked');
+        }
+    }
     const isConvertedToEDT = status === 'Booked';
     existingBooking.status = status;
     existingBooking.isConvertedToEDT = isConvertedToEDT;
@@ -202,11 +210,38 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
             throw new Error('Invalid agent selected');
         }
     }
-    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { assignedToUserId: assignedToUserId || null }, { new: true }).populate('assignedToUser', 'name');
-    if (!updatedBooking) {
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
+    const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+    const newAssignedUserId = assignedToUserId || null;
+    if (previousAssignedUserId !== newAssignedUserId) {
+        booking.assignedToUserId = newAssignedUserId;
+        await booking.save();
+        let previousAgentName = 'Unassigned';
+        if (previousAssignedUserId) {
+            const prevAgent = await User_1.default.findById(previousAssignedUserId);
+            if (prevAgent) {
+                previousAgentName = prevAgent.name;
+            }
+        }
+        let newAgentName = 'Unassigned';
+        if (newAssignedUserId) {
+            const newAgent = await User_1.default.findById(newAssignedUserId);
+            if (newAgent) {
+                newAgentName = newAgent.name;
+            }
+        }
+        const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+        await Comment_1.default.create({
+            text: commentText,
+            bookingId: id,
+            createdById: req.user.id,
+        });
+    }
+    const updatedBooking = await Booking_1.default.findById(id).populate('assignedToUser', 'name');
     res.json(updatedBooking);
 });
 // @desc    Add comment to a booking

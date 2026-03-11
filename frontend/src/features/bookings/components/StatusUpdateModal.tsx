@@ -24,6 +24,12 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
 
     const mutation = useMutation({
         mutationFn: async (newStatus: string) => {
+            if (newStatus === 'Booked') {
+                const hasFlightInfo = booking?.travelers?.some(t => t.flightFrom && t.flightTo);
+                if (!hasFlightInfo) {
+                    throw new Error('Please enter flight details first to change status to Booked');
+                }
+            }
             await api.patch(`/bookings/${booking?.id}/status`, { status: newStatus });
         },
         onSuccess: (_, variables) => {
@@ -35,7 +41,9 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
                 onStatusChangeToBooked?.(booking);
             }
         },
-        onError: () => toast.error('Failed to update status'),
+        onError: (err: any) => {
+            toast.error(err.message || 'Failed to update status');
+        },
     });
 
     return (

@@ -35,7 +35,7 @@ exports.createCommentSchema = zod_1.z.object({
     text: zod_1.z.string().min(1),
 });
 exports.travelerSchema = zod_1.z.object({
-    name: zod_1.z.string().min(2),
+    name: zod_1.z.string().min(1),
     phoneNumber: zod_1.z.string().optional(),
     email: zod_1.z.string().email().optional().or(zod_1.z.literal('')),
     country: zod_1.z.string().optional(),

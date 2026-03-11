@@ -40,7 +40,7 @@ export const createCommentSchema = z.object({
 });
 
 export const travelerSchema = z.object({
-    name: z.string().min(2),
+    name: z.string().min(1),
     phoneNumber: z.string().optional(),
     email: z.string().email().optional().or(z.literal('')),
     country: z.string().optional(),
