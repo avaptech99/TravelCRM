@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 const bookingSchema = z.object({
     contactPerson: z.string().min(2, 'Name must be at least 2 characters'),
     contactNumber: z.string().min(5, 'Phone number must be at least 5 characters'),
-    requirements: z.string().optional(),
+    requirements: z.string().min(1, 'Requirements are compulsory'),
+    bookingType: z.enum(['B2B', 'B2C']),
 });
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
@@ -39,6 +40,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
             contactPerson: '',
             contactNumber: '',
             requirements: '',
+            bookingType: 'B2C',
         },
     });
 
@@ -79,6 +81,33 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Booking Type <span className="text-red-500">*</span></label>
+                        <div className="flex gap-4">
+                            <label className="inline-flex items-center cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="B2B"
+                                    {...register('bookingType')}
+                                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm font-medium text-slate-700">Agent (B2B)</span>
+                            </label>
+                            <label className="inline-flex items-center cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="B2C"
+                                    {...register('bookingType')}
+                                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm font-medium text-slate-700">Direct (B2C)</span>
+                            </label>
+                        </div>
+                        {errors.bookingType && (
+                            <p className="text-red-500 text-xs mt-1">{errors.bookingType.message}</p>
+                        )}
+                    </div>
+
                     <div className="space-y-1.5">
                         <label htmlFor="contactPerson" className="text-sm font-medium text-slate-700">
                             Contact Person <span className="text-red-500">*</span>
@@ -113,7 +142,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
 
                     <div className="space-y-1.5">
                         <label htmlFor="requirements" className="text-sm font-medium text-slate-700">
-                            Requirements (Optional)
+                            Requirements <span className="text-red-500">*</span>
                         </label>
                         <textarea
                             id="requirements"

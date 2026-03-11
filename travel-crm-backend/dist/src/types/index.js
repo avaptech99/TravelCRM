@@ -13,12 +13,17 @@ exports.createUserSchema = zod_1.z.object({
     role: zod_1.z.enum(['ADMIN', 'AGENT']),
 });
 exports.createBookingSchema = zod_1.z.object({
-    contactPerson: zod_1.z.string().min(2),
-    contactNumber: zod_1.z.string().min(5),
-    requirements: zod_1.z.string().optional(),
+    contactPerson: zod_1.z.string().min(2, 'Name must be at least 2 characters'),
+    contactNumber: zod_1.z.string().min(5, 'Phone number must be at least 5 characters'),
+    requirements: zod_1.z.string().min(1, 'Requirements are compulsory'),
+    bookingType: zod_1.z.enum(['B2B', 'B2C']).default('B2C'),
 });
 exports.updateBookingSchema = zod_1.z.object({
     requirements: zod_1.z.string().optional(),
+    pricePerTicket: zod_1.z.number().nonnegative().optional(),
+    totalAmount: zod_1.z.number().optional(),
+    interested: zod_1.z.enum(['Yes', 'No']).optional(),
+    bookingType: zod_1.z.enum(['B2B', 'B2C']).optional(),
 });
 exports.updateBookingStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked']),

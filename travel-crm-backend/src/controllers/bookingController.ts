@@ -25,7 +25,10 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const query: any = {};
 
     if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = req.user.id;
+        // If an agent is searching, allow them to search the entire DB
+        if (!search) {
+            query.assignedToUserId = req.user.id;
+        }
     } else if (assignedTo) {
         query.assignedToUserId = assignedTo as string;
     }
@@ -95,10 +98,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to access this booking');
-    }
+    // Allow any authenticated user (Admins and Agents) to view the booking
+    // This supports the 'search and self-assign' feature where agents can view
+    // unassigned or other-assigned bookings from global search before taking ownership.
 
     res.json(booking);
 });
@@ -306,10 +308,7 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to view comments for this booking');
-    }
+    // Allow any authenticated user to view comments
 
     const comments = await Comment.find({ bookingId: id })
         .populate('createdBy', 'name role')
@@ -437,10 +436,7 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to view payments for this booking');
-    }
+    // Allow any authenticated user to view payments
 
     const payments = await Payment.find({ bookingId: id }).sort({ date: -1 });
 

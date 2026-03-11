@@ -12,6 +12,7 @@ import type { Booking } from '../../../types';
 import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
+import { AssignAgentModal } from './AssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { RequirementsCell } from './RequirementsCell';
@@ -19,17 +20,20 @@ import { RequirementsCell } from './RequirementsCell';
 interface BookingsTableProps {
     statusFilter?: string;
     isEDTView?: boolean;
+    searchTerm?: string;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm }) => {
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
+    const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', statusFilter, isEDTView],
+        queryKey: ['bookings', statusFilter, isEDTView, searchTerm],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
+            if (searchTerm) params.append('search', searchTerm);
 
             const { data } = await api.get(`/bookings?${params.toString()}`);
             return data;
@@ -52,6 +56,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         }),
         columnHelper.accessor('contactNumber', {
             header: 'Contact Number',
+        }),
+        columnHelper.accessor('totalAmount', {
+            header: 'Amount',
+            cell: (info) => {
+                const amount = info.getValue() || 0;
+                return (
+                    <span className="font-semibold text-slate-900">
+                        ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                );
+            }
         }),
         columnHelper.accessor('requirements', {
             header: 'Requirements & Flight Info',
@@ -206,6 +221,12 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 isOpen={!!activeEditBooking}
                 onClose={() => setActiveEditBooking(null)}
                 onStatusChangeToBooked={() => { }}
+            />
+
+            <AssignAgentModal
+                booking={activeAssignBooking}
+                isOpen={!!activeAssignBooking}
+                onClose={() => setActiveAssignBooking(null)}
             />
         </div>
     );

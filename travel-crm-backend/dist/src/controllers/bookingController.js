@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPayments = exports.addPayment = exports.updateTravelers = exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = void 0;
+exports.deletePayment = exports.getPayments = exports.addPayment = exports.updateTravelers = exports.addTravelers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Comment_1 = __importDefault(require("../models/Comment"));
@@ -18,7 +18,10 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10' } = req.query;
     const query = {};
     if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = req.user.id;
+        // If an agent is searching, allow them to search the entire DB
+        if (!search) {
+            query.assignedToUserId = req.user.id;
+        }
     }
     else if (assignedTo) {
         query.assignedToUserId = assignedTo;
@@ -82,10 +85,9 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to access this booking');
-    }
+    // Allow any authenticated user (Admins and Agents) to view the booking
+    // This supports the 'search and self-assign' feature where agents can view
+    // unassigned or other-assigned bookings from global search before taking ownership.
     res.json(booking);
 });
 // @desc    Delete booking
@@ -141,7 +143,18 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
-    booking.requirements = result.data.requirements || null;
+    if (result.data.requirements !== undefined) {
+        booking.requirements = result.data.requirements || null;
+    }
+    if (result.data.pricePerTicket !== undefined) {
+        booking.pricePerTicket = result.data.pricePerTicket;
+    }
+    if (result.data.totalAmount !== undefined) {
+        booking.totalAmount = result.data.totalAmount;
+    }
+    if (result.data.interested !== undefined) {
+        booking.interested = result.data.interested;
+    }
     const updatedBooking = await booking.save();
     res.json(updatedBooking);
 });
@@ -233,10 +246,7 @@ exports.getComments = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to view comments for this booking');
-    }
+    // Allow any authenticated user to view comments
     const comments = await Comment_1.default.find({ bookingId: id })
         .populate('createdBy', 'name role')
         .sort({ createdAt: -1 });
@@ -333,10 +343,29 @@ exports.getPayments = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to view payments for this booking');
-    }
+    // Allow any authenticated user to view payments
     const payments = await Payment_1.default.find({ bookingId: id }).sort({ date: -1 });
     res.json(payments);
+});
+// @desc    Delete a payment from a booking
+// @route   DELETE /api/bookings/:id/payments/:paymentId
+// @access  Private
+exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id, paymentId } = req.params;
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to delete payment from this booking');
+    }
+    const payment = await Payment_1.default.findById(paymentId);
+    if (!payment || payment.bookingId.toString() !== id) {
+        res.status(404);
+        throw new Error('Payment not found for this booking');
+    }
+    await Payment_1.default.findByIdAndDelete(paymentId);
+    res.json({ message: 'Payment removed successfully' });
 });

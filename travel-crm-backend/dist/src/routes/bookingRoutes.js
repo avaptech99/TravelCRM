@@ -19,7 +19,7 @@ router.route('/:id')
 router.route('/:id/status')
     .patch(bookingController_1.updateBookingStatus);
 router.route('/:id/assign')
-    .patch(auth_1.adminGuard, bookingController_1.assignBooking);
+    .patch(bookingController_1.assignBooking);
 router.route('/:id/comments')
     .get(bookingController_1.getComments)
     .post(bookingController_1.addComment);
@@ -29,4 +29,6 @@ router.route('/:id/travelers')
 router.route('/:id/payments')
     .get(bookingController_1.getPayments)
     .post(bookingController_1.addPayment);
+router.route('/:id/payments/:paymentId')
+    .delete(bookingController_1.deletePayment);
 exports.default = router;

@@ -35,7 +35,7 @@ router.route('/:id/status')
     .patch(updateBookingStatus);
 
 router.route('/:id/assign')
-    .patch(adminGuard, assignBooking);
+    .patch(assignBooking);
 
 router.route('/:id/comments')
     .get(getComments)

@@ -13,9 +13,10 @@ export const createUserSchema = z.object({
 });
 
 export const createBookingSchema = z.object({
-    contactPerson: z.string().min(2),
-    contactNumber: z.string().min(5),
-    requirements: z.string().optional(),
+    contactPerson: z.string().min(2, 'Name must be at least 2 characters'),
+    contactNumber: z.string().min(5, 'Phone number must be at least 5 characters'),
+    requirements: z.string().min(1, 'Requirements are compulsory'),
+    bookingType: z.enum(['B2B', 'B2C']).default('B2C'),
 });
 
 export const updateBookingSchema = z.object({
@@ -23,6 +24,7 @@ export const updateBookingSchema = z.object({
     pricePerTicket: z.number().nonnegative().optional(),
     totalAmount: z.number().optional(),
     interested: z.enum(['Yes', 'No']).optional(),
+    bookingType: z.enum(['B2B', 'B2C']).optional(),
 });
 
 export const updateBookingStatusSchema = z.object({

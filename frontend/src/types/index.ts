@@ -56,6 +56,7 @@ export interface Booking {
     createdByUser: User;
     createdByUserId: string;
     isConvertedToEDT: boolean;
+    bookingType: 'B2B' | 'B2C' | string;
     travelers: Traveler[];
     comments: Comment[];
     payments: Payment[];

@@ -12,7 +12,6 @@ import {
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -24,7 +23,6 @@ interface EditModalProps {
 export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, onStatusChangeToBooked }) => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const { user } = useAuth();
 
     const [status, setStatus] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
@@ -41,7 +39,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
         }
     }, [booking]);
 
-    const canChangeAgent = user?.role === 'ADMIN';
+    const canChangeAgent = true; // Both ADMIN and AGENT can change it now
 
     const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
 

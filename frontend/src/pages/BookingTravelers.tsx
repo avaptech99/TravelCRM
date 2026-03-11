@@ -37,7 +37,7 @@ export const BookingTravelers: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const [pricePerTicket, setPricePerTicket] = useState<number>(0);
+    const [lumpSumAmount, setLumpSumAmount] = useState<number>(0);
     const [paymentAmount, setPaymentAmount] = useState<string>('');
     const [paymentMethod, setPaymentMethod] = useState<string>('Bank Transfer');
     const [paymentTransactionId, setPaymentTransactionId] = useState<string>('');
@@ -90,7 +90,8 @@ export const BookingTravelers: React.FC = () => {
     });
 
     const travelersWatch = watch('travelers');
-    const totalPayment = (travelersWatch?.length || 0) * (pricePerTicket || 0);
+    // Total payment is just the lump sum now
+    const totalPayment = lumpSumAmount || 0;
 
     const totalPaid = booking?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
     const currentOutstanding = totalPayment - totalPaid;
@@ -121,8 +122,12 @@ export const BookingTravelers: React.FC = () => {
                 reset({ travelers: [emptyTraveler] });
             }
 
-            if (booking.pricePerTicket) {
-                setPricePerTicket(booking.pricePerTicket);
+            if (booking.totalAmount !== undefined && booking.totalAmount !== null) {
+                setLumpSumAmount(booking.totalAmount);
+            } else if (booking.pricePerTicket) {
+                // Fallback for older records
+                const passengerCount = booking.travelers ? booking.travelers.length : 1;
+                setLumpSumAmount(booking.pricePerTicket * passengerCount);
             }
         }
     }, [booking, reset]);
@@ -184,8 +189,12 @@ export const BookingTravelers: React.FC = () => {
             }
 
             // 2. Save Pricing
+            // Since we moved to lump sum, pricePerTicket will be derived or just stored as 0
+            const passengerCount = data.travelers.length || 1;
+            const derivedPricePerTicket = totalPayment / passengerCount;
+
             promises.push(api.put(`/bookings/${id}`, {
-                pricePerTicket: Number(pricePerTicket),
+                pricePerTicket: derivedPricePerTicket,
                 totalAmount: totalPayment
             }));
 
@@ -453,15 +462,13 @@ export const BookingTravelers: React.FC = () => {
                                 <span className="text-indigo-600 text-[10px] font-bold uppercase tracking-wider">Passengers:</span>
                                 <span className="text-indigo-900 font-bold text-base">{travelersWatch?.length || 0}</span>
                             </div>
-                            <span className="text-slate-300">|</span>
-                            <span className="text-slate-500">Rate: <span className="text-slate-900 font-bold">${pricePerTicket.toFixed(2)}</span></span>
                         </div>
                     </div>
 
                     <div className="p-5">
                         <div className="flex flex-col md:flex-row items-stretch gap-4">
                             <div className="flex-1 bg-slate-50/50 rounded-lg border border-slate-100 p-4 flex flex-col justify-center">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Price Per Ticket</label>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Lump Sum Amount</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span className="text-slate-400 sm:text-sm font-semibold">$</span>
@@ -470,8 +477,8 @@ export const BookingTravelers: React.FC = () => {
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        value={pricePerTicket || ''}
-                                        onChange={(e) => setPricePerTicket(parseFloat(e.target.value) || 0)}
+                                        value={lumpSumAmount || ''}
+                                        onChange={(e) => setLumpSumAmount(parseFloat(e.target.value) || 0)}
                                         className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-xl font-bold text-slate-800 transition-all shadow-sm"
                                         placeholder="0.00"
                                     />
@@ -479,7 +486,7 @@ export const BookingTravelers: React.FC = () => {
                             </div>
 
                             <div className="hidden md:flex items-center justify-center text-slate-300">
-                                <Plus size={20} className="rotate-45" />
+                                <Plus size={20} className="rotate-45" /> {/* Keep icon but no multiplication */}
                             </div>
 
                             <div className="flex-1 bg-indigo-50/30 rounded-lg border border-indigo-100/50 p-4 flex flex-col justify-center items-center md:items-end">
@@ -488,9 +495,6 @@ export const BookingTravelers: React.FC = () => {
                                 </label>
                                 <div className="text-4xl font-bold text-indigo-700 tracking-tight">
                                     <span className="text-2xl mr-0.5 font-semibold">$</span>{totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </div>
-                                <div className="text-[10px] text-indigo-400 font-medium mt-1">
-                                    {travelersWatch?.length || 0} Passenger(s) × ${pricePerTicket.toFixed(2)}
                                 </div>
                             </div>
                         </div>

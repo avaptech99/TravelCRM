@@ -3,8 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,10 +22,31 @@ export const BookingDetails: React.FC = () => {
     });
 
     const [isEditingReqs, setIsEditingReqs] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
+    const { user } = useAuth();
 
     const queryClient = useQueryClient();
+
+    const isAgent = user?.role === 'AGENT';
+    const isAssignedToMe = booking?.assignedToUserId === user?.id;
+    const isReadOnly = isAgent && !isAssignedToMe;
+
+    const assignToMeMutation = useMutation({
+        mutationFn: async () => {
+            await api.put(`/bookings/${id}/assign`, {
+                assignedToUserId: user?.id
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            toast.success('Booking assigned to you successfully!');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to assign booking');
+        }
+    });
 
     const updateReqsMutation = useMutation({
         mutationFn: async (requirements: string) => {
@@ -71,7 +95,16 @@ export const BookingDetails: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 items-center">
+                    {isReadOnly && (
+                        <button
+                            onClick={() => assignToMeMutation.mutate()}
+                            disabled={assignToMeMutation.isPending}
+                            className="text-sm flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-1.5 rounded-md transition-colors shadow-sm disabled:opacity-50"
+                        >
+                            <UserPlus size={16} /> {assignToMeMutation.isPending ? 'Assigning...' : 'Assign To Me to Edit'}
+                        </button>
+                    )}
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.status === 'Booked' ? 'bg-green-100 text-green-800' :
                         booking.status === 'Working' ? 'bg-purple-100 text-purple-800' :
                             booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
@@ -94,7 +127,7 @@ export const BookingDetails: React.FC = () => {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-slate-900">Detailed Requirements</h2>
-                            {!isEditingReqs && (
+                            {!isEditingReqs && !isReadOnly && (
                                 <button
                                     onClick={startEditingReqs}
                                     className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors"
@@ -145,12 +178,14 @@ export const BookingDetails: React.FC = () => {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 Travelers ({booking.travelers?.length || 0})
                             </h2>
-                            <button
-                                onClick={() => navigate(`/bookings/${id}/travelers`)}
-                                className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors"
-                            >
-                                <Edit2 size={14} /> Edit Travelers & Pricing
-                            </button>
+                            {!isReadOnly && (
+                                <button
+                                    onClick={() => navigate(`/bookings/${id}/travelers`)}
+                                    className="text-sm flex items-center gap-1 text-indigo-600 hover:bg-indigo-50 font-medium px-3 py-1.5 rounded-md transition-colors border border-indigo-200"
+                                >
+                                    <User size={14} /> Update Travelers
+                                </button>
+                            )}
                         </div>
 
                         {booking.travelers && booking.travelers.length > 0 ? (
@@ -290,12 +325,14 @@ export const BookingDetails: React.FC = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
                                 <span className="flex items-center gap-1.5"><CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})</span>
-                                <button
-                                    onClick={() => navigate(`/bookings/${id}/travelers`)}
-                                    className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
-                                >
-                                    <Plus size={14} /> Add Payment
-                                </button>
+                                {!isReadOnly && (
+                                    <button
+                                        onClick={() => setIsPaymentModalOpen(true)}
+                                        className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
+                                    >
+                                        <Plus size={14} /> Add Payment
+                                    </button>
+                                )}
                             </h2>
 
                             {booking.payments && booking.payments.length > 0 ? (
@@ -390,6 +427,13 @@ export const BookingDetails: React.FC = () => {
                 </div>
             </div>
 
+            {booking && (
+                <AddPaymentModal
+                    booking={booking}
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                />
+            )}
         </div>
     );
 };

@@ -9,6 +9,7 @@ export interface IBooking extends Document {
     assignedToUserId: mongoose.Types.ObjectId | null;
     status: string;
     isConvertedToEDT: boolean;
+    bookingType: 'B2B' | 'B2C';
     interested?: string;
     pricePerTicket?: number;
     totalAmount?: number;
@@ -26,6 +27,7 @@ const bookingSchema = new Schema<IBooking>(
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
         status: { type: String, default: 'Pending' },
         isConvertedToEDT: { type: Boolean, default: false },
+        bookingType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' },
         interested: { type: String, enum: ['Yes', 'No'], default: 'No' },
         pricePerTicket: { type: Number, default: 0 },
         totalAmount: { type: Number, default: 0 },
