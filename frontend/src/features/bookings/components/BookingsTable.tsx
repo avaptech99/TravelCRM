@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
-    getPaginationRowModel,
     flexRender,
     createColumnHelper,
 } from '@tanstack/react-table';
@@ -126,7 +125,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         manualPagination: true,
     });
 
-    const allRowsArr = data?.data?.length || 0;
     const totalCount = data?.meta?.total || 0;
 
     return (
