@@ -36,9 +36,11 @@ app.use(cors({
     credentials: true,
 }));
 
-// Dev logging middleware
+// Logging middleware
 if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
+} else {
+    app.use(morgan('tiny')); // Show minimal logs in production
 }
 
 // Prevent aggressive caching from CDNs/browsers

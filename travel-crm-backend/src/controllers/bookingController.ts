@@ -55,6 +55,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time("getBookingsQuery");
     const [bookings, total] = await Promise.all([
         Booking.find(query)
@@ -98,6 +99,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Invalid Booking ID');
     }
 
+    console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking.findById(id)
         .populate('assignedToUser', 'name email')
