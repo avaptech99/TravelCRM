@@ -62,9 +62,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .limit(Number(limit))
             .populate('assignedToUser', 'name')
             .populate('createdByUser', 'name')
-            .populate('comments')
-            .populate('travelers')
-            .populate('payments'),
+            .lean(),
         Booking.countDocuments(query),
     ]);
 
@@ -92,7 +90,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             options: { sort: { createdAt: -1 } },
         })
         .populate('travelers')
-        .populate('payments');
+        .populate('payments')
+        .lean();
 
     if (!booking) {
         res.status(404);

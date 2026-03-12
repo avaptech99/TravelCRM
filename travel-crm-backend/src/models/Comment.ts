@@ -21,6 +21,7 @@ const commentSchema = new Schema<IComment>(
 );
 
 // Virtual for createdBy (mirroring Prisma format)
+commentSchema.index({ bookingId: 1 });
 commentSchema.virtual('createdBy', {
     ref: 'User',
     localField: 'createdById',

@@ -29,13 +29,25 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
+    const [pagination, setPagination] = useState({
+        pageIndex: 0,
+        pageSize: 15,
+    });
+
+    // Reset pagination when filters change
+    React.useEffect(() => {
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, [statusFilter, isEDTView, searchTerm]);
+
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm],
+        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (searchTerm) params.append('search', searchTerm);
+            params.append('page', (pagination.pageIndex + 1).toString());
+            params.append('limit', pagination.pageSize.toString());
 
             const { data } = await api.get(`/bookings?${params.toString()}`);
             return data;
@@ -103,16 +115,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     const table = useReactTable({
         data: data?.data || [],
         columns,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        initialState: {
-            pagination: {
-                pageSize: 15,
-            },
+        pageCount: data?.meta?.totalPages || -1,
+        state: {
+            pagination,
         },
+        onPaginationChange: setPagination,
+        getCoreRowModel: getCoreRowModel(),
+        manualPagination: true,
     });
 
-    const allRows = data?.data?.length || 0;
+    const allRowsArr = data?.data?.length || 0;
+    const totalCount = data?.meta?.total || 0;
 
     return (
         <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
@@ -166,7 +179,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                 )}
             </div>
 
-            {!isLoading && allRows > 0 && (
+            {!isLoading && totalCount > 0 && (
                 <div className="bg-white px-4 py-3 border-t border-slate-200 flex items-center justify-between sm:px-6">
                     <div className="flex-1 flex items-center justify-between">
                         <p className="text-sm text-slate-700">
@@ -178,11 +191,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                             <span className="font-medium text-slate-900">
                                 {Math.min(
                                     (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                                    allRows
+                                    totalCount
                                 )}
                             </span>
                             {' '}of{' '}
-                            <span className="font-medium text-slate-900">{allRows}</span> results
+                            <span className="font-medium text-slate-900">{totalCount}</span> results
                         </p>
                         <nav className="flex items-center gap-1">
                             <button

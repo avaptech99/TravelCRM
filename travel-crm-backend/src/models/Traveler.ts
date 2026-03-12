@@ -44,6 +44,8 @@ const travelerSchema = new Schema<ITraveler>(
     }
 );
 
+travelerSchema.index({ bookingId: 1 });
+
 const Traveler: Model<ITraveler> = mongoose.model<ITraveler>('Traveler', travelerSchema);
 
 export default Traveler;
