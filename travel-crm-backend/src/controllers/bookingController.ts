@@ -67,8 +67,14 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         Booking.countDocuments(query),
     ]);
 
+    // Map _id to id for lean objects to satisfy frontend types
+    const mappedBookings = bookings.map(b => ({
+        ...b,
+        id: b._id.toString()
+    }));
+
     res.json({
-        data: bookings,
+        data: mappedBookings,
         meta: {
             total,
             page: Number(page),
@@ -82,7 +88,15 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 // @route   GET /api/bookings/:id
 // @access  Private
 export const getBookingById = asyncHandler(async (req: Request, res: Response) => {
-    const booking = await Booking.findById(req.params.id)
+    const { id } = req.params;
+
+    // Validate ObjectId to prevent 500 errors from CastError
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        res.status(400);
+        throw new Error('Invalid Booking ID');
+    }
+
+    const booking = await Booking.findById(id)
         .populate('assignedToUser', 'name email')
         .populate('createdByUser', 'name')
         .populate({
@@ -95,15 +109,12 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         .lean();
 
     if (!booking) {
+        res.status(104); // Changed from 404 to be safe? No, 404 is correct.
         res.status(404);
         throw new Error('Booking not found');
     }
 
-    // Allow any authenticated user (Admins and Agents) to view the booking
-    // This supports the 'search and self-assign' feature where agents can view
-    // unassigned or other-assigned bookings from global search before taking ownership.
-
-    res.json(booking);
+    res.json({ ...booking, id: booking._id.toString() });
 });
 
 // @desc    Delete booking

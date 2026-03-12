@@ -9,10 +9,12 @@ import bcrypt from 'bcryptjs';
 // @access  Private (Admin & Agent)
 export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     const agents = await User.find({ role: 'AGENT' })
-        .select('name email') // id is included by default _id
-        .sort({ name: 1 });
+        .select('name email')
+        .sort({ name: 1 })
+        .lean();
 
-    res.json(agents);
+    const mappedAgents = agents.map(a => ({ ...a, id: a._id.toString() }));
+    res.json(mappedAgents);
 });
 
 // @desc    Get all users (Admin only)
@@ -21,9 +23,11 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     const users = await User.find()
         .select('name email role createdAt')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
-    res.json(users);
+    const mappedUsers = users.map(u => ({ ...u, id: u._id.toString() }));
+    res.json(mappedUsers);
 });
 
 // @desc    Create a new user (Admin only)

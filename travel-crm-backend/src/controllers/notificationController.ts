@@ -8,9 +8,15 @@ import Notification from '../models/Notification';
 export const getMyNotifications = asyncHandler(async (req: Request, res: Response) => {
     const notifications = await Notification.find({ userId: req.user?.id })
         .sort({ createdAt: -1 })
-        .limit(20);
+        .limit(20)
+        .lean();
 
-    res.json(notifications);
+    const mappedNotifications = notifications.map(n => ({
+        ...n,
+        id: n._id.toString()
+    }));
+
+    res.json(mappedNotifications);
 });
 
 // @desc    Mark notification as read
