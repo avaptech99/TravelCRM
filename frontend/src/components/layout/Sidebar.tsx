@@ -10,7 +10,7 @@ export const Sidebar: React.FC = () => {
     const location = useLocation();
 
     const navItems = [
-        { label: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} /> },
         { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} /> },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} /> },
     ];

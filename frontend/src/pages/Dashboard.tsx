@@ -51,8 +51,8 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-8 max-w-7xl mx-auto">
             <div className="px-2 border-b border-slate-200 pb-5 flex justify-between items-start">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Overview Dashboard</h1>
-                    <p className="text-slate-500 text-sm mt-2">Welcome back, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Travel Window.</p>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Overview</h1>
+                    <p className="text-slate-500 text-sm mt-2">Welcome, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Bookings.</p>
                 </div>
                 <button
                     onClick={() => setIsNewBookingModalOpen(true)}
