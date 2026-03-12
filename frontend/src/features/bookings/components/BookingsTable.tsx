@@ -52,6 +52,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             const { data } = await api.get(`/bookings?${params.toString()}`);
             return data;
         },
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+        gcTime: 1000 * 60 * 10,  // Keep in garbage collection for 10 minutes
     });
 
     const columnHelper = createColumnHelper<Booking>();

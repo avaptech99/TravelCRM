@@ -13,6 +13,7 @@ import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import connectDB from './config/db';
+import { startSelfPinging } from './utils/keepWarm';
 
 const app: Express = express();
 
@@ -54,6 +55,16 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Ping route for keeping server warm
+app.get('/api/ping', (req: Request, res: Response) => {
+    res.status(200).send('pong');
+});
+
+// Health endpoint for UptimeRobot
+app.get('/health', (req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
+
 // Basic health check route
 app.get('/', (req: Request, res: Response) => {
     res.send('Travel CRM Backend API is running...');
@@ -86,4 +97,9 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+
+    // Start self-pinging to keep server warm (if BASE_URL is provided)
+    if (process.env.BASE_URL) {
+        startSelfPinging(process.env.BASE_URL);
+    }
 });

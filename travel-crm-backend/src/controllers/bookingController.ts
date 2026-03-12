@@ -57,6 +57,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const [bookings, total] = await Promise.all([
         Booking.find(query)
+            .select('contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
