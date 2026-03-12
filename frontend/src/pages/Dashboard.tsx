@@ -9,23 +9,22 @@ export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
 
-    // Fetch some summary data for dashboard
+    // Single lightweight call for all counts
     const { data: stats } = useQuery({
         queryKey: ['dashboard-stats', user?.id],
         queryFn: async () => {
-            const [{ data: all }, { data: booked }, { data: newb }, { data: agentsData }] = await Promise.all([
-                api.get('/bookings?limit=1'),
-                api.get('/bookings?status=Booked&limit=1'),
-                api.get('/bookings?status=Pending&limit=1'),
+            const [{ data: counts }, { data: agentsData }] = await Promise.all([
+                api.get('/bookings/stats'),
                 api.get('/users/agents').catch(() => ({ data: [] })),
             ]);
             return {
-                total: all.meta?.total || 0,
-                booked: booked.meta?.total || 0,
-                new: newb.meta?.total || 0,
+                total: counts.total || 0,
+                booked: counts.booked || 0,
+                new: counts.pending || 0,
                 agents: agentsData?.length || 0,
             };
         },
+        staleTime: 1000 * 60 * 2, // Cache for 2 minutes
     });
 
     const cards = [
@@ -38,13 +37,14 @@ export const Dashboard: React.FC = () => {
         cards.push({ title: 'Active Agents', value: stats?.agents || 0, icon: <Users className="text-secondary" size={22} />, bg: 'bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20' });
     }
 
-    // Fetch latest 5 bookings for Activity feed
+    // Lightweight recent bookings call
     const { data: recentBookings } = useQuery({
         queryKey: ['recent-bookings', user?.id],
         queryFn: async () => {
-            const { data } = await api.get('/bookings?limit=5');
-            return data.data;
+            const { data } = await api.get('/bookings/recent');
+            return data;
         },
+        staleTime: 1000 * 60 * 2,
     });
 
     return (
@@ -99,7 +99,7 @@ export const Dashboard: React.FC = () => {
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
                             {recentBookings?.map((booking: any) => (
-                                <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={booking.id || booking._id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
                                         {booking.contactPerson}
                                     </td>

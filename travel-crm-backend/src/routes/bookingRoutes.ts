@@ -14,6 +14,8 @@ import {
     addPayment,
     getPayments,
     deletePayment,
+    getBookingStats,
+    getRecentBookings,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -21,6 +23,10 @@ const router = express.Router();
 
 // All booking routes are protected
 router.use(protect);
+
+// Lightweight endpoints (MUST come before /:id)
+router.get('/stats', getBookingStats);
+router.get('/recent', getRecentBookings);
 
 router.route('/')
     .get(getBookings)

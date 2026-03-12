@@ -17,6 +17,50 @@ import {
     createPaymentSchema,
 } from '../types';
 
+// @desc    Get booking stats (counts only, no data)
+// @route   GET /api/bookings/stats
+// @access  Private
+export const getBookingStats = asyncHandler(async (req: Request, res: Response) => {
+    const query: any = {};
+
+    if (req.user?.role === 'AGENT') {
+        query.assignedToUserId = req.user.id;
+    }
+
+    console.time('getBookingStats');
+    const [total, booked, pending, working, sent] = await Promise.all([
+        Booking.countDocuments(query),
+        Booking.countDocuments({ ...query, status: 'Booked' }),
+        Booking.countDocuments({ ...query, status: 'Pending' }),
+        Booking.countDocuments({ ...query, status: 'Working' }),
+        Booking.countDocuments({ ...query, status: 'Sent' }),
+    ]);
+    console.timeEnd('getBookingStats');
+
+    res.json({ total, booked, pending, working, sent });
+});
+
+// @desc    Get recent bookings (lightweight, for dashboard)
+// @route   GET /api/bookings/recent
+// @access  Private
+export const getRecentBookings = asyncHandler(async (req: Request, res: Response) => {
+    const query: any = {};
+
+    if (req.user?.role === 'AGENT') {
+        query.assignedToUserId = req.user.id;
+    }
+
+    const bookings = await Booking.find(query)
+        .select('contactPerson status assignedToUserId createdAt')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('assignedToUser', 'name')
+        .lean();
+
+    const mapped = bookings.map(b => ({ ...b, id: b._id.toString() }));
+    res.json(mapped);
+});
+
 // @desc    Get all bookings (with filtering & pagination)
 // @route   GET /api/bookings
 // @access  Private
@@ -55,8 +99,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    const reqId = Date.now().toString(36);
     console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
-    console.time("getBookingsQuery");
+    console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking.find(query)
             .select('contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt')
@@ -68,7 +113,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .lean(),
         Booking.countDocuments(query),
     ]);
-    console.timeEnd("getBookingsQuery");
+    console.timeEnd(`getBookingsQuery_${reqId}`);
 
     // Map _id to id for lean objects to satisfy frontend types
     const mappedBookings = bookings.map(b => ({
