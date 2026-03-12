@@ -33,4 +33,7 @@ const notificationSchema: Schema = new Schema(
     }
 );
 
+notificationSchema.index({ userId: 1, read: 1 });
+notificationSchema.index({ bookingId: 1 });
+
 export default mongoose.model<INotification>('Notification', notificationSchema);
