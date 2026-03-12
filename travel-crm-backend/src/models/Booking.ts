@@ -45,6 +45,7 @@ bookingSchema.index({ status: 1 });
 bookingSchema.index({ assignedToUserId: 1 });
 bookingSchema.index({ contactPerson: 1 });
 bookingSchema.index({ contactNumber: 1 });
+bookingSchema.index({ createdByUserId: 1 });
 
 // Virtual properties to mirror Prisma include logic
 bookingSchema.virtual('assignedToUser', {

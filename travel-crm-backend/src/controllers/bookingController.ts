@@ -108,9 +108,10 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             path: 'comments',
             populate: { path: 'createdBy', select: 'name role' },
             options: { sort: { createdAt: -1 } },
+            select: 'text createdById createdAt'
         })
-        .populate('travelers')
-        .populate('payments')
+        .populate('travelers', 'name phoneNumber email isPrimary')
+        .populate('payments', 'amount paymentMethod date remarks')
         .lean();
     console.timeEnd(`getBookingById_${id}`);
 
@@ -139,11 +140,18 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Not authorized to delete this booking');
     }
 
-    await Comment.deleteMany({ bookingId: req.params.id });
-    await Traveler.deleteMany({ bookingId: req.params.id });
-    await Booking.findByIdAndDelete(req.params.id);
+    console.time(`deleteBooking_${req.params.id}`);
+    // Parallel deletion of all related records
+    await Promise.all([
+        Comment.deleteMany({ bookingId: req.params.id }),
+        Traveler.deleteMany({ bookingId: req.params.id }),
+        Payment.deleteMany({ bookingId: req.params.id }),
+        Notification.deleteMany({ bookingId: req.params.id }),
+        Booking.findByIdAndDelete(req.params.id)
+    ]);
+    console.timeEnd(`deleteBooking_${req.params.id}`);
 
-    res.json({ message: 'Booking removed successfully' });
+    res.json({ message: 'Booking and all related records removed successfully' });
 });
 
 // @desc    Create new booking
