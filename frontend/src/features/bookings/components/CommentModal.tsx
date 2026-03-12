@@ -84,12 +84,12 @@ export const CommentModal: React.FC<CommentModalProps> = ({ booking, isOpen, onC
                                 placeholder="Type a comment..."
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                             />
                             <button
                                 type="submit"
                                 disabled={mutation.isPending || !newComment.trim()}
-                                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                                className="bg-brand-gradient text-white px-4 py-2 rounded-md hover:opacity-90 disabled:opacity-50 transition-all text-sm font-bold transform hover:scale-[1.02] active:scale-[0.98]"
                             >
                                 Add
                             </button>

@@ -54,7 +54,7 @@ export const Users: React.FC = () => {
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                    className="flex items-center gap-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                     <Plus size={18} /> Add New User
                 </button>
@@ -85,7 +85,7 @@ export const Users: React.FC = () => {
                                             {user.email}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'ADMIN' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-800'
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'ADMIN' ? 'bg-secondary/10 text-secondary' : 'bg-slate-100 text-slate-800'
                                                 }`}>
                                                 {user.role}
                                             </span>

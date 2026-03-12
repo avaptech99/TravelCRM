@@ -74,3 +74,12 @@ export interface PaginatedResponse<T> {
         totalPages: number;
     };
 }
+
+export interface Notification {
+    _id: string; // From mongoose
+    userId: string;
+    bookingId?: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+}

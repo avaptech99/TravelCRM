@@ -58,6 +58,20 @@ export const BookingDetails: React.FC = () => {
         }
     });
 
+    const updateStatusMutation = useMutation({
+        mutationFn: async (status: string) => {
+            await api.patch(`/bookings/${id}/status`, { status });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            queryClient.invalidateQueries({ queryKey: ['bookings'] }); // Refresh table if needed
+            toast.success('Booking status updated successfully');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to update status');
+        }
+    });
+
     if (isLoading) {
         return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
     }
@@ -66,7 +80,7 @@ export const BookingDetails: React.FC = () => {
         return (
             <div className="p-8 text-center text-slate-500">
                 <p>Booking not found.</p>
-                <Link to="/bookings" className="mt-4 inline-block text-indigo-600 hover:text-indigo-800">
+                <Link to="/bookings" className="mt-4 inline-block text-primary hover:opacity-80">
                     &larr; Back to Bookings
                 </Link>
             </div>
@@ -105,13 +119,31 @@ export const BookingDetails: React.FC = () => {
                             <UserPlus size={16} /> {assignToMeMutation.isPending ? 'Assigning...' : 'Assign To Me to Edit'}
                         </button>
                     )}
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.status === 'Booked' ? 'bg-green-100 text-green-800' :
-                        booking.status === 'Working' ? 'bg-purple-100 text-purple-800' :
-                            booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-blue-100 text-blue-800'
-                        }`}>
-                        {booking.status}
-                    </span>
+                    {!isReadOnly ? (
+                        <select
+                            value={booking.status}
+                            onChange={(e) => updateStatusMutation.mutate(e.target.value)}
+                            disabled={updateStatusMutation.isPending}
+                            className={`px-3 py-1.5 rounded-full text-sm font-bold border-2 focus:outline-none focus:ring-opacity-50 transition-colors cursor-pointer disabled:opacity-50 ${booking.status === 'Booked' ? 'bg-green-100 text-green-800 border-green-200 focus:ring-green-500' :
+                                booking.status === 'Working' ? 'bg-purple-100 text-purple-800 border-purple-200 focus:ring-purple-500' :
+                                    booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 focus:ring-yellow-500' :
+                                        'bg-blue-100 text-blue-800 border-blue-200 focus:ring-blue-500'
+                                }`}
+                        >
+                            <option value="Pending" className="bg-white text-slate-800">Pending</option>
+                            <option value="Working" className="bg-white text-slate-800">Working</option>
+                            <option value="Sent" className="bg-white text-slate-800">Sent</option>
+                            <option value="Booked" className="bg-white text-slate-800">Booked</option>
+                        </select>
+                    ) : (
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.status === 'Booked' ? 'bg-green-100 text-green-800' :
+                            booking.status === 'Working' ? 'bg-purple-100 text-purple-800' :
+                                booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-blue-100 text-blue-800'
+                            }`}>
+                            {booking.status}
+                        </span>
+                    )}
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.interested === 'Yes' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
                         {booking.interested === 'Yes' ? 'Interested' : 'Not Interested'}
                     </span>
@@ -130,7 +162,7 @@ export const BookingDetails: React.FC = () => {
                             {!isEditingReqs && !isReadOnly && (
                                 <button
                                     onClick={startEditingReqs}
-                                    className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors"
+                                    className="text-sm flex items-center gap-1 text-primary hover:opacity-80 font-medium px-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
                                 >
                                     <Edit2 size={14} /> Edit
                                 </button>
@@ -142,14 +174,14 @@ export const BookingDetails: React.FC = () => {
                                     <textarea
                                         value={editReqsText}
                                         onChange={(e) => setEditReqsText(e.target.value)}
-                                        className="w-full min-h-[150px] p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full min-h-[150px] p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                                         placeholder="Enter detailed requirements..."
                                     />
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => updateReqsMutation.mutate(editReqsText)}
                                             disabled={updateReqsMutation.isPending}
-                                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors"
+                                            className="px-4 py-2 text-sm font-bold text-white bg-brand-gradient hover:opacity-90 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                                         >
                                             {updateReqsMutation.isPending ? 'Saving...' : 'Save Notes'}
                                         </button>
@@ -181,7 +213,7 @@ export const BookingDetails: React.FC = () => {
                             {!isReadOnly && (
                                 <button
                                     onClick={() => navigate(`/bookings/${id}/travelers`)}
-                                    className="text-sm flex items-center gap-1 text-indigo-600 hover:bg-indigo-50 font-medium px-3 py-1.5 rounded-md transition-colors border border-indigo-200"
+                                    className="text-sm flex items-center gap-1.5 text-white bg-brand-gradient hover:opacity-90 font-bold px-4 py-2 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                                 >
                                     <User size={14} /> Update Travelers
                                 </button>
@@ -199,64 +231,64 @@ export const BookingDetails: React.FC = () => {
                                     if (!hasFlightInfo && !hasTripInfo) return null;
 
                                     return (
-                                        <div className="p-4 rounded-lg bg-indigo-50/60 border border-indigo-100">
-                                            <h3 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-1.5">
-                                                <Plane size={15} className="text-indigo-500" /> Travel Details
+                                        <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
+                                            <h3 className="text-sm font-semibold text-secondary mb-3 flex items-center gap-1.5">
+                                                <Plane size={15} className="text-secondary" /> Travel Details
                                             </h3>
                                             <div className="space-y-3">
                                                 {primary.country && (
-                                                    <div className="flex items-center space-x-2 text-sm text-indigo-800">
-                                                        <MapPin size={14} className="text-indigo-400" />
+                                                    <div className="flex items-center space-x-2 text-sm text-secondary">
+                                                        <MapPin size={14} className="text-secondary/60" />
                                                         <span className="font-medium">Destination:</span>
                                                         <span>{primary.country}</span>
                                                     </div>
                                                 )}
                                                 {primary.tripType && (
-                                                    <div className="flex items-center space-x-2 text-sm text-indigo-800">
+                                                    <div className="flex items-center space-x-2 text-sm text-secondary">
                                                         <span className="font-medium">Trip Type:</span>
                                                         <span className="capitalize">{primary.tripType}</span>
                                                     </div>
                                                 )}
                                                 {hasFlightInfo && (
-                                                    <div className="bg-white/80 p-3 rounded-md border border-indigo-100/70">
+                                                    <div className="bg-white/80 p-3 rounded-md border border-secondary/20">
                                                         <div className="flex items-center gap-3 mb-2">
-                                                            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded text-xs border border-indigo-200">{primary.flightFrom || 'TBD'}</span>
-                                                            <span className="text-indigo-400 text-lg">→</span>
-                                                            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded text-xs border border-indigo-200">{primary.flightTo || 'TBD'}</span>
+                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightFrom || 'TBD'}</span>
+                                                            <span className="text-secondary/40 text-lg">→</span>
+                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightTo || 'TBD'}</span>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 text-xs text-indigo-800">
+                                                        <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
                                                             {primary.departureTime && (
                                                                 <div>
-                                                                    <span className="font-medium text-indigo-600/70">🛫 Departs:</span>{' '}
+                                                                    <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
                                                                     {dayjs(primary.departureTime).format('MMM DD, h:mm A')}
                                                                 </div>
                                                             )}
                                                             {primary.arrivalTime && (
                                                                 <div>
-                                                                    <span className="font-medium text-indigo-600/70">🛬 Arrives:</span>{' '}
+                                                                    <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
                                                                     {dayjs(primary.arrivalTime).format('MMM DD, h:mm A')}
                                                                 </div>
                                                             )}
                                                         </div>
                                                         {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
-                                                            <div className="mt-3 pt-3 border-t border-indigo-100/70">
+                                                            <div className="mt-3 pt-3 border-t border-secondary/20">
                                                                 <p className="text-xs font-semibold text-amber-700 mb-2">Return Flight</p>
-                                                                <div className="grid grid-cols-2 gap-2 text-xs text-indigo-800">
+                                                                <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
                                                                     {primary.returnDate && (
                                                                         <div>
-                                                                            <span className="font-medium text-indigo-600/70">📅 Date:</span>{' '}
+                                                                            <span className="font-medium text-secondary/70">📅 Date:</span>{' '}
                                                                             {dayjs(primary.returnDate).format('MMM DD, YYYY')}
                                                                         </div>
                                                                     )}
                                                                     {primary.returnDepartureTime && (
                                                                         <div>
-                                                                            <span className="font-medium text-indigo-600/70">🛫 Departs:</span>{' '}
+                                                                            <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
                                                                             {dayjs(primary.returnDepartureTime).format('MMM DD, h:mm A')}
                                                                         </div>
                                                                     )}
                                                                     {primary.returnArrivalTime && (
                                                                         <div>
-                                                                            <span className="font-medium text-indigo-600/70">🛬 Arrives:</span>{' '}
+                                                                            <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
                                                                             {dayjs(primary.returnArrivalTime).format('MMM DD, h:mm A')}
                                                                         </div>
                                                                     )}
@@ -278,7 +310,7 @@ export const BookingDetails: React.FC = () => {
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         {booking.travelers.map((traveler: any, idx: number) => (
                                             <div key={traveler.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                                                <div className="flex items-center space-x-2 text-indigo-700 font-medium mb-2">
+                                                <div className="flex items-center space-x-2 text-secondary font-medium mb-2">
                                                     <User size={16} />
                                                     <span>{traveler.name}</span>
                                                 </div>
@@ -400,12 +432,12 @@ export const BookingDetails: React.FC = () => {
                             {booking.bookingType && (
                                 <div className="flex items-center space-x-3 text-slate-700 pt-2 border-t border-slate-100">
                                     {booking.bookingType === 'B2B' ? (
-                                        <Building2 size={18} className="text-indigo-400" />
+                                        <Building2 size={18} className="text-secondary" />
                                     ) : (
                                         <UserCircle size={18} className="text-emerald-400" />
                                     )}
                                     <span className="font-medium">
-                                        Source: <span className={booking.bookingType === 'B2B' ? 'text-indigo-600' : 'text-emerald-600'}>
+                                        Source: <span className={booking.bookingType === 'B2B' ? 'text-secondary' : 'text-emerald-600'}>
                                             {booking.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)'}
                                         </span>
                                     </span>
@@ -416,7 +448,7 @@ export const BookingDetails: React.FC = () => {
                         <div className="mt-6 pt-6 border-t border-slate-200">
                             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Assignment</h2>
                             <div className="flex items-center space-x-3 text-slate-700">
-                                <User size={18} className="text-indigo-500" />
+                                <User size={18} className="text-primary" />
                                 <span>{booking.assignedToUser?.name || <span className="italic text-slate-400">Unassigned</span>}</span>
                             </div>
                         </div>
@@ -432,8 +464,8 @@ export const BookingDetails: React.FC = () => {
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {booking.comments && booking.comments.length > 0 ? (
                                 booking.comments.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment: any) => (
-                                    <div key={comment.id} className="relative pl-4 border-l-2 border-indigo-100">
-                                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-indigo-400"></div>
+                                    <div key={comment.id} className="relative pl-4 border-l-2 border-secondary/20">
+                                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="text-xs font-semibold text-slate-900">{comment.createdBy?.name}</span>
                                             <span className="text-[10px] text-slate-400 flex items-center">

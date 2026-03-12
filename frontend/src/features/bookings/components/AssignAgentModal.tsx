@@ -88,7 +88,7 @@ export const AssignAgentModal: React.FC<AssignAgentModalProps> = ({ booking, isO
                         ) : (
                             <select
                                 {...register('assignedToUserId')}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             >
                                 <option value="" disabled>Select an agent...</option>
                                 {agents?.map((agent: any) => (
@@ -115,7 +115,7 @@ export const AssignAgentModal: React.FC<AssignAgentModalProps> = ({ booking, isO
                         <button
                             type="submit"
                             disabled={mutation.isPending}
-                            className="px-4 py-2 bg-indigo-600 border border-transparent text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50"
+                            className="px-4 py-2 bg-brand-gradient border border-transparent text-white rounded-md hover:opacity-90 shadow-sm transition-all font-bold disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {mutation.isPending ? 'Assigning...' : 'Assign'}
                         </button>

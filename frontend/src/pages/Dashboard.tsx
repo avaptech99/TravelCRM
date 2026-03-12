@@ -35,7 +35,7 @@ export const Dashboard: React.FC = () => {
     ];
 
     if (user?.role === 'ADMIN') {
-        cards.push({ title: 'Active Agents', value: stats?.agents || 0, icon: <Users className="text-indigo-600" size={22} />, bg: 'bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200' });
+        cards.push({ title: 'Active Agents', value: stats?.agents || 0, icon: <Users className="text-secondary" size={22} />, bg: 'bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20' });
     }
 
     // Fetch latest 5 bookings for Activity feed
@@ -52,11 +52,11 @@ export const Dashboard: React.FC = () => {
             <div className="px-2 border-b border-slate-200 pb-5 flex justify-between items-start">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Overview Dashboard</h1>
-                    <p className="text-slate-500 text-sm mt-2">Welcome back, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Travel CRM.</p>
+                    <p className="text-slate-500 text-sm mt-2">Welcome back, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Travel Window.</p>
                 </div>
                 <button
                     onClick={() => setIsNewBookingModalOpen(true)}
-                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow-sm transition-colors font-medium mt-1"
+                    className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold mt-1 transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                     <Plus size={18} />
                     <span>New Booking</span>

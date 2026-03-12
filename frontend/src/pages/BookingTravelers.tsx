@@ -308,7 +308,7 @@ export const BookingTravelers: React.FC = () => {
         return (
             <div className="p-8 text-center text-slate-500">
                 <p>Booking not found.</p>
-                <Link to="/bookings" className="mt-4 inline-block text-indigo-600 hover:text-indigo-800">
+                <Link to="/bookings" className="mt-4 inline-block text-primary hover:opacity-80">
                     &larr; Back to Bookings
                 </Link>
             </div>
@@ -337,7 +337,7 @@ export const BookingTravelers: React.FC = () => {
                 {/* 1. TRAVELERS SECTION */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-2">
-                        <Users size={18} className="text-indigo-600" />
+                        <Users size={18} className="text-secondary" />
                         <h2 className="text-lg font-semibold text-slate-800">Traveler Details</h2>
                     </div>
 
@@ -346,7 +346,7 @@ export const BookingTravelers: React.FC = () => {
                             <div key={field.id} className="p-5 bg-slate-50/50 border border-slate-200 rounded-lg relative">
                                 <div className="flex justify-between items-center mb-5 border-b border-slate-200 pb-3">
                                     <h4 className="font-semibold text-slate-800 flex items-center gap-2">
-                                        <span className="bg-indigo-100 text-indigo-800 w-6 h-6 rounded-full flex items-center justify-center text-xs">{index + 1}</span>
+                                        <span className="bg-secondary/10 text-secondary w-6 h-6 rounded-full flex items-center justify-center text-xs">{index + 1}</span>
                                         Traveler {index === 0 ? '(Primary)' : ''}
                                     </h4>
                                     {fields.length > 1 && (
@@ -365,7 +365,7 @@ export const BookingTravelers: React.FC = () => {
                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Full Name *</label>
                                         <input
                                             {...register(`travelers.${index}.name` as const)}
-                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
                                             placeholder="John Doe"
                                         />
                                         {errors.travelers?.[index]?.name && (
@@ -380,7 +380,7 @@ export const BookingTravelers: React.FC = () => {
                                         <div className="flex gap-2">
                                             <select
                                                 {...register(`travelers.${index}.countryCode` as const)}
-                                                className="w-[100px] px-2 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                                className="w-[100px] px-2 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm"
                                             >
                                                 {countryCodes.map(cc => (
                                                     <option key={cc.code} value={cc.code}>{cc.code} ({cc.name})</option>
@@ -388,7 +388,7 @@ export const BookingTravelers: React.FC = () => {
                                             </select>
                                             <input
                                                 {...register(`travelers.${index}.phoneNumber` as const)}
-                                                className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                                className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm"
                                                 placeholder="9876543210"
                                             />
                                         </div>
@@ -401,7 +401,7 @@ export const BookingTravelers: React.FC = () => {
                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Flow</label>
                                         <input
                                             {...register(`travelers.${index}.email` as const)}
-                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
                                             placeholder="john@example.com"
                                         />
                                         {errors.travelers?.[index]?.email && (
@@ -418,7 +418,7 @@ export const BookingTravelers: React.FC = () => {
                                                 type="date"
                                                 max={new Date().toISOString().split('T')[0]}
                                                 {...register(`travelers.${index}.dob` as const)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300 transition-colors"
+                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
                                             />
                                         </div>
                                         <div>
@@ -429,15 +429,15 @@ export const BookingTravelers: React.FC = () => {
                                                 type="date"
                                                 max={new Date().toISOString().split('T')[0]}
                                                 {...register(`travelers.${index}.anniversary` as const)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300 transition-colors"
+                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
                                             />
                                         </div>
                                     </div>
 
                                     {index === 0 && (
-                                        <div className="md:col-span-2 mt-4 p-4 bg-indigo-50/50 rounded-lg border border-indigo-100/60">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-4 flex items-center gap-2">
-                                                <Plane size={16} className="text-indigo-500" /> Primary Flight Details
+                                        <div className="md:col-span-2 mt-4 p-4 bg-secondary/5 rounded-lg border border-secondary/10">
+                                            <h5 className="text-sm font-bold text-secondary mb-4 flex items-center gap-2">
+                                                <Plane size={16} className="text-secondary" /> Primary Flight Details
                                             </h5>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -445,7 +445,7 @@ export const BookingTravelers: React.FC = () => {
                                                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">Destination Country</label>
                                                     <input
                                                         {...register(`travelers.${index}.country` as const)}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
                                                         placeholder="e.g. France"
                                                     />
                                                 </div>
@@ -480,7 +480,7 @@ export const BookingTravelers: React.FC = () => {
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                            <Plane size={13} className="text-indigo-400" /> Departure
+                                                            <Plane size={13} className="text-secondary" /> Departure
                                                         </label>
                                                         <input
                                                             type="datetime-local"
@@ -511,7 +511,7 @@ export const BookingTravelers: React.FC = () => {
                                                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">Trip Type</label>
                                                     <select
                                                         {...register(`travelers.${index}.tripType` as const)}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer"
                                                     >
                                                         <option value="one-way">One Way</option>
                                                         <option value="round-trip">Round Trip</option>
@@ -563,7 +563,7 @@ export const BookingTravelers: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => append(emptyTraveler)}
-                            className="flex items-center space-x-2 text-indigo-700 hover:text-indigo-800 font-semibold text-sm transition-all w-full justify-center p-4 border-2 border-dashed border-indigo-200 bg-indigo-50/50 rounded-xl hover:bg-indigo-100/50 hover:border-indigo-300"
+                            className="flex items-center space-x-2 text-secondary hover:opacity-80 font-semibold text-sm transition-all w-full justify-center p-4 border-2 border-dashed border-secondary/20 bg-secondary/5 rounded-xl hover:bg-secondary/10 hover:border-secondary/30"
                         >
                             <Plus size={18} />
                             <span>Add Another Passenger</span>
@@ -579,9 +579,9 @@ export const BookingTravelers: React.FC = () => {
                             <h2 className="text-base font-semibold text-slate-800">Pricing Information</h2>
                         </div>
                         <div className="flex items-center gap-4 text-sm font-medium">
-                            <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                                <span className="text-indigo-600 text-[10px] font-bold uppercase tracking-wider">Passengers:</span>
-                                <span className="text-indigo-900 font-bold text-base">{travelersWatch?.length || 0}</span>
+                            <div className="flex items-center gap-1.5 bg-secondary/10 px-3 py-1 rounded-full border border-secondary/20">
+                                <span className="text-secondary text-[10px] font-bold uppercase tracking-wider">Passengers:</span>
+                                <span className="text-secondary font-bold text-base">{travelersWatch?.length || 0}</span>
                             </div>
                         </div>
                     </div>
@@ -600,7 +600,7 @@ export const BookingTravelers: React.FC = () => {
                                         step="0.01"
                                         value={lumpSumAmount || ''}
                                         onChange={(e) => setLumpSumAmount(parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-xl font-bold text-slate-800 transition-all shadow-sm"
+                                        className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-xl font-bold text-slate-800 transition-all shadow-sm"
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -610,11 +610,11 @@ export const BookingTravelers: React.FC = () => {
                                 <Plus size={20} className="rotate-45" /> {/* Keep icon but no multiplication */}
                             </div>
 
-                            <div className="flex-1 bg-indigo-50/30 rounded-lg border border-indigo-100/50 p-4 flex flex-col justify-center items-center md:items-end">
-                                <label className="block text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1 items-center gap-1.5 flex">
+                            <div className="flex-1 bg-secondary/5 rounded-lg border border-secondary/10 p-4 flex flex-col justify-center items-center md:items-end">
+                                <label className="block text-[10px] font-bold text-secondary uppercase tracking-widest mb-1 items-center gap-1.5 flex">
                                     <CreditCard size={10} /> Total Payment Amount
                                 </label>
-                                <div className="text-4xl font-bold text-indigo-700 tracking-tight">
+                                <div className="text-4xl font-bold text-secondary tracking-tight">
                                     <span className="text-2xl mr-0.5 font-semibold">$</span>{totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
@@ -799,7 +799,7 @@ export const BookingTravelers: React.FC = () => {
                     <button
                         type="submit"
                         disabled={saveChangesMutation.isPending}
-                        className="px-8 py-3 flex items-center gap-2 text-sm font-bold text-white bg-indigo-600 border border-transparent rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        className="px-8 py-3 flex items-center gap-2 text-sm font-bold text-white bg-brand-gradient border border-transparent rounded-xl shadow-md hover:opacity-90 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                         {saveChangesMutation.isPending ? 'Saving All Changes...' : 'Save & Confirm Booking'}
                     </button>

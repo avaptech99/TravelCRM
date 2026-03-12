@@ -144,7 +144,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         >
                             <option value="Pending">Pending</option>
                             <option value="Working">Working</option>
@@ -160,7 +160,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                             <select
                                 value={assignedToUserId}
                                 onChange={(e) => setAssignedToUserId(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                             >
                                 <option value="" className="italic">-- Unassigned --</option>
                                 {agents.map(agent => (
@@ -176,7 +176,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         <select
                             value={interested}
                             onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         >
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
@@ -190,7 +190,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                             placeholder="Type any new updates or requirements..."
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 min-h-[100px]"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 min-h-[100px]"
                         />
                     </div>
                 </div>
@@ -217,7 +217,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                             type="button"
                             onClick={() => updateMutation.mutate()}
                             disabled={updateMutation.isPending || deleteMutation.isPending || !isDirty}
-                            className="text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 font-medium rounded-lg text-sm px-5 py-2 focus:ring-4 focus:outline-none focus:ring-indigo-300 transition-colors"
+                            className="text-white bg-brand-gradient hover:opacity-90 disabled:opacity-50 font-bold rounded-lg text-sm px-5 py-2 focus:ring-4 focus:outline-none focus:ring-primary/30 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                         </button>

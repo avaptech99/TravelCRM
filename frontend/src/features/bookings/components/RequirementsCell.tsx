@@ -38,7 +38,7 @@ export const RequirementsCell: React.FC<RequirementsCellProps> = ({ booking }) =
                 className="group block mb-1 relative"
                 title={tooltip}
             >
-                <span className="text-slate-800 font-medium whitespace-normal group-hover:text-indigo-600 transition-colors block line-clamp-2">
+                <span className="text-slate-800 font-medium whitespace-normal group-hover:text-primary transition-colors block line-clamp-2">
                     {val}
                 </span>
 

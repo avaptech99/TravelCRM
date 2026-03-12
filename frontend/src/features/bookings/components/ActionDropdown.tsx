@@ -33,7 +33,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                 <>
                     <button
                         onClick={() => onEditClick(booking)}
-                        className="p-2 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors border border-transparent hover:border-indigo-200"
+                        className="p-2 text-secondary hover:text-secondary bg-secondary/10 hover:bg-secondary/20 rounded-md transition-colors border border-transparent hover:border-secondary/20"
                         title="Edit Booking"
                     >
                         <Edit size={16} />

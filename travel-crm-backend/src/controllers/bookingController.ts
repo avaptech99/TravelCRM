@@ -5,6 +5,7 @@ import Comment from '../models/Comment';
 import Traveler from '../models/Traveler';
 import User from '../models/User';
 import Payment from '../models/Payment';
+import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import {
     createBookingSchema,
@@ -282,6 +283,14 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             bookingId: id,
             createdById: req.user!.id,
         });
+
+        if (newAssignedUserId) {
+            await Notification.create({
+                userId: newAssignedUserId,
+                bookingId: id,
+                message: `Booking has been assigned to you.`,
+            });
+        }
     }
 
     const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');

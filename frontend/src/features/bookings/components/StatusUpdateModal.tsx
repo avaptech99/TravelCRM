@@ -55,7 +55,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
                             disabled={mutation.isPending || booking?.status === status}
                             className={`w-full text-left px-4 py-3 rounded-md transition-colors border ${booking?.status === status
                                 ? 'bg-slate-100 border-slate-200 text-slate-800 font-medium'
-                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50'
+                                : 'bg-white border-slate-200 hover:border-primary/50 hover:bg-primary/5'
                                 }`}
                         >
                             {status} {booking?.status === status && '(Current)'}

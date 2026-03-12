@@ -71,7 +71,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="John Doe"
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         />
                     </div>
 
@@ -82,7 +82,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="john@travel.com"
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         />
                     </div>
 
@@ -93,7 +93,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Min 6 characters"
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         />
                     </div>
 
@@ -102,7 +102,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                         <select
                             value={role}
                             onChange={(e) => setRole(e.target.value as 'ADMIN' | 'AGENT')}
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         >
                             <option value="AGENT">Agent</option>
                             <option value="ADMIN">Admin</option>
@@ -123,7 +123,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                         type="button"
                         onClick={() => mutation.mutate()}
                         disabled={mutation.isPending || !isFormValid}
-                        className="text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 font-medium rounded-lg text-sm px-5 py-2 focus:ring-4 focus:outline-none focus:ring-indigo-300 transition-colors ml-2"
+                        className="text-white bg-brand-gradient hover:opacity-90 disabled:opacity-50 font-bold rounded-lg text-sm px-5 py-2 focus:ring-4 focus:outline-none focus:ring-primary/30 transition-all ml-2 transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                         {mutation.isPending ? 'Saving...' : 'Create User'}
                     </button>

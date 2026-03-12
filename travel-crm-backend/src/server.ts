@@ -11,6 +11,7 @@ dotenv.config();
 import authRoutes from './routes/authRoutes';
 import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import connectDB from './config/db';
 
 const app: Express = express();
@@ -51,6 +52,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Basic health check route
 app.get('/', (req: Request, res: Response) => {

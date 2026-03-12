@@ -97,7 +97,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                     type="radio"
                                     value="B2B"
                                     {...register('bookingType')}
-                                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500"
+                                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
                                 />
                                 <span className="ml-2 text-sm font-medium text-slate-700">Agent (B2B)</span>
                             </label>
@@ -106,7 +106,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                     type="radio"
                                     value="B2C"
                                     {...register('bookingType')}
-                                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500"
+                                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
                                 />
                                 <span className="ml-2 text-sm font-medium text-slate-700">Direct (B2C)</span>
                             </label>
@@ -124,7 +124,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                             id="contactPerson"
                             type="text"
                             {...register('contactPerson')}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                             placeholder="Customer or Sub Agent Name"
                         />
                         {errors.contactPerson && (
@@ -139,7 +139,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                         <div className="flex gap-2">
                             <select
                                 {...register('countryCode')}
-                                className="w-[100px] px-2 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="w-[100px] px-2 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm"
                             >
                                 {countryCodes.map((cc) => (
                                     <option key={cc.code} value={cc.code}>
@@ -151,7 +151,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                 id="contactNumber"
                                 type="text"
                                 {...register('contactNumber')}
-                                className="flex-1 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                                 placeholder="9876543210"
                             />
                         </div>
@@ -171,7 +171,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                             id="requirements"
                             {...register('requirements')}
                             rows={3}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                             placeholder="Detailed travel requirements..."
                         />
                         {errors.requirements && (
@@ -191,7 +191,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                         <button
                             type="submit"
                             disabled={mutation.isPending || isSubmitting}
-                            className="px-4 py-2 bg-indigo-600 border border-transparent text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-2 bg-brand-gradient border border-transparent text-white rounded-md hover:opacity-90 shadow-md transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {mutation.isPending ? 'Creating...' : 'Create Booking'}
                         </button>
