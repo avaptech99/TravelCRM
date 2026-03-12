@@ -183,7 +183,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
-        return res.json(cached);
+        res.json(cached);
+        return;
     }
 
     console.log(`[GET] /api/bookings/${id}`);
