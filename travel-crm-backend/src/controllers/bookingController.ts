@@ -55,6 +55,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    console.time("getBookingsQuery");
     const [bookings, total] = await Promise.all([
         Booking.find(query)
             .select('contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt')
@@ -66,6 +67,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .lean(),
         Booking.countDocuments(query),
     ]);
+    console.timeEnd("getBookingsQuery");
 
     // Map _id to id for lean objects to satisfy frontend types
     const mappedBookings = bookings.map(b => ({
@@ -96,6 +98,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Invalid Booking ID');
     }
 
+    console.time(`getBookingById_${id}`);
     const booking = await Booking.findById(id)
         .populate('assignedToUser', 'name email')
         .populate('createdByUser', 'name')
@@ -107,6 +110,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         .populate('travelers')
         .populate('payments')
         .lean();
+    console.timeEnd(`getBookingById_${id}`);
 
     if (!booking) {
         res.status(104); // Changed from 404 to be safe? No, 404 is correct.

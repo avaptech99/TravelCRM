@@ -14,7 +14,10 @@ const connectDB = async () => {
             return;
         }
 
-        const conn = await mongoose.connect(mongoURI);
+        const conn = await mongoose.connect(mongoURI, {
+            maxPoolSize: 20,
+            minPoolSize: 5,
+        });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
         if (error instanceof Error) {
