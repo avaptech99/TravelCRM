@@ -7,6 +7,7 @@ import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
+import appCache from '../utils/cache';
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -17,12 +18,27 @@ import {
     createPaymentSchema,
 } from '../types';
 
+// Helper to clear all booking-related caches
+const invalidateBookingCaches = () => {
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.invalidateByPrefix('recent_');
+    appCache.invalidateByPrefix('booking_');
+};
+
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
 // @access  Private
 export const getBookingStats = asyncHandler(async (req: Request, res: Response) => {
-    const query: any = {};
+    const cacheKey = `stats_${req.user?.id || 'all'}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
 
+    const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
     }
@@ -37,15 +53,24 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
     ]);
     console.timeEnd('getBookingStats');
 
-    res.json({ total, booked, pending, working, sent });
+    const result = { total, booked, pending, working, sent };
+    appCache.set(cacheKey, result, 30); // Cache for 30 seconds
+    res.json(result);
 });
 
 // @desc    Get recent bookings (lightweight, for dashboard)
 // @route   GET /api/bookings/recent
 // @access  Private
 export const getRecentBookings = asyncHandler(async (req: Request, res: Response) => {
-    const query: any = {};
+    const cacheKey = `recent_${req.user?.id || 'all'}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
 
+    const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
     }
@@ -58,6 +83,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
         .lean();
 
     const mapped = bookings.map(b => ({ ...b, id: b._id.toString() }));
+    appCache.set(cacheKey, mapped, 30); // Cache for 30 seconds
     res.json(mapped);
 });
 
@@ -67,10 +93,18 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10' } = req.query;
 
+    // Build a cache key from the query params
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${page}_${limit}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
+
     const query: any = {};
 
     if (req.user?.role === 'AGENT') {
-        // If an agent is searching, allow them to search the entire DB
         if (!search) {
             query.assignedToUserId = req.user.id;
         }
@@ -115,13 +149,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     ]);
     console.timeEnd(`getBookingsQuery_${reqId}`);
 
-    // Map _id to id for lean objects to satisfy frontend types
     const mappedBookings = bookings.map(b => ({
         ...b,
         id: b._id.toString()
     }));
 
-    res.json({
+    const result = {
         data: mappedBookings,
         meta: {
             total,
@@ -129,7 +162,10 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             limit: Number(limit),
             totalPages: Math.ceil(total / Number(limit)),
         },
-    });
+    };
+
+    appCache.set(cacheKey, result, 15); // Cache for 15 seconds
+    res.json(result);
 });
 
 // @desc    Get a single booking by ID
@@ -138,10 +174,16 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 export const getBookingById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Validate ObjectId to prevent 500 errors from CastError
     if (!mongoose.Types.ObjectId.isValid(id)) {
         res.status(400);
         throw new Error('Invalid Booking ID');
+    }
+
+    const cacheKey = `booking_${id}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        return res.json(cached);
     }
 
     console.log(`[GET] /api/bookings/${id}`);
@@ -161,12 +203,13 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     console.timeEnd(`getBookingById_${id}`);
 
     if (!booking) {
-        res.status(104); // Changed from 404 to be safe? No, 404 is correct.
         res.status(404);
         throw new Error('Booking not found');
     }
 
-    res.json({ ...booking, id: booking._id.toString() });
+    const result = { ...booking, id: booking._id.toString() };
+    appCache.set(cacheKey, result, 30); // Cache for 30 seconds
+    res.json(result);
 });
 
 // @desc    Delete booking
@@ -196,6 +239,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     ]);
     console.timeEnd(`deleteBooking_${req.params.id}`);
 
+    invalidateBookingCaches();
     res.json({ message: 'Booking and all related records removed successfully' });
 });
 
@@ -216,6 +260,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
 
+    invalidateBookingCaches();
     res.status(201).json(booking);
 });
 
@@ -258,6 +303,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const updatedBooking = await booking.save();
 
+    invalidateBookingCaches();
     res.json(updatedBooking);
 });
 
@@ -292,6 +338,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     existingBooking.isConvertedToEDT = isConvertedToEDT;
     const updatedBooking = await existingBooking.save();
 
+    invalidateBookingCaches();
     res.json(updatedBooking);
 });
 
@@ -365,6 +412,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
 
+    invalidateBookingCaches();
     res.json(updatedBooking);
 });
 
@@ -400,6 +448,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 
     comment = await comment.populate('createdBy', 'name role');
 
+    invalidateBookingCaches();
     res.status(201).json(comment);
 });
 
@@ -459,6 +508,7 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
 
     const createdTravelers = await Traveler.insertMany(travelersData);
 
+    invalidateBookingCaches();
     res.status(201).json(createdTravelers);
 });
 
@@ -496,6 +546,7 @@ export const updateTravelers = asyncHandler(async (req: Request, res: Response) 
     await Traveler.deleteMany({ bookingId: id });
     const createdTravelers = await Traveler.insertMany(travelersData);
 
+    invalidateBookingCaches();
     res.json(createdTravelers);
 });
 
@@ -528,6 +579,7 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         bookingId: id,
     });
 
+    invalidateBookingCaches();
     res.status(201).json(payment);
 });
 
@@ -577,5 +629,6 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
 
     await Payment.findByIdAndDelete(paymentId);
 
+    invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });

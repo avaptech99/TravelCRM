@@ -3,17 +3,27 @@ import asyncHandler from 'express-async-handler';
 import User from '../models/User';
 import { createUserSchema } from '../types';
 import bcrypt from 'bcryptjs';
+import appCache from '../utils/cache';
 
 // @desc    Get all agents
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
 export const getAgents = asyncHandler(async (req: Request, res: Response) => {
+    const cacheKey = 'users_agents';
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
+
     const agents = await User.find({ role: 'AGENT' })
         .select('name email')
         .sort({ name: 1 })
         .lean();
 
     const mappedAgents = agents.map(a => ({ ...a, id: a._id.toString() }));
+    appCache.set(cacheKey, mappedAgents, 60); // Cache for 60 seconds (agents rarely change)
     res.json(mappedAgents);
 });
 
@@ -21,12 +31,21 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
 // @route   GET /api/users
 // @access  Private/Admin
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const cacheKey = 'users_all';
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
+
     const users = await User.find()
         .select('name email role createdAt')
         .sort({ createdAt: -1 })
         .lean();
 
     const mappedUsers = users.map(u => ({ ...u, id: u._id.toString() }));
+    appCache.set(cacheKey, mappedUsers, 60); // Cache for 60 seconds
     res.json(mappedUsers);
 });
 
@@ -57,6 +76,9 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         passwordHash,
         role,
     });
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
 
     res.status(201).json({
         id: user._id,
@@ -95,6 +117,9 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
     }
 
     await User.findByIdAndDelete(id);
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
 
     res.json({ message: 'User removed successfully' });
 });

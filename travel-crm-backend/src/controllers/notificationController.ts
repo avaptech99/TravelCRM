@@ -1,11 +1,20 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification';
+import appCache from '../utils/cache';
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
 export const getMyNotifications = asyncHandler(async (req: Request, res: Response) => {
+    const cacheKey = `notifications_${req.user?.id}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
+
     const notifications = await Notification.find({ userId: req.user?.id })
         .sort({ createdAt: -1 })
         .limit(20)
@@ -16,6 +25,7 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
         id: n._id.toString()
     }));
 
+    appCache.set(cacheKey, mappedNotifications, 30); // Cache for 30 seconds
     res.json(mappedNotifications);
 });
 
@@ -38,5 +48,7 @@ export const markNotificationAsRead = asyncHandler(async (req: Request, res: Res
     notification.read = true;
     await notification.save();
 
+    // Invalidate this user's notification cache
+    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
     res.json(notification);
 });
