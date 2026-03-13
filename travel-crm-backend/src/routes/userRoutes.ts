@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
@@ -15,6 +15,15 @@ router.put('/profile', protect, updateProfile);
 
 // Get all users (Admin only)
 router.get('/', protect, adminGuard, getAllUsers);
+
+// Create user (Admin only)
+router.post('/', protect, adminGuard, createUser);
+
+// Delete user (Admin only)
+router.delete('/:id', protect, adminGuard, deleteUser);
+
+// Update user (Admin only)
+router.put('/:id', protect, adminGuard, updateUserById);
 
 // Create user (Admin only)
 router.post('/', protect, adminGuard, createUser);

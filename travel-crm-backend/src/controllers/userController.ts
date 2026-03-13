@@ -198,3 +198,49 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
         token: newToken
     });
 });
+
+// @desc    Update user by ID (Admin only)
+// @route   PUT /api/users/:id
+// @access  Private/Admin
+export const updateUserById = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, email, role, password } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    if (email && email !== user.email) {
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+            res.status(400);
+            throw new Error('Email is already in use by another account');
+        }
+    }
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+    if (role) user.role = role;
+
+    if (password) {
+        if (password.length < 6) {
+            res.status(400);
+            throw new Error('Password must be at least 6 characters');
+        }
+        user.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    await user.save();
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
+
+    res.json({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+    });
+});

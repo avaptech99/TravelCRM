@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
 import { AddUserModal } from '../features/users/components/AddUserModal';
-import { Trash2, Plus } from 'lucide-react';
+import { EditUserModal } from '../features/users/components/EditUserModal';
+import { Trash2, Plus, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface User {
@@ -16,7 +17,8 @@ interface User {
 
 export const Users: React.FC = () => {
     const queryClient = useQueryClient();
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [editUser, setEditUser] = useState<User | null>(null);
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
@@ -53,7 +55,7 @@ export const Users: React.FC = () => {
                     <p className="text-slate-500 text-sm mt-1">View and manage all system administrators and agents.</p>
                 </div>
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => setIsAddModalOpen(true)}
                     className="flex items-center gap-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                     <Plus size={18} /> Add New User
@@ -93,7 +95,14 @@ export const Users: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                             {dayjs(user.createdAt).format('MMM DD, YYYY')}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
+                                            <button
+                                                onClick={() => setEditUser(user)}
+                                                className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50"
+                                                title="Edit user"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
                                             <button
                                                 onClick={() => deleteMutation.mutate(user.id)}
                                                 className="text-slate-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
@@ -117,7 +126,8 @@ export const Users: React.FC = () => {
                 </div>
             </div>
 
-            <AddUserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <AddUserModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <EditUserModal isOpen={!!editUser} onClose={() => setEditUser(null)} user={editUser} />
         </div>
     );
 };

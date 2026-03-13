@@ -98,7 +98,8 @@ export const Settings: React.FC = () => {
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required
-                                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                                    disabled={user?.role === 'AGENT'}
+                                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
                         </div>
@@ -114,7 +115,8 @@ export const Settings: React.FC = () => {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                                    disabled={user?.role === 'AGENT'}
+                                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
                         </div>
@@ -132,18 +134,22 @@ export const Settings: React.FC = () => {
                                     className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed"
                                 />
                             </div>
-                            <p className="text-xs text-slate-400 mt-1">Roles cannot be changed here.</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                {user?.role === 'AGENT' ? 'Please contact an administrator to change your profile details.' : 'Roles cannot be changed here.'}
+                            </p>
                         </div>
 
-                        <div className="pt-4 flex justify-end">
-                            <button
-                                type="submit"
-                                disabled={profileMutation.isPending || (name === user?.name && email === user?.email)}
-                                className="px-5 py-2 bg-slate-900 border border-transparent text-white rounded-md hover:bg-slate-800 shadow-md transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {profileMutation.isPending ? 'Saving...' : 'Save Profile'}
-                            </button>
-                        </div>
+                        {user?.role !== 'AGENT' && (
+                            <div className="pt-4 flex justify-end">
+                                <button
+                                    type="submit"
+                                    disabled={profileMutation.isPending || (name === user?.name && email === user?.email)}
+                                    className="px-5 py-2 bg-slate-900 border border-transparent text-white rounded-md hover:bg-slate-800 shadow-md transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {profileMutation.isPending ? 'Saving...' : 'Save Profile'}
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
 
