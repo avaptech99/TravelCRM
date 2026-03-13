@@ -15,6 +15,10 @@ export interface IBooking extends Document {
     totalAmount?: number;
     createdAt: Date;
     updatedAt: Date;
+    uniqueCode: string;
+    destinationCity?: string;
+    travelDate?: Date;
+    travellers?: number;
 }
 
 const bookingSchema = new Schema<IBooking>(
@@ -31,6 +35,10 @@ const bookingSchema = new Schema<IBooking>(
         interested: { type: String, enum: ['Yes', 'No'], default: 'No' },
         pricePerTicket: { type: Number, default: 0 },
         totalAmount: { type: Number, default: 0 },
+        uniqueCode: { type: String, unique: true, sparse: true },
+        destinationCity: { type: String, default: null },
+        travelDate: { type: Date, default: null },
+        travellers: { type: Number, default: null },
     },
     {
         timestamps: true, // Automatically manages createdAt and updatedAt
@@ -42,6 +50,7 @@ const bookingSchema = new Schema<IBooking>(
 // Indexes to speed up queries
 bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ status: 1 });
+bookingSchema.index({ uniqueCode: 1 });
 bookingSchema.index({ assignedToUserId: 1 });
 bookingSchema.index({ contactPerson: 1 });
 bookingSchema.index({ contactNumber: 1 });
@@ -78,6 +87,22 @@ bookingSchema.virtual('travelers', {
     ref: 'Traveler',
     localField: '_id',
     foreignField: 'bookingId',
+});
+
+bookingSchema.pre('save', async function () {
+    if (!this.uniqueCode) {
+        let isUnique = false;
+        let code = '';
+        while (!isUnique) {
+            code = Math.floor(1000 + Math.random() * 9000).toString();
+            // @ts-ignore
+            const existing = await mongoose.models.Booking.findOne({ uniqueCode: code });
+            if (!existing) {
+                isUnique = true;
+            }
+        }
+        this.uniqueCode = code;
+    }
 });
 
 const Booking: Model<IBooking> = mongoose.model<IBooking>('Booking', bookingSchema);

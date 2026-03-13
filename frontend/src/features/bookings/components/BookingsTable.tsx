@@ -14,8 +14,9 @@ import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-import { RequirementsCell } from './RequirementsCell';
+
 
 interface BookingsTableProps {
     statusFilter?: string;
@@ -25,6 +26,7 @@ interface BookingsTableProps {
 
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
@@ -58,6 +60,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     const columnHelper = createColumnHelper<Booking>();
 
     const columns = [
+        columnHelper.accessor('uniqueCode', {
+            header: 'Booking ID',
+            cell: (info) => info.getValue() ? `#${info.getValue()}` : '-',
+        }),
         columnHelper.accessor('createdOn', {
             header: 'Created On',
             cell: (info) => dayjs(info.getValue()).format('DD MMM YYYY'),
@@ -72,9 +78,20 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         columnHelper.accessor('contactNumber', {
             header: 'Contact Number',
         }),
-        columnHelper.accessor('requirements', {
-            header: 'Requirements & Flight Info',
-            cell: (info) => <RequirementsCell booking={info.row.original} />
+        columnHelper.accessor((row) => {
+            const flightDestination = row.travelers?.[0]?.country;
+            return flightDestination || row.destinationCity || '-';
+        }, {
+            id: 'destination',
+            header: 'Destination',
+        }),
+        columnHelper.accessor((row) => {
+            const flightDate = row.travelers?.[0]?.departureTime;
+            const date = flightDate || row.travelDate;
+            return date ? dayjs(date).format('DD MMM YYYY') : '-';
+        }, {
+            id: 'travelDate',
+            header: 'Travel Date',
         }),
         columnHelper.display({
             id: 'status',
@@ -156,11 +173,21 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
                             {table.getRowModel().rows.map((row) => (
-                                <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                                <tr 
+                                    key={row.id} 
+                                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                    onClick={() => navigate(`/bookings/${row.original.id}`)}
+                                >
                                     {row.getVisibleCells().map((cell) => (
                                         <td
                                             key={cell.id}
                                             className="px-3 py-2 text-sm text-slate-700"
+                                            onClick={(e) => {
+                                                // Prevent navigation when clicking on the Actions column
+                                                if (cell.column.id === 'actions') {
+                                                    e.stopPropagation();
+                                                }
+                                            }}
                                         >
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>

@@ -1,0 +1,20 @@
+[{
+  "_id": {
+    "$oid": "69b29344513557b819d8d8f6"
+  },
+  "userId": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "bookingId": {
+    "$oid": "69b29336513557b819d8d8cc"
+  },
+  "message": "Booking has been assigned to you.",
+  "read": false,
+  "createdAt": {
+    "$date": "2026-03-12T10:19:48.741Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-12T10:19:48.741Z"
+  },
+  "__v": 0
+}]

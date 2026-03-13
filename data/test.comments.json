@@ -1,0 +1,128 @@
+[{
+  "_id": {
+    "$oid": "69b031332ee7fedb5217364b"
+  },
+  "bookingId": {
+    "$oid": "69b0310f2ee7fedb5217363c"
+  },
+  "createdById": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "text": "fgdfx",
+  "createdAt": {
+    "$date": "2026-03-10T14:56:51.202Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b1491883123ddbee5f48b2"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdById": {
+    "$oid": "69b1485583123ddbee5f4849"
+  },
+  "text": "Client interested, started working on it ",
+  "createdAt": {
+    "$date": "2026-03-11T10:51:04.419Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b1493883123ddbee5f48f6"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdById": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "text": "Jaspreet ➔ Deepak",
+  "createdAt": {
+    "$date": "2026-03-11T10:51:36.965Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b1496783123ddbee5f490e"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdById": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "text": "Jaspreet on holiday, going for booking",
+  "createdAt": {
+    "$date": "2026-03-11T10:52:23.117Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b1497183123ddbee5f4918"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdById": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "text": "Jaspreet on holiday, going for booking",
+  "createdAt": {
+    "$date": "2026-03-11T10:52:33.870Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b149ac83123ddbee5f4928"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdById": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "text": "jaspreet on not available, entering passenger details",
+  "createdAt": {
+    "$date": "2026-03-11T10:53:32.724Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b183edf0a8b4b0237292a7"
+  },
+  "bookingId": {
+    "$oid": "69b183dbf0a8b4b023729291"
+  },
+  "createdById": {
+    "$oid": "69ae7ab0c8fbcb313fa0c744"
+  },
+  "text": "WORKING ",
+  "createdAt": {
+    "$date": "2026-03-11T15:02:05.514Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b183edf0a8b4b0237292a9"
+  },
+  "bookingId": {
+    "$oid": "69b183dbf0a8b4b023729291"
+  },
+  "createdById": {
+    "$oid": "69ae7ab0c8fbcb313fa0c744"
+  },
+  "text": "Unassigned ➔ Deepak",
+  "createdAt": {
+    "$date": "2026-03-11T15:02:05.624Z"
+  },
+  "__v": 0
+}]

@@ -63,6 +63,10 @@ export interface Booking {
     pricePerTicket?: number;
     totalAmount?: number;
     interested?: 'Yes' | 'No';
+    uniqueCode?: string;
+    destinationCity?: string;
+    travelDate?: string;
+    travellers?: number;
 }
 
 export interface PaginatedResponse<T> {

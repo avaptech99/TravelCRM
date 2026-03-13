@@ -8,6 +8,7 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
+import { extractTravelInfo } from '../utils/extractTravelInfo';
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -40,21 +41,38 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
 
     const query: any = {};
     if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = req.user.id;
+        // Must convert ID string to ObjectId for aggregate $match
+        query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
     console.time('getBookingStats');
-    const [total, booked, pending, working, sent] = await Promise.all([
-        Booking.countDocuments(query),
-        Booking.countDocuments({ ...query, status: 'Booked' }),
-        Booking.countDocuments({ ...query, status: 'Pending' }),
-        Booking.countDocuments({ ...query, status: 'Working' }),
-        Booking.countDocuments({ ...query, status: 'Sent' }),
+    
+    // Use a single aggregation pipeline instead of 5 separate countDocuments
+    // This reduces DB round trips from 5 -> 1, massively improving cold-cache latency
+    const stats = await Booking.aggregate([
+        { $match: query },
+        {
+            $group: {
+                _id: null,
+                total: { $sum: 1 },
+                booked: { $sum: { $cond: [{ $eq: ["$status", "Booked"] }, 1, 0] } },
+                pending: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] } },
+                working: { $sum: { $cond: [{ $eq: ["$status", "Working"] }, 1, 0] } },
+                sent: { $sum: { $cond: [{ $eq: ["$status", "Sent"] }, 1, 0] } }
+            }
+        }
     ]);
     console.timeEnd('getBookingStats');
 
-    const result = { total, booked, pending, working, sent };
-    appCache.set(cacheKey, result, 30); // Cache for 30 seconds
+    const result = stats.length > 0 ? {
+        total: stats[0].total,
+        booked: stats[0].booked,
+        pending: stats[0].pending,
+        working: stats[0].working,
+        sent: stats[0].sent
+    } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
+
+    appCache.set(cacheKey, result, 120); // Cache for 120 seconds, invalidates on mutation
     res.json(result);
 });
 
@@ -76,14 +94,14 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const bookings = await Booking.find(query)
-        .select('contactPerson status assignedToUserId createdAt')
+        .select('contactPerson status assignedToUserId createdAt destinationCity travelDate travellers')
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUser', 'name')
         .lean();
 
     const mapped = bookings.map(b => ({ ...b, id: b._id.toString() }));
-    appCache.set(cacheKey, mapped, 30); // Cache for 30 seconds
+    appCache.set(cacheKey, mapped, 60); // Cache for 60 seconds
     res.json(mapped);
 });
 
@@ -122,6 +140,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             { contactPerson: { $regex: searchStr, $options: 'i' } },
             { contactNumber: { $regex: searchStr, $options: 'i' } },
             { requirements: { $regex: searchStr, $options: 'i' } },
+            { uniqueCode: searchStr },
         ];
     }
 
@@ -138,12 +157,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking.find(query)
-            .select('contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt')
+            .select('uniqueCode contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt destinationCity travelDate travellers')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
             .populate('assignedToUser', 'name')
             .populate('createdByUser', 'name')
+            .populate('travelers', 'country departureTime')
             .lean(),
         Booking.countDocuments(query),
     ]);
@@ -164,7 +184,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         },
     };
 
-    appCache.set(cacheKey, result, 15); // Cache for 15 seconds
+    appCache.set(cacheKey, result, 60); // Cache for 60 seconds
     res.json(result);
 });
 
@@ -209,7 +229,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     }
 
     const result = { ...booking, id: booking._id.toString() };
-    appCache.set(cacheKey, result, 30); // Cache for 30 seconds
+    appCache.set(cacheKey, result, 60); // Cache for 60 seconds
     res.json(result);
 });
 
@@ -255,8 +275,14 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid input');
     }
 
+    const requirements = result.data.requirements || '';
+    const travelInfo = extractTravelInfo(requirements);
+
     const booking = await Booking.create({
         ...result.data,
+        destinationCity: travelInfo.destinationCity,
+        travelDate: travelInfo.travelDate,
+        travellers: travelInfo.travellers,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
@@ -291,6 +317,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     if (result.data.requirements !== undefined) {
         booking.requirements = result.data.requirements || null;
+        const travelInfo = extractTravelInfo(result.data.requirements || '');
+        booking.destinationCity = travelInfo.destinationCity;
+        booking.travelDate = travelInfo.travelDate;
+        booking.travellers = travelInfo.travellers;
     }
     if (result.data.pricePerTicket !== undefined) {
         booking.pricePerTicket = result.data.pricePerTicket;

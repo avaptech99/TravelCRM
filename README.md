@@ -1,84 +1,64 @@
-# Travel CRM Full-Stack Application
+# Travel CRM - AI-Powered Booking Management
 
-A comprehensive Travel Booking CRM designed for travel agencies to manage leads, bookings, and traveler details. It features a complete dashboard to track conversions, handle statuses securely, and assign leads to agents. 
+A modern, full-stack CRM designed for travel agencies. This application streamlines the booking process with automated travel information extraction and a robust data hierarchy.
 
-Built with **React 18 + Vite** on the frontend, and **Node.js + Express + Prisma (SQLite)** on the backend.
+## 🚀 Key Features
 
-## Tech Stack
-**Frontend (travel-crm/frontend):**
-- React 18 (TypeScript) with Vite
-- Tailwind CSS & shadcn/ui for sleek, modern UI components
-- TanStack Query (React Query) & TanStack Table
-- React Hook Form + Zod for robust client-side validation
-- Axios & Sonner (toast notifications)
+- **AI-Powered Extraction**: Automatically extracts destination cities, travel dates, and traveler counts from natural language requirements.
+- **Smart Data Hierarchy**: Prioritizes manual input (Primary Flight Details) while falling back to AI-extracted data for a seamless UI.
+- **Auto-Status Management**: Automatically promotes bookings to "Booked" status when traveler details and payments are finalized.
+- **B2B & B2C Workflows**: Specialized handling for agent-led (B2B) and direct (B2C) bookings.
+- **Dynamic Dashboard**: Real-time tracking of recent bookings, lead conversions, and agent performance.
 
-**Backend (travel-crm/travel-crm-backend):**
-- Node.js & Express (TypeScript)
-- Prisma ORM with SQLite database
-- JWT Authentication & bcryptjs
-- Zod for request body validation
+## 🛠 Tech Stack
 
-## Setup Instructions
+### Backend
+- **Core**: Node.js & Express (TypeScript)
+- **Database**: MongoDB with Mongoose ODM
+- **NLP Libraries**: `chrono-node` (Date detection), `compromise` (Place/Entity detection)
+- **Authentication**: JWT & bcryptjs
 
-1. **Clone the repository** (if applicable) and navigate to the project root:
-   ```bash
-   git clone <your-repo-url>
-   cd travel-crm
-   ```
+### Frontend
+- **Framework**: React 18 (TypeScript) with Vite
+- **State Management**: TanStack Query (React Query)
+- **Table System**: TanStack Table
+- **Styling**: Tailwind CSS & Modern Glassmorphism UI
+- **Forms**: React Hook Form + Zod
 
-2. **Install root dependencies** (for concurrently):
+## 🏁 Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- MongoDB (Local or Atlas)
+
+### Setup
+
+1. **Clone & Install Dependencies**
    ```bash
    npm install
-   ```
-
-3. **Install backend dependencies**:
-   ```bash
    cd travel-crm-backend && npm install
+   cd ../frontend && npm install
    ```
 
-4. **Set up Backend Environment**:
-   Inside the `travel-crm-backend` folder, duplicate `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-   *Edit `.env` to include a secure `JWT_SECRET` string.*
+2. **Backend Configuration**
+   - Create a `.env` file in `travel-crm-backend/` based on `.env.example`.
+   - Set your `MONGODB_URI` and `JWT_SECRET`.
 
-5. **Initialize the Database**:
-   From the project root, run:
+3. **Seeding (Optional)**
    ```bash
-   npm run prisma:generate
-   npm run prisma:migrate
-   ```
-
-6. **Seed the Database with default users**:
-   ```bash
+   cd travel-crm-backend
    npm run seed
    ```
 
-7. **Install Frontend dependencies**:
-   ```bash
-   cd frontend && npm install
-   ```
-
-8. **Start the Application**:
-   From the project root, start both frontend and backend concurrently:
+4. **Run Development Mode**
+   From the root directory:
    ```bash
    npm run dev
    ```
 
-## Default Credentials
+## 📖 Documentation for Developers
 
-Once the database is seeded, you can log in with:
-- **Admin**: `admin@travel.com` / `admin123`
-- **Agent**: `agent@travel.com` / `agent123`
+For a deep dive into the architecture, AI extraction logic, and data hierarchy, please refer to the [DEVELOPER_DOCS.md](DEVELOPER_DOCS.md).
 
-## API & Services
-- **Backend API Base**: `http://localhost:5000/api`
-- **Frontend App**: `http://localhost:5173`
-- Database: SQLite file generated at `travel-crm-backend/prisma/dev.db`
-
-## Key Integration Features & Fixes
-- **Unified Contract Sync**: The Prisma schema exactly matches frontend TypeScript definitions to eliminate runtime mismatches when converting properties or mapping statuses.
-- **Auto "Booked" Conversion flow**: When the frontend switches a booking status to `BOOKED` via the dropdown, the backend sets `isConvertedToEDT = true`. The frontend reacts immediately to open the Traveler detail modal.
-- **Robust Role Authorization**: The backend securely enforces that Agents can only read, interact, or modify their explicitly assigned bookings. Admin has an unrestricted view.
-- **Cross-Origin Security**: Backend CORS is strictly configured to permit `localhost:5173` providing strict cookie handling (if enabled) and origin checks.
+## 🤝 Contributing
+Please ensure you maintain the HSL color palette and modern UI aesthetics when adding new components. All backend routes must be protected with the `protect` middleware.

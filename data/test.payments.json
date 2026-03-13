@@ -1,0 +1,88 @@
+[{
+  "_id": {
+    "$oid": "69afd1706d1b8a9032fe72a3"
+  },
+  "bookingId": {
+    "$oid": "69ae7f24aa3a6aa81eeabb98"
+  },
+  "amount": 50000,
+  "paymentMethod": "Credit Card",
+  "transactionId": "TXN34R56475",
+  "remarks": "",
+  "date": {
+    "$date": "2026-03-10T00:00:00.000Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-10T08:08:16.685Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-10T08:08:16.685Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b14a3d83123ddbee5f493d"
+  },
+  "bookingId": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "amount": 70000,
+  "paymentMethod": "Bank Transfer",
+  "transactionId": null,
+  "remarks": null,
+  "date": {
+    "$date": "2026-03-11T00:00:00.000Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-11T10:55:57.110Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-11T10:55:57.110Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b1851ef0a8b4b0237292dd"
+  },
+  "bookingId": {
+    "$oid": "69b183dbf0a8b4b023729291"
+  },
+  "amount": 30000,
+  "paymentMethod": "Bank Transfer",
+  "transactionId": null,
+  "remarks": null,
+  "date": {
+    "$date": "2026-03-11T00:00:00.000Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-11T15:07:10.637Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-11T15:07:10.637Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b29379513557b819d8d917"
+  },
+  "bookingId": {
+    "$oid": "69b29336513557b819d8d8cc"
+  },
+  "amount": 20000,
+  "paymentMethod": "Bank Transfer",
+  "transactionId": null,
+  "remarks": null,
+  "date": {
+    "$date": "2026-03-12T00:00:00.000Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-12T10:20:41.268Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-12T10:20:41.268Z"
+  },
+  "__v": 0
+}]

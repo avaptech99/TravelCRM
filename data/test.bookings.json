@@ -1,0 +1,200 @@
+[{
+  "_id": {
+    "$oid": "69ae7f24aa3a6aa81eeabb98"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c744"
+  },
+  "contactPerson": "JOHN DEE",
+  "contactNumber": "+91 1234567890",
+  "requirements": "A trip to usa to see olympics",
+  "assignedToUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "status": "Booked",
+  "isConvertedToEDT": true,
+  "createdOn": {
+    "$date": "2026-03-09T08:04:52.293Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-09T08:04:52.298Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-10T08:04:54.503Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b00e37c19cebafba92198c"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "contactPerson": "Valjeet Singh",
+  "contactNumber": "9815440929",
+  "requirements": "Comments are here",
+  "assignedToUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "status": "Pending",
+  "isConvertedToEDT": false,
+  "pricePerTicket": 0,
+  "totalAmount": 0,
+  "createdOn": {
+    "$date": "2026-03-10T12:27:35.493Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-10T12:27:35.496Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-10T12:27:35.496Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b0310f2ee7fedb5217363c"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "contactPerson": "pawanpreet singh",
+  "contactNumber": "9883670000",
+  "requirements": "need dubai pakag \ntravel date 04 april call him",
+  "assignedToUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "status": "Booked",
+  "isConvertedToEDT": true,
+  "interested": "Yes",
+  "pricePerTicket": 50000.05,
+  "totalAmount": 100000.1,
+  "createdOn": {
+    "$date": "2026-03-10T14:56:15.690Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-10T14:56:15.694Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-10T15:01:36.167Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b0381a2ee7fedb521737e5"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c744"
+  },
+  "contactPerson": "PAWANPRET",
+  "contactNumber": "9883670000",
+  "requirements": "DFGEFG",
+  "assignedToUserId": null,
+  "status": "Pending",
+  "isConvertedToEDT": false,
+  "interested": "No",
+  "pricePerTicket": 0,
+  "totalAmount": 0,
+  "createdOn": {
+    "$date": "2026-03-10T15:26:18.034Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-10T15:26:18.035Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-10T15:26:18.035Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b12a5658964f0c8e93f30a"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "contactPerson": "CHERRY",
+  "contactNumber": "9815440929",
+  "requirements": "Comments",
+  "assignedToUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c745"
+  },
+  "status": "Pending",
+  "isConvertedToEDT": false,
+  "bookingType": "B2C",
+  "interested": "No",
+  "pricePerTicket": 0,
+  "totalAmount": 0,
+  "createdOn": {
+    "$date": "2026-03-11T08:39:50.992Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-11T08:39:50.995Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-11T08:39:50.995Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b148db83123ddbee5f4873"
+  },
+  "createdByUserId": {
+    "$oid": "69b1485583123ddbee5f4849"
+  },
+  "contactPerson": "JOHN DEE",
+  "contactNumber": "+91 9773449726",
+  "requirements": "Business trip to Singapore, 4-6 members",
+  "assignedToUserId": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "status": "Booked",
+  "isConvertedToEDT": true,
+  "bookingType": "B2C",
+  "interested": "Yes",
+  "pricePerTicket": 57500,
+  "totalAmount": 230000,
+  "createdOn": {
+    "$date": "2026-03-11T10:50:03.378Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-11T10:50:03.379Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-11T10:56:12.438Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b183dbf0a8b4b023729291"
+  },
+  "createdByUserId": {
+    "$oid": "69ae7ab0c8fbcb313fa0c744"
+  },
+  "contactPerson": "TEST",
+  "contactNumber": "+919883670000",
+  "requirements": "DUBAI 4 NIGHT 5 DAYS ",
+  "assignedToUserId": {
+    "$oid": "69b1482883123ddbee5f483d"
+  },
+  "status": "Booked",
+  "isConvertedToEDT": true,
+  "bookingType": "B2C",
+  "interested": "No",
+  "pricePerTicket": 20000,
+  "totalAmount": 40000,
+  "createdOn": {
+    "$date": "2026-03-11T15:01:47.583Z"
+  },
+  "createdAt": {
+    "$date": "2026-03-11T15:01:47.587Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-11T15:08:30.299Z"
+  },
+  "__v": 0
+}]

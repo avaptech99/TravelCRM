@@ -25,7 +25,7 @@ const travelerBaseSchema = z.object({
     returnDate: z.string().optional(),
     returnDepartureTime: z.string().optional(),
     returnArrivalTime: z.string().optional(),
-    dob: z.string().optional(),
+    dob: z.string().min(1, 'Date of Birth is required'),
     anniversary: z.string().optional(),
 });
 
@@ -104,6 +104,7 @@ export const BookingTravelers: React.FC = () => {
     const [paymentTransactionId, setPaymentTransactionId] = useState<string>('');
     const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [paymentRemarks, setPaymentRemarks] = useState<string>('');
+    const [keepSameContact, setKeepSameContact] = useState<boolean>(true);
 
     const isInitialized = useRef(false);
     const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
@@ -140,6 +141,7 @@ export const BookingTravelers: React.FC = () => {
         control,
         handleSubmit,
         reset,
+        setValue,
         watch,
         formState: { errors },
     } = useForm<FormValues>({
@@ -208,9 +210,74 @@ export const BookingTravelers: React.FC = () => {
                 const passengerCount = booking.travelers ? booking.travelers.length : 1;
                 setLumpSumAmount(booking.pricePerTicket * passengerCount);
             }
+            if (booking.bookingType === 'B2B') {
+               setKeepSameContact(true);
+            } else {
+               setKeepSameContact(false);
+            }
             isInitialized.current = true;
         }
     }, [booking, reset]);
+
+    // Auto-fill primary traveler from booking contact details if empty initially
+    useEffect(() => {
+        if (booking && fields.length > 0 && !fields[0].name && !fields[0].phoneNumber) {
+             const rawPhone = booking.contactNumber || '';
+             let cCode = '+91';
+             let pNumber = rawPhone;
+
+             // Try to find the matching country code from our list
+             const matchedCC = countryCodes.find(cc => rawPhone.startsWith(cc.code));
+             if (matchedCC) {
+                 cCode = matchedCC.code;
+                 pNumber = rawPhone.slice(matchedCC.code.length);
+             }
+
+             const currentTravelers = watch('travelers');
+             if(currentTravelers && currentTravelers[0]) {
+                 currentTravelers[0].name = booking.contactPerson;
+                 currentTravelers[0].countryCode = cCode;
+                 currentTravelers[0].phoneNumber = pNumber;
+                 
+                 // Auto-reflect extracted data if fields are empty
+                 if (!currentTravelers[0].country && booking.destinationCity) {
+                     currentTravelers[0].country = booking.destinationCity;
+                 }
+                 if (!currentTravelers[0].departureTime && booking.travelDate) {
+                     currentTravelers[0].departureTime = dayjs(booking.travelDate).format('YYYY-MM-DD');
+                 }
+                 
+                 setValue('travelers', currentTravelers);
+             }
+        }
+    }, [booking, fields.length, setValue, watch]);
+
+    // Effect for "Keep Same" checkbox logic
+    useEffect(() => {
+        if (keepSameContact && fields.length > 1) {
+             const primaryPhone = watch('travelers.0.phoneNumber');
+             const primaryCode = watch('travelers.0.countryCode');
+             const primaryEmail = watch('travelers.0.email');
+             
+             const currentTravelers = watch('travelers');
+             let hasChanges = false;
+             
+             for(let i = 1; i < currentTravelers.length; i++) {
+                 if (currentTravelers[i].phoneNumber !== primaryPhone || 
+                     currentTravelers[i].countryCode !== primaryCode || 
+                     currentTravelers[i].email !== primaryEmail) {
+                         currentTravelers[i].phoneNumber = primaryPhone;
+                         currentTravelers[i].countryCode = primaryCode;
+                         currentTravelers[i].email = primaryEmail;
+                         hasChanges = true;
+                 }
+             }
+             if (hasChanges) {
+                  setValue('travelers', currentTravelers);
+             }
+        }
+    }, [keepSameContact, watch('travelers.0.phoneNumber'), watch('travelers.0.countryCode'), watch('travelers.0.email'), fields.length, watch, setValue]);
+
 
     const deletePaymentMutation = useMutation({
         mutationFn: async (paymentId: string) => {
@@ -283,6 +350,11 @@ export const BookingTravelers: React.FC = () => {
                 totalAmount: totalPayment
             }));
 
+            // 3. Auto-update status to Booked if payment exists
+            if (totalPaid > 0) {
+                promises.push(api.patch(`/bookings/${id}/status`, { status: 'Booked' }));
+            }
+
             await Promise.all(promises);
         },
         onSuccess: () => {
@@ -343,7 +415,23 @@ export const BookingTravelers: React.FC = () => {
 
                     <div className="p-6 space-y-6">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="p-5 bg-slate-50/50 border border-slate-200 rounded-lg relative">
+                            <React.Fragment key={field.id}>
+                                {index === 1 && (
+                                    <div className="flex items-center gap-2 p-3 mb-4 bg-secondary/5 rounded-lg border border-secondary/10">
+                                        <input 
+                                            type="checkbox" 
+                                            id="keepSameContact" 
+                                            checked={keepSameContact} 
+                                            onChange={(e) => setKeepSameContact(e.target.checked)}
+                                            className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                                        />
+                                        <label htmlFor="keepSameContact" className="text-sm font-medium text-slate-700 font-semibold text-secondary">
+                                            Keep email and phone number same as primary traveler
+                                        </label>
+                                    </div>
+                                )}
+                                <div className="p-5 bg-slate-50/50 border border-slate-200 rounded-lg relative">
+
                                 <div className="flex justify-between items-center mb-5 border-b border-slate-200 pb-3">
                                     <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                                         <span className="bg-secondary/10 text-secondary w-6 h-6 rounded-full flex items-center justify-center text-xs">{index + 1}</span>
@@ -412,7 +500,7 @@ export const BookingTravelers: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                <Calendar size={13} className="text-slate-500" /> Date of Birth
+                                                <Calendar size={13} className="text-slate-500" /> Date of Birth *
                                             </label>
                                             <input
                                                 type="date"
@@ -420,6 +508,9 @@ export const BookingTravelers: React.FC = () => {
                                                 {...register(`travelers.${index}.dob` as const)}
                                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
                                             />
+                                            {errors.travelers?.[index]?.dob && (
+                                                <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.dob?.message}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
@@ -477,33 +568,19 @@ export const BookingTravelers: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 gap-3">
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                            <Plane size={13} className="text-secondary" /> Departure
+                                                            <Plane size={13} className="text-secondary" /> Departure Date
                                                         </label>
                                                         <input
-                                                            type="datetime-local"
-                                                            min={todayString}
+                                                            type="date"
+                                                            min={todayString.split('T')[0]}
                                                             {...register(`travelers.${index}.departureTime` as const)}
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
                                                         />
                                                         {errors.travelers?.[index]?.departureTime && (
                                                             <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.departureTime?.message}</p>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                            <Plane size={13} className="text-emerald-500 rotate-90" /> Arrival
-                                                        </label>
-                                                        <input
-                                                            type="datetime-local"
-                                                            min={todayString}
-                                                            {...register(`travelers.${index}.arrivalTime` as const)}
-                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
-                                                        />
-                                                        {errors.travelers?.[index]?.arrivalTime && (
-                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.arrivalTime?.message}</p>
                                                         )}
                                                     </div>
                                                 </div>
@@ -558,17 +635,19 @@ export const BookingTravelers: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        ))}
+                        </React.Fragment>
+                    ))}
 
                         <button
                             type="button"
-                            onClick={() => append(emptyTraveler)}
+                            onClick={() => append(emptyTraveler, { shouldFocus: false })}
                             className="flex items-center space-x-2 text-secondary hover:opacity-80 font-semibold text-sm transition-all w-full justify-center p-4 border-2 border-dashed border-secondary/20 bg-secondary/5 rounded-xl hover:bg-secondary/10 hover:border-secondary/30"
                         >
                             <Plus size={18} />
                             <span>Add Another Passenger</span>
                         </button>
                     </div>
+
                 </div>
 
                 {/* 2. PRICING SECTION */}
