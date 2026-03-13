@@ -61,37 +61,47 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
 
     const columns = [
         columnHelper.accessor('uniqueCode', {
-            header: 'Booking ID',
+            header: 'ID',
             cell: (info) => info.getValue() ? `#${info.getValue()}` : '-',
         }),
-        columnHelper.accessor('createdOn', {
-            header: 'Created On',
-            cell: (info) => dayjs(info.getValue()).format('DD MMM YYYY'),
+        columnHelper.accessor((row) => ({ date: row.createdOn, user: row.createdByUser?.name }), {
+            id: 'source',
+            header: 'Source',
+            cell: (info) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-slate-900">{dayjs(info.getValue().date).format('DD MMM YYYY')}</span>
+                    <span className="text-[10px] text-slate-500">{info.getValue().user || 'Unknown'}</span>
+                </div>
+            ),
         }),
-        columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
-            id: 'createdBy',
-            header: 'Created By',
-        }),
-        columnHelper.accessor('contactPerson', {
-            header: 'Contact Person',
-        }),
-        columnHelper.accessor('contactNumber', {
-            header: 'Contact Number',
+        columnHelper.accessor((row) => ({ name: row.contactPerson, phone: row.contactNumber }), {
+            id: 'client',
+            header: 'Client',
+            cell: (info) => (
+                <div className="flex flex-col leading-tight">
+                    <span className="font-semibold text-slate-800">{info.getValue().name}</span>
+                    <span className="text-[10px] text-slate-500">{info.getValue().phone}</span>
+                </div>
+            ),
         }),
         columnHelper.accessor((row) => {
             const flightDestination = row.travelers?.[0]?.country;
-            return flightDestination || row.destinationCity || '-';
-        }, {
-            id: 'destination',
-            header: 'Destination',
-        }),
-        columnHelper.accessor((row) => {
             const flightDate = row.travelers?.[0]?.departureTime;
-            const date = flightDate || row.travelDate;
-            return date ? dayjs(date).format('DD MMM YYYY') : '-';
+            return {
+                dest: flightDestination || row.destinationCity || '-',
+                date: flightDate || row.travelDate
+            };
         }, {
-            id: 'travelDate',
-            header: 'Travel Date',
+            id: 'travelInfo',
+            header: 'Travel Info',
+            cell: (info) => (
+                <div className="flex flex-col leading-tight">
+                    <span className="font-medium text-slate-900 uppercase tracking-tighter text-[11px]">{info.getValue().dest}</span>
+                    <span className="text-[10px] text-slate-500">
+                        {info.getValue().date ? dayjs(info.getValue().date).format('DD MMM') : '-'}
+                    </span>
+                </div>
+            ),
         }),
         columnHelper.display({
             id: 'status',
@@ -99,7 +109,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             cell: (info) => {
                 const status = info.row.original.status;
                 return (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'Booked' ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${status === 'Booked' ? 'bg-green-100 text-green-800' :
                         status === 'Working' ? 'bg-purple-100 text-purple-800' :
                             status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-blue-100 text-blue-800'
@@ -111,9 +121,9 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
         }),
         columnHelper.display({
             id: 'assignedTo',
-            header: 'Assigned To',
+            header: 'Agent',
             cell: (info) => (
-                <span className="text-slate-600">
+                <span className="text-xs text-slate-600 font-medium">
                     {info.row.original.assignedToUser?.name || <span className="text-slate-400 italic">Unassigned</span>}
                 </span>
             ),
@@ -158,7 +168,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                         <th
                                             key={header.id}
                                             scope="col"
-                                            className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap"
+                                            className="px-2 py-1.5 text-left text-xs font-medium text-slate-500 uppercase tracking-tight bg-slate-50"
                                         >
                                             {header.isPlaceholder
                                                 ? null
@@ -181,7 +191,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
                                     {row.getVisibleCells().map((cell) => (
                                         <td
                                             key={cell.id}
-                                            className="px-3 py-2 text-sm text-slate-700"
+                                            className="px-2 py-1.5 text-sm text-slate-700"
                                             onClick={(e) => {
                                                 // Prevent navigation when clicking on the Actions column
                                                 if (cell.column.id === 'actions') {
