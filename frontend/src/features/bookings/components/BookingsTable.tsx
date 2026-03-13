@@ -22,9 +22,10 @@ interface BookingsTableProps {
     statusFilter?: string;
     isEDTView?: boolean;
     searchTerm?: string;
+    agentFilter?: string;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm, agentFilter }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
@@ -38,15 +39,16 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     // Reset pagination when filters change
     React.useEffect(() => {
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, isEDTView, searchTerm]);
+    }, [statusFilter, isEDTView, searchTerm, agentFilter]);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm, agentFilter, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (searchTerm) params.append('search', searchTerm);
+            if (agentFilter) params.append('assignedTo', agentFilter);
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
 
@@ -62,7 +64,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     const columns = [
         columnHelper.accessor('uniqueCode', {
             header: 'Booking ID',
-            cell: (info) => info.getValue() ? `#${info.getValue()}` : '-',
+            cell: (info) => info.getValue() || '-',
         }),
         columnHelper.accessor('createdOn', {
             header: 'Created On',

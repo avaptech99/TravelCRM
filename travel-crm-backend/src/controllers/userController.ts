@@ -123,3 +123,37 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
 
     res.json({ message: 'User removed successfully' });
 });
+
+// @desc    Change password for logged in user
+// @route   PUT /api/users/change-password
+// @access  Private
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        res.status(400);
+        throw new Error('Current password and new password are required');
+    }
+
+    if (newPassword.length < 6) {
+        res.status(400);
+        throw new Error('New password must be at least 6 characters');
+    }
+
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+        res.status(401);
+        throw new Error('Current password is incorrect');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+});

@@ -124,14 +124,23 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     if (req.user?.role === 'AGENT') {
         if (!search) {
-            query.assignedToUserId = req.user.id;
+            query.$or = [
+                { assignedToUserId: req.user.id },
+                { assignedToUserId: { $exists: false } },
+                { assignedToUserId: null },
+            ];
         }
     } else if (assignedTo) {
         query.assignedToUserId = assignedTo as string;
     }
 
     if (status) {
-        query.status = status as string;
+        const statuses = (status as string).split(',').map(s => s.trim());
+        if (statuses.length === 1) {
+            query.status = statuses[0];
+        } else {
+            query.status = { $in: statuses };
+        }
     }
 
     if (search) {

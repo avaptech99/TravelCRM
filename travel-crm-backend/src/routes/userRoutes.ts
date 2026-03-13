@@ -1,11 +1,14 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
 
 // Get agents is protected (available to both Admin and Agents)
 router.get('/agents', protect, getAgents);
+
+// Change password (available to all authenticated users)
+router.put('/change-password', protect, changePassword);
 
 // Get all users (Admin only)
 router.get('/', protect, adminGuard, getAllUsers);
