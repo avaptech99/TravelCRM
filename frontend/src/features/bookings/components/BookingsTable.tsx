@@ -100,6 +100,25 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             header: 'Status',
             cell: (info) => {
                 const status = info.row.original.status;
+                const interested = info.row.original.interested;
+                
+                // If the booking is not finalized (Pending/Working) and they are interested, show that
+                // Or if it's explicitly Not Interested, show that.
+                // Otherwise show the standard status.
+                if (interested === 'Yes') {
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Interested
+                        </span>
+                    );
+                }
+                
+                if (interested === 'No' && status !== 'Booked') {
+                     // We typically don't show "Not Interested" as a primary badge unless requested
+                     // but since it's a filter, we should probably display standard status unless we want to override.
+                     // We'll stick to standard status if not interested, or maybe show a red badge if they want 'Not Interested' to be a visible status.
+                }
+
                 return (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'Booked' ? 'bg-green-100 text-green-800' :
                         status === 'Working' ? 'bg-purple-100 text-purple-800' :

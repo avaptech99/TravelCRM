@@ -135,11 +135,36 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     if (status) {
-        const statuses = (status as string).split(',').map(s => s.trim());
-        if (statuses.length === 1) {
-            query.status = statuses[0];
-        } else {
-            query.status = { $in: statuses };
+        const allFilters = (status as string).split(',').map(s => s.trim());
+        const realStatuses = allFilters.filter(s => s !== 'Interested' && s !== 'Not Interested');
+        const hasInterested = allFilters.includes('Interested');
+        const hasNotInterested = allFilters.includes('Not Interested');
+
+        const conditions: any[] = [];
+
+        if (realStatuses.length === 1) {
+            conditions.push({ status: realStatuses[0] });
+        } else if (realStatuses.length > 1) {
+            conditions.push({ status: { $in: realStatuses } });
+        }
+
+        if (hasInterested) {
+            conditions.push({ interested: 'Yes' });
+        }
+        if (hasNotInterested) {
+            conditions.push({ interested: 'No' });
+        }
+
+        if (conditions.length === 1) {
+            Object.assign(query, conditions[0]);
+        } else if (conditions.length > 1) {
+            // If we already have $or from agent filter, wrap in $and
+            if (query.$or) {
+                query.$and = [{ $or: query.$or }, { $or: conditions }];
+                delete query.$or;
+            } else {
+                query.$or = conditions;
+            }
         }
     }
 
@@ -166,7 +191,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking.find(query)
-            .select('uniqueCode contactPerson contactNumber status createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt destinationCity travelDate travellers')
+            .select('uniqueCode contactPerson contactNumber status interested createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt destinationCity travelDate travellers')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
