@@ -109,10 +109,10 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10' } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10', myBookings } = req.query;
 
     // Build a cache key from the query params
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${myBookings || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -122,7 +122,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const query: any = {};
 
-    if (req.user?.role === 'AGENT') {
+    if (myBookings === 'true') {
+        query.$or = [
+            { assignedToUserId: req.user?.id },
+            { createdByUserId: req.user?.id },
+        ];
+    } else if (req.user?.role === 'AGENT') {
         if (!search) {
             query.$or = [
                 { assignedToUserId: req.user.id },

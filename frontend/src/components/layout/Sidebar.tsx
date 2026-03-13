@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, User, FileText, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as SettingsIcon, UserSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import logo from '../../assets/logo.png';
@@ -12,7 +12,9 @@ export const Sidebar: React.FC = () => {
     const navItems = [
         { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} /> },
         { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} /> },
+        { label: 'My Bookings', path: '/my-bookings', icon: <UserSquare size={20} /> },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} /> },
+        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} /> },
     ];
 
     if (user?.role === 'ADMIN') {

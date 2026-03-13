@@ -20,12 +20,13 @@ import { useNavigate } from 'react-router-dom';
 
 interface BookingsTableProps {
     statusFilter?: string;
-    isEDTView?: boolean;
-    searchTerm?: string;
     agentFilter?: string;
+    searchTerm?: string;
+    isMyBookingsView?: boolean;
+    isEDTView?: boolean;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isEDTView, searchTerm, agentFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
@@ -39,16 +40,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
     // Reset pagination when filters change
     React.useEffect(() => {
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, isEDTView, searchTerm, agentFilter]);
+    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView]);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, isEDTView, searchTerm, agentFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
-            if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (searchTerm) params.append('search', searchTerm);
             if (agentFilter) params.append('assignedTo', agentFilter);
+            if (isMyBookingsView) params.append('myBookings', 'true');
+            if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
 
@@ -100,25 +102,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, isED
             header: 'Status',
             cell: (info) => {
                 const status = info.row.original.status;
-                const interested = info.row.original.interested;
-                
-                // If the booking is not finalized (Pending/Working) and they are interested, show that
-                // Or if it's explicitly Not Interested, show that.
-                // Otherwise show the standard status.
-                if (interested === 'Yes') {
-                    return (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            Interested
-                        </span>
-                    );
-                }
-                
-                if (interested === 'No' && status !== 'Booked') {
-                     // We typically don't show "Not Interested" as a primary badge unless requested
-                     // but since it's a filter, we should probably display standard status unless we want to override.
-                     // We'll stick to standard status if not interested, or maybe show a red badge if they want 'Not Interested' to be a visible status.
-                }
-
                 return (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'Booked' ? 'bg-green-100 text-green-800' :
                         status === 'Working' ? 'bg-purple-100 text-purple-800' :

@@ -157,3 +157,44 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 
     res.json({ message: 'Password changed successfully' });
 });
+
+// @desc    Update user profile (name, email)
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    const { name, email } = req.body;
+
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    if (email && email !== user.email) {
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+            res.status(400);
+            throw new Error('Email is already in use by another account');
+        }
+    }
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+
+    await user.save();
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
+
+    // Generate a new token since the payload contains name and email
+    const { generateToken } = require('../utils/jwt');
+    const newToken = generateToken(user);
+
+    res.json({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: newToken
+    });
+});

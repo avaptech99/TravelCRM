@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, Bell, Lock } from 'lucide-react';
-import { ChangePasswordModal } from '../ChangePasswordModal';
+import { LogOut, Bell } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
@@ -13,7 +12,6 @@ export const Topbar: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const { data: notifications = [] } = useQuery<Notification[]>({
@@ -123,15 +121,6 @@ export const Topbar: React.FC = () => {
                     )}
                 </div>
 
-                {/* Change Password */}
-                <button
-                    onClick={() => setIsPasswordModalOpen(true)}
-                    className="flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-primary transition-colors"
-                >
-                    <Lock size={16} />
-                    <span>Change Password</span>
-                </button>
-
                 {/* Logout */}
                 <button
                     onClick={logout}
@@ -141,11 +130,6 @@ export const Topbar: React.FC = () => {
                     <span>Logout</span>
                 </button>
             </div>
-
-            <ChangePasswordModal
-                isOpen={isPasswordModalOpen}
-                onClose={() => setIsPasswordModalOpen(false)}
-            />
         </header>
     );
 };
