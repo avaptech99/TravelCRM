@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import connectDB from './config/db';
 import User from './models/User';
 import dotenv from 'dotenv';

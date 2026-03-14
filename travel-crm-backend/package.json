@@ -10,14 +10,14 @@
     "seed": "npx ts-node src/seed.ts"
   },
   "dependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.11.24",
     "@types/node-fetch": "^2.6.13",
-    "bcryptjs": "^2.4.3",
+    "bcrypt": "^6.0.0",
     "chrono-node": "^2.9.0",
     "compromise": "^14.15.0",
     "cors": "^2.8.5",

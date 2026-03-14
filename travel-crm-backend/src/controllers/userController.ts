@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import User from '../models/User';
 import { createUserSchema } from '../types';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import appCache from '../utils/cache';
 
 // @desc    Get all agents

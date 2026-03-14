@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 const hash = '$2a$10$PdK.YyXTIhzQLbTC8is8ieInz0oBrYwxAPF5/dpSVGRY694CQFwHW';
 

@@ -4,7 +4,7 @@ import { loginUser } from '../controllers/authController';
 const router = express.Router();
 
 import User from '../models/User';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 router.post('/login', loginUser);
 
