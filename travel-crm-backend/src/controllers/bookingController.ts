@@ -307,6 +307,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
 // @route   POST /api/bookings
 // @access  Private (Admin & Agent)
 export const createBooking = asyncHandler(async (req: Request, res: Response) => {
+    const startTime = Date.now();
     const result = createBookingSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -315,8 +316,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     const requirements = result.data.requirements || '';
+    const extractStart = Date.now();
     const travelInfo = extractTravelInfo(requirements);
+    const extractTime = Date.now() - extractStart;
 
+    const dbStart = Date.now();
     const booking = await Booking.create({
         ...result.data,
         destinationCity: travelInfo.destinationCity,
@@ -325,6 +329,10 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
+    const dbTime = Date.now() - dbStart;
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[BOOKING PERF] Create - Total: ${totalTime}ms | DB: ${dbTime}ms | Extraction: ${extractTime}ms`);
 
     invalidateBookingCaches();
     res.status(201).json(booking);
@@ -548,6 +556,7 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
 // @route   POST /api/bookings/:id/travelers
 // @access  Private
 export const addTravelers = asyncHandler(async (req: Request, res: Response) => {
+    const startTime = Date.now();
     const { id } = req.params;
 
     // Support either single traveler object or array to match frontend requests
@@ -576,7 +585,12 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
         bookingId: id,
     }));
 
+    const dbStart = Date.now();
     const createdTravelers = await Traveler.insertMany(travelersData);
+    const dbTime = Date.now() - dbStart;
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[BOOKING PERF] Add Travelers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${travelersData.length}`);
 
     invalidateBookingCaches();
     res.status(201).json(createdTravelers);
@@ -586,6 +600,7 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
 // @route   PUT /api/bookings/:id/travelers
 // @access  Private
 export const updateTravelers = asyncHandler(async (req: Request, res: Response) => {
+    const startTime = Date.now();
     const { id } = req.params;
 
     const inputData = Array.isArray(req.body) ? req.body : [req.body];
@@ -613,8 +628,13 @@ export const updateTravelers = asyncHandler(async (req: Request, res: Response) 
         bookingId: id,
     }));
 
+    const dbStart = Date.now();
     await Traveler.deleteMany({ bookingId: id });
     const createdTravelers = await Traveler.insertMany(travelersData);
+    const dbTime = Date.now() - dbStart;
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[BOOKING PERF] Update Travelers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${travelersData.length}`);
 
     invalidateBookingCaches();
     res.json(createdTravelers);
