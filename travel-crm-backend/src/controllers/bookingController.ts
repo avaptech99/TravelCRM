@@ -332,7 +332,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Create - Total: ${totalTime}ms | DB: ${dbTime}ms | Extraction: ${extractTime}ms`);
+    console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms | Extraction: ${extractTime}ms`);
 
     invalidateBookingCaches();
     res.status(201).json(booking);
@@ -590,7 +590,7 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Add Travelers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${travelersData.length}`);
+    console.log(`[PASSENGER PERF] Add Travelers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${travelersData.length}`);
 
     invalidateBookingCaches();
     res.status(201).json(createdTravelers);
@@ -634,7 +634,7 @@ export const updateTravelers = asyncHandler(async (req: Request, res: Response) 
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Update Travelers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${travelersData.length}`);
+    console.log(`[PASSENGER PERF] Update Travelers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${travelersData.length}`);
 
     invalidateBookingCaches();
     res.json(createdTravelers);
