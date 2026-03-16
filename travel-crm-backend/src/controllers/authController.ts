@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import User from '../models/User';
 import { loginSchema } from '../types';
-import { matchPassword } from '../utils/password';
+import { matchPassword, needsUpgrade, hashPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 
 // @desc    Auth user & get token
@@ -38,6 +38,14 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
         if (isMatch) {
             const totalTime = Date.now() - startTime;
             console.log(`[LOGIN PERF] Total: ${totalTime}ms | DB: ${dbEndTime - dbStartTime}ms | Bcrypt: ${bcryptEndTime - bcryptStartTime}ms`);
+
+            // Migrate to 8 rounds if currently higher
+            if (needsUpgrade(user.passwordHash)) {
+                const upgradeStart = Date.now();
+                const newHash = await hashPassword(password);
+                await User.findByIdAndUpdate(user._id, { passwordHash: newHash });
+                console.log(`[AUTH] Upgraded password hash rounds for ${user.email} in ${Date.now() - upgradeStart}ms`);
+            }
 
             // Update user's online status
             await User.findByIdAndUpdate(user._id, {

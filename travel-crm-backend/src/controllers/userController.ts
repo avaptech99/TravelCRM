@@ -69,7 +69,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('User already exists');
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 8);
 
     const user = await User.create({
         name,
@@ -153,7 +153,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Current password is incorrect');
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = await bcrypt.hash(newPassword, 8);
     await user.save();
 
     res.json({ message: 'Password changed successfully' });
@@ -230,7 +230,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
             res.status(400);
             throw new Error('Password must be at least 6 characters');
         }
-        user.passwordHash = await bcrypt.hash(password, 10);
+        user.passwordHash = await bcrypt.hash(password, 8);
     }
 
     await user.save();
