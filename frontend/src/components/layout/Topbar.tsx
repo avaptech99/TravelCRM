@@ -4,7 +4,7 @@ import { LogOut, Bell } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
-import type { Notification, User } from '../../types';
+import type { Notification } from '../../types';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 
