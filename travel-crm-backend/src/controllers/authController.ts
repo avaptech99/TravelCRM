@@ -39,11 +39,18 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
             const totalTime = Date.now() - startTime;
             console.log(`[LOGIN PERF] Total: ${totalTime}ms | DB: ${dbEndTime - dbStartTime}ms | Bcrypt: ${bcryptEndTime - bcryptStartTime}ms`);
 
+            // Update user's online status
+            await User.findByIdAndUpdate(user._id, {
+                isOnline: true,
+                lastSeen: new Date()
+            });
+
             res.json({
                 id: user._id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isOnline: true,
                 token: generateToken(user),
             });
             return;

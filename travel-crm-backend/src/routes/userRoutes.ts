@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
@@ -19,11 +19,20 @@ router.get('/', protect, adminGuard, getAllUsers);
 // Create user (Admin only)
 router.post('/', protect, adminGuard, createUser);
 
+// Unassign bookings for a specific user (Admin only)
+router.post('/:id/unassign-bookings', protect, adminGuard, unassignUserBookings);
+
 // Delete user (Admin only)
 router.delete('/:id', protect, adminGuard, deleteUser);
 
 // Update user (Admin only)
 router.put('/:id', protect, adminGuard, updateUserById);
+
+// Update status
+router.patch('/status', protect, updateStatus);
+
+// Unassign offline bookings (Admin only)
+router.post('/unassign-offline-bookings', protect, adminGuard, unassignOfflineBookings);
 
 // Create user (Admin only)
 router.post('/', protect, adminGuard, createUser);

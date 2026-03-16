@@ -16,9 +16,11 @@ export interface IBooking extends Document {
     createdAt: Date;
     updatedAt: Date;
     uniqueCode: string;
+    fromCity?: string;
     destinationCity?: string;
     travelDate?: Date;
     travellers?: number;
+    duration?: string;
 }
 
 const bookingSchema = new Schema<IBooking>(
@@ -36,9 +38,11 @@ const bookingSchema = new Schema<IBooking>(
         pricePerTicket: { type: Number, default: 0 },
         totalAmount: { type: Number, default: 0 },
         uniqueCode: { type: String, unique: true, sparse: true },
+        fromCity: { type: String, default: null },
         destinationCity: { type: String, default: null },
         travelDate: { type: Date, default: null },
         travellers: { type: Number, default: null },
+        duration: { type: String, default: null },
     },
     {
         timestamps: true, // Automatically manages createdAt and updatedAt

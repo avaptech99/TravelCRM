@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import User from '../models/User';
+import Booking from '../models/Booking';
 import { createUserSchema } from '../types';
 import bcrypt from 'bcrypt';
 import appCache from '../utils/cache';
@@ -18,7 +19,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const agents = await User.find({ role: 'AGENT' })
-        .select('name email')
+        .select('name email isOnline lastSeen')
         .sort({ name: 1 })
         .lean();
 
@@ -40,7 +41,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const users = await User.find()
-        .select('name email role createdAt')
+        .select('name email role isOnline lastSeen createdAt')
         .sort({ createdAt: -1 })
         .lean();
 
@@ -242,5 +243,121 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
         name: user.name,
         email: user.email,
         role: user.role,
+    });
+});
+// @desc    Update user status (Online/Offline)
+// @route   PATCH /api/users/status
+// @access  Private
+export const updateStatus = asyncHandler(async (req: Request, res: Response) => {
+    const { isOnline } = req.body;
+
+    if (typeof isOnline !== 'boolean') {
+        res.status(400);
+        throw new Error('Status must be a boolean');
+    }
+
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    user.isOnline = isOnline;
+    user.lastSeen = new Date();
+    await user.save();
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
+
+    res.json({
+        id: user._id,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+    });
+});
+
+// @desc    Unassign bookings from offline agents
+// @route   POST /api/users/unassign-offline-bookings
+// @access  Private/Admin
+export const unassignOfflineBookings = asyncHandler(async (req: Request, res: Response) => {
+    const { timeThresholdMinutes } = req.body; // Default could be 60
+
+    if (!timeThresholdMinutes || isNaN(timeThresholdMinutes)) {
+        res.status(400);
+        throw new Error('Invalid time threshold');
+    }
+
+    const thresholdDate = new Date(Date.now() - (timeThresholdMinutes * 60 * 1000));
+
+    // Find all agents who are offline OR haven't been seen for a while
+    const offlineAgents = await User.find({
+        role: 'AGENT',
+        $or: [
+            { isOnline: false },
+            { lastSeen: { $lt: thresholdDate } }
+        ]
+    }).select('_id');
+
+    const offlineAgentIds = offlineAgents.map(a => a._id);
+
+    if (offlineAgentIds.length === 0) {
+        res.json({ message: 'No offline agents found matching criteria', modifiedCount: 0 });
+        return;
+    }
+
+    // Unassign Pending/Working bookings from these agents
+    const result = await Booking.updateMany(
+        {
+            assignedToUserId: { $in: offlineAgentIds },
+            status: { $in: ['Pending', 'Working'] }
+        },
+        {
+            $set: { assignedToUserId: null }
+        }
+    );
+
+    // Invalidate booking and user caches
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('users_');
+
+    res.json({
+        message: `Successfully unassigned ${result.modifiedCount} bookings from ${offlineAgentIds.length} offline agents.`,
+        modifiedCount: result.modifiedCount
+    });
+});
+
+// @desc    Unassign Pending/Working bookings for a specific user
+// @route   POST /api/users/:id/unassign-bookings
+// @access  Private/Admin
+export const unassignUserBookings = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { timeThresholdMinutes } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    const query: any = {
+        assignedToUserId: id,
+        status: { $in: ['Pending', 'Working'] }
+    };
+
+    if (timeThresholdMinutes && !isNaN(timeThresholdMinutes)) {
+        const thresholdDate = new Date(Date.now() - (timeThresholdMinutes * 60 * 1000));
+        // We look for bookings that haven't been updated (worked on) since the threshold
+        query.updatedAt = { $lt: thresholdDate };
+    }
+
+    const result = await Booking.updateMany(query, { $set: { assignedToUserId: null } });
+
+    // Invalidate booking and user caches
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('users_');
+
+    res.json({
+        message: `Successfully unassigned ${result.modifiedCount} bookings from ${user.name}.`,
+        modifiedCount: result.modifiedCount
     });
 });

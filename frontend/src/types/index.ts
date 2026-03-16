@@ -3,6 +3,8 @@ export interface User {
     name: string;
     email: string;
     role: 'ADMIN' | 'AGENT';
+    isOnline?: boolean;
+    lastSeen?: string;
 }
 
 export interface Traveler {
@@ -64,9 +66,11 @@ export interface Booking {
     totalAmount?: number;
     interested?: 'Yes' | 'No';
     uniqueCode?: string;
+    fromCity?: string;
     destinationCity?: string;
     travelDate?: string;
     travellers?: number;
+    duration?: string;
 }
 
 export interface PaginatedResponse<T> {

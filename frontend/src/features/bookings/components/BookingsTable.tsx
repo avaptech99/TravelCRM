@@ -83,7 +83,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             header: 'Contact Number',
         }),
         columnHelper.accessor((row) => {
-            const flightDestination = row.travelers?.[0]?.country;
+            const flightDestination = row.travelers?.[0]?.flightTo;
             return flightDestination || row.destinationCity || '-';
         }, {
             id: 'destination',
@@ -96,6 +96,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         }, {
             id: 'travelDate',
             header: 'Travel Date',
+        }),
+        columnHelper.accessor('travellers', {
+            header: 'Travellers',
+            cell: (info) => info.getValue() || '-',
         }),
         columnHelper.display({
             id: 'status',

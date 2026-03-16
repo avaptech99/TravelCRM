@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { AddUserModal } from '../features/users/components/AddUserModal';
+
+dayjs.extend(relativeTime);
 import { EditUserModal } from '../features/users/components/EditUserModal';
-import { Trash2, Plus, Edit2 } from 'lucide-react';
+import { Trash2, Plus, Edit2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface User {
@@ -12,6 +15,8 @@ interface User {
     name: string;
     email: string;
     role: string;
+    isOnline: boolean;
+    lastSeen: string;
     createdAt: string;
 }
 
@@ -47,19 +52,54 @@ export const Users: React.FC = () => {
         }
     });
 
+    const unassignMutation = useMutation({
+        mutationFn: async ({ userId, minutes }: { userId: string, minutes: number }) => {
+            const { data } = await api.post(`/users/${userId}/unassign-bookings`, { timeThresholdMinutes: minutes });
+            return data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast.success(data.message);
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to unassign bookings');
+        }
+    });
+
+    const [cleanupTime, setCleanupTime] = useState('1440'); // 1 day in minutes
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center px-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-2 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
                     <p className="text-slate-500 text-sm mt-1">View and manage all system administrators and agents.</p>
                 </div>
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                    <Plus size={18} /> Add New User
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cleanup Period:</span>
+                        <select
+                            value={cleanupTime}
+                            onChange={(e) => setCleanupTime(e.target.value)}
+                            className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer pr-8"
+                        >
+                            <option value="1440">1 Day</option>
+                            <option value="2880">2 Days</option>
+                            <option value="4320">3 Days</option>
+                            <option value="5760">4 Days</option>
+                            <option value="7200">5 Days</option>
+                            <option value="8640">6 Days</option>
+                            <option value="10080">1 Week</option>
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center gap-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <Plus size={18} /> Add New User
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
@@ -71,6 +111,7 @@ export const Users: React.FC = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Role</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Joined On</th>
@@ -82,6 +123,21 @@ export const Users: React.FC = () => {
                                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                             {user.name}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2.5 h-2.5 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                                <span className={`font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
+                                                    {user.isOnline ? 'Online' : 'Offline'}
+                                                </span>
+                                            </div>
+                                            {!user.isOnline && user.lastSeen && (
+                                                <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${dayjs().diff(dayjs(user.lastSeen), 'hour') >= 15 ? 'text-red-500' : 'text-slate-400'
+                                                    }`}>
+                                                    {dayjs().diff(dayjs(user.lastSeen), 'hour') >= 15 && <AlertCircle size={10} />}
+                                                    Last seen: {dayjs(user.lastSeen).fromNow()}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                             {user.email}
@@ -96,6 +152,16 @@ export const Users: React.FC = () => {
                                             {dayjs(user.createdAt).format('MMM DD, YYYY')}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
+                                            {user.role === 'AGENT' && (
+                                                <button
+                                                    onClick={() => unassignMutation.mutate({ userId: user.id, minutes: parseInt(cleanupTime) })}
+                                                    className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                    title={`Unassign inactive bookings (> ${dayjs().subtract(parseInt(cleanupTime), 'minute').fromNow(true)})`}
+                                                    disabled={unassignMutation.isPending}
+                                                >
+                                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Unassign</span>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => setEditUser(user)}
                                                 className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50"

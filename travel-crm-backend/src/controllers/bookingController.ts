@@ -8,7 +8,7 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
-import { extractTravelInfo } from '../utils/extractTravelInfo';
+import { parseTravelInfo } from '../utils/travelParser';
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -317,15 +317,17 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const requirements = result.data.requirements || '';
     const extractStart = Date.now();
-    const travelInfo = extractTravelInfo(requirements);
+    const travelInfo = parseTravelInfo(requirements);
     const extractTime = Date.now() - extractStart;
 
     const dbStart = Date.now();
     const booking = await Booking.create({
         ...result.data,
+        fromCity: travelInfo.fromCity,
         destinationCity: travelInfo.destinationCity,
         travelDate: travelInfo.travelDate,
         travellers: travelInfo.travellers,
+        duration: travelInfo.duration,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
@@ -364,10 +366,12 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     if (result.data.requirements !== undefined) {
         booking.requirements = result.data.requirements || null;
-        const travelInfo = extractTravelInfo(result.data.requirements || '');
+        const travelInfo = parseTravelInfo(result.data.requirements || '');
+        booking.fromCity = travelInfo.fromCity;
         booking.destinationCity = travelInfo.destinationCity;
         booking.travelDate = travelInfo.travelDate;
         booking.travellers = travelInfo.travellers;
+        booking.duration = travelInfo.duration;
     }
     if (result.data.pricePerTicket !== undefined) {
         booking.pricePerTicket = result.data.pricePerTicket;
