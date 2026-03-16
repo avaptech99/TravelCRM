@@ -7,7 +7,7 @@ import { AddUserModal } from '../features/users/components/AddUserModal';
 
 dayjs.extend(relativeTime);
 import { EditUserModal } from '../features/users/components/EditUserModal';
-import { Trash2, Plus, Edit2, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface User {
@@ -31,6 +31,7 @@ export const Users: React.FC = () => {
             const { data } = await api.get('/users');
             return data;
         },
+        refetchInterval: 30000, // Refresh status every 30s
     });
 
     const deleteMutation = useMutation({
@@ -67,7 +68,7 @@ export const Users: React.FC = () => {
         }
     });
 
-    const [cleanupTime, setCleanupTime] = useState('1440'); // 1 day in minutes
+    const [cleanupTime, setCleanupTime] = useState('0'); // Default to Immediate
 
     return (
         <div className="space-y-6">
@@ -84,6 +85,7 @@ export const Users: React.FC = () => {
                             onChange={(e) => setCleanupTime(e.target.value)}
                             className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer pr-8"
                         >
+                            <option value="0">Immediate (All)</option>
                             <option value="1440">1 Day</option>
                             <option value="2880">2 Days</option>
                             <option value="4320">3 Days</option>
@@ -132,9 +134,7 @@ export const Users: React.FC = () => {
                                                 </span>
                                             </div>
                                             {!user.isOnline && user.lastSeen && (
-                                                <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${dayjs().diff(dayjs(user.lastSeen), 'hour') >= 15 ? 'text-red-500' : 'text-slate-400'
-                                                    }`}>
-                                                    {dayjs().diff(dayjs(user.lastSeen), 'hour') >= 15 && <AlertCircle size={10} />}
+                                                <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
                                                     Last seen: {dayjs(user.lastSeen).fromNow()}
                                                 </div>
                                             )}

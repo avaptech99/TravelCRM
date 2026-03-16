@@ -30,7 +30,6 @@ export const Topbar: React.FC = () => {
             await api.put(`/notifications/${id}/read`);
         },
         onSuccess: () => {
-            // Optimistically or background update
             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         }
     });
@@ -46,7 +45,6 @@ export const Topbar: React.FC = () => {
             setIsOnline(data.isOnline);
             toast.success(`You are now ${data.isOnline ? 'Online' : 'Offline'}`);
             queryClient.invalidateQueries({ queryKey: ['users'] });
-            // Optionally update context if needed, but for now local state is fine
         },
         onError: () => {
             toast.error('Failed to update status');
@@ -79,10 +77,19 @@ export const Topbar: React.FC = () => {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            await api.patch('/users/status', { isOnline: false });
+        } catch (error) {
+            console.error('Failed to set offline status on logout', error);
+        } finally {
+            logout();
+        }
+    };
+
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
             <div className="flex-1">
-                {/* Placeholder for global search if needed */}
                 <h1 className="text-xl font-semibold text-slate-800">Dashboard</h1>
             </div>
             <div className="flex items-center space-x-6">
@@ -164,7 +171,7 @@ export const Topbar: React.FC = () => {
 
                 {/* Logout */}
                 <button
-                    onClick={logout}
+                    onClick={handleLogout}
                     className="flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-red-600 transition-colors"
                 >
                     <LogOut size={18} />

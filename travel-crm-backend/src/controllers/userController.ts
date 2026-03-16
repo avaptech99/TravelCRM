@@ -344,8 +344,8 @@ export const unassignUserBookings = asyncHandler(async (req: Request, res: Respo
         status: { $in: ['Pending', 'Working'] }
     };
 
-    if (timeThresholdMinutes && !isNaN(timeThresholdMinutes)) {
-        const thresholdDate = new Date(Date.now() - (timeThresholdMinutes * 60 * 1000));
+    if (timeThresholdMinutes && !isNaN(timeThresholdMinutes) && parseInt(timeThresholdMinutes) > 0) {
+        const thresholdDate = new Date(Date.now() - (parseInt(timeThresholdMinutes) * 60 * 1000));
         // We look for bookings that haven't been updated (worked on) since the threshold
         query.updatedAt = { $lt: thresholdDate };
     }
