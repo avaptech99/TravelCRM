@@ -289,27 +289,26 @@ export const unassignOfflineBookings = asyncHandler(async (req: Request, res: Re
 
     const thresholdDate = new Date(Date.now() - (timeThresholdMinutes * 60 * 1000));
 
-    // Find all agents who are offline OR haven't been seen for a while
+    // Find all agents who are offline
     const offlineAgents = await User.find({
         role: 'AGENT',
-        $or: [
-            { isOnline: false },
-            { lastSeen: { $lt: thresholdDate } }
-        ]
+        isOnline: false
     }).select('_id');
 
     const offlineAgentIds = offlineAgents.map(a => a._id);
 
     if (offlineAgentIds.length === 0) {
-        res.json({ message: 'No offline agents found matching criteria', modifiedCount: 0 });
+        res.json({ message: 'No offline agents found', modifiedCount: 0 });
         return;
     }
 
-    // Unassign Pending/Working bookings from these agents
+    // Unassign Pending/Working bookings from these agents created WITHIN the threshold
+    // e.g. if 1 day is selected, catch all bookings from last 24h
     const result = await Booking.updateMany(
         {
             assignedToUserId: { $in: offlineAgentIds },
-            status: { $in: ['Pending', 'Working'] }
+            status: { $in: ['Pending', 'Working'] },
+            createdAt: { $gte: thresholdDate }
         },
         {
             $set: { assignedToUserId: null }
@@ -344,10 +343,10 @@ export const unassignUserBookings = asyncHandler(async (req: Request, res: Respo
         status: { $in: ['Pending', 'Working'] }
     };
 
-    if (timeThresholdMinutes && !isNaN(timeThresholdMinutes) && parseInt(timeThresholdMinutes) > 0) {
+    if (timeThresholdMinutes && !isNaN(timeThresholdMinutes)) {
         const thresholdDate = new Date(Date.now() - (parseInt(timeThresholdMinutes) * 60 * 1000));
-        // We look for bookings that haven't been updated (worked on) since the threshold
-        query.updatedAt = { $lt: thresholdDate };
+        // Catch bookings created WITHIN the last X minutes (e.g. recent work)
+        query.createdAt = { $gte: thresholdDate };
     }
 
     const result = await Booking.updateMany(query, { $set: { assignedToUserId: null } });

@@ -68,7 +68,7 @@ export const Users: React.FC = () => {
         }
     });
 
-    const [cleanupTime, setCleanupTime] = useState('0'); // Default to Immediate
+    const [cleanupTime, setCleanupTime] = useState('1440'); // Default to 1 Day
 
     return (
         <div className="space-y-6">
@@ -85,7 +85,6 @@ export const Users: React.FC = () => {
                             onChange={(e) => setCleanupTime(e.target.value)}
                             className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer pr-8"
                         >
-                            <option value="0">Immediate (All)</option>
                             <option value="1440">1 Day</option>
                             <option value="2880">2 Days</option>
                             <option value="4320">3 Days</option>
