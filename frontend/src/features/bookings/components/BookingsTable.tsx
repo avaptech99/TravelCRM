@@ -5,7 +5,7 @@ import {
     flexRender,
     createColumnHelper,
 } from '@tanstack/react-table';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../api/client';
 import { useAuth } from '../../../context/AuthContext';
 import type { Booking } from '../../../types';
@@ -15,6 +15,7 @@ import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 
 
@@ -24,11 +25,14 @@ interface BookingsTableProps {
     searchTerm?: string;
     isMyBookingsView?: boolean;
     isEDTView?: boolean;
+    travelDateFilter?: string;
+    isInlineView?: boolean;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
@@ -40,15 +44,35 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     // Reset pagination when filters change
     React.useEffect(() => {
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView]);
+    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter]);
+
+    const unassignMutation = useMutation({
+        mutationFn: async (bookingId: string) => {
+            if (window.confirm('Are you sure you want to unassign this booking?')) {
+                const { data } = await api.patch(`/bookings/${bookingId}/assign`, { assignedToUserId: null });
+                return data;
+            }
+            return Promise.reject(new Error('Cancelled'));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            toast.success('Booking unassigned successfully');
+        },
+        onError: (error: any) => {
+            if (error.message !== 'Cancelled') {
+                toast.error(error.response?.data?.message || 'Failed to unassign booking');
+            }
+        }
+    });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
             if (searchTerm) params.append('search', searchTerm);
             if (agentFilter) params.append('assignedTo', agentFilter);
+            if (travelDateFilter) params.append('travelDateFilter', travelDateFilter);
             if (isMyBookingsView) params.append('myBookings', 'true');
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             params.append('page', (pagination.pageIndex + 1).toString());
@@ -133,6 +157,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 <ActionDropdown
                     booking={info.row.original}
                     onEditClick={(b: Booking) => setActiveEditBooking(b)}
+                    onUnassignClick={
+                        isInlineView && user?.role === 'ADMIN' && info.row.original.assignedToUser
+                            ? (b: Booking) => unassignMutation.mutate(b.id)
+                            : undefined
+                    }
                 />
             ),
         }),

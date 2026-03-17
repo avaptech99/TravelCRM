@@ -109,10 +109,10 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10', myBookings } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10', myBookings, travelDateFilter } = req.query;
 
     // Build a cache key from the query params
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${myBookings || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${myBookings || ''}_${travelDateFilter || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -187,6 +187,27 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         query.createdAt = {};
         if (fromDate) query.createdAt.$gte = new Date(fromDate as string);
         if (toDate) query.createdAt.$lte = new Date(toDate as string);
+    }
+
+    if (travelDateFilter) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let endDate = new Date(today);
+
+        if (travelDateFilter === 'upcoming_7_days') {
+            endDate.setDate(today.getDate() + 7);
+        } else if (travelDateFilter === 'upcoming_15_days') {
+            endDate.setDate(today.getDate() + 15);
+        } else if (travelDateFilter === 'upcoming_30_days') {
+            endDate.setDate(today.getDate() + 30);
+        }
+
+        if (travelDateFilter !== 'all') {
+            query.travelDate = {
+                $gte: today,
+                $lte: endDate
+            };
+        }
     }
 
     const skip = (Number(page) - 1) * Number(limit);

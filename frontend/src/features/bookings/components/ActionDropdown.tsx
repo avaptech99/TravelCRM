@@ -1,4 +1,4 @@
-import { Edit, Users, Eye } from 'lucide-react';
+import { Edit, Users, Eye, UserMinus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Booking } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
@@ -6,11 +6,13 @@ import { useAuth } from '../../../context/AuthContext';
 interface ActionDropdownProps {
     booking: Booking;
     onEditClick: (booking: Booking) => void;
+    onUnassignClick?: (booking: Booking) => void;
 }
 
 export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     booking,
     onEditClick,
+    onUnassignClick,
 }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -46,6 +48,16 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                             title="Update Travelers"
                         >
                             <Users size={16} />
+                        </button>
+                    )}
+
+                    {onUnassignClick && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onUnassignClick(booking); }}
+                            className="p-2 text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors border border-transparent hover:border-rose-200"
+                            title="Unassign Booking"
+                        >
+                            <UserMinus size={16} />
                         </button>
                     )}
                 </>

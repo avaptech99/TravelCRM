@@ -7,8 +7,9 @@ import { AddUserModal } from '../features/users/components/AddUserModal';
 
 dayjs.extend(relativeTime);
 import { EditUserModal } from '../features/users/components/EditUserModal';
-import { Trash2, Plus, Edit2 } from 'lucide-react';
+import { Trash2, Plus, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { BookingsTable } from '../features/bookings/components/BookingsTable';
 
 interface User {
     id: string;
@@ -24,6 +25,8 @@ export const Users: React.FC = () => {
     const queryClient = useQueryClient();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editUser, setEditUser] = useState<User | null>(null);
+    const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+    const [travelDateFilter, setTravelDateFilter] = useState('all');
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
@@ -121,11 +124,23 @@ export const Users: React.FC = () => {
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-200">
                                 {users?.map((user: User) => (
-                                    <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                                            {user.name}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <React.Fragment key={user.id}>
+                                        <tr className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 cursor-pointer flex items-center gap-2"
+                                                onClick={() => {
+                                                    if (user.role === 'AGENT') {
+                                                        setExpandedUserId(expandedUserId === user.id ? null : user.id);
+                                                    }
+                                                }}
+                                            >
+                                                {user.role === 'AGENT' && (
+                                                    <button className="text-slate-400 hover:text-slate-600 transition-colors">
+                                                        {expandedUserId === user.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                    </button>
+                                                )}
+                                                {user.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <div className="flex items-center gap-2">
                                                 <div className={`w-2.5 h-2.5 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
                                                 <span className={`font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
@@ -177,6 +192,41 @@ export const Users: React.FC = () => {
                                             </button>
                                         </td>
                                     </tr>
+                                    {/* Inline Bookings View */}
+                                    {expandedUserId === user.id && (
+                                        <tr>
+                                            <td colSpan={6} className="bg-slate-50/50 p-6 border-b border-slate-200">
+                                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                                    <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50">
+                                                        <h3 className="text-sm font-bold text-slate-800">
+                                                            {user.name}'s Assignments
+                                                        </h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Travel Date:</span>
+                                                            <select
+                                                                value={travelDateFilter}
+                                                                onChange={(e) => setTravelDateFilter(e.target.value)}
+                                                                className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-2 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[130px]"
+                                                            >
+                                                                <option value="all">All Dates</option>
+                                                                <option value="upcoming_7_days">Next 7 Days</option>
+                                                                <option value="upcoming_15_days">Next 15 Days</option>
+                                                                <option value="upcoming_30_days">Next 30 Days</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-0">
+                                                        <BookingsTable
+                                                            agentFilter={user.id}
+                                                            travelDateFilter={travelDateFilter === 'all' ? undefined : travelDateFilter}
+                                                            isInlineView={true}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </React.Fragment>
                                 ))}
                                 {!users?.length && (
                                     <tr>
