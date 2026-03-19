@@ -11,7 +11,14 @@ const connectDB = async () => {
             console.error('Error: MONGODB_URI or DATABASE_URL environment variable is not defined.');
             process.exit(1);
         }
-        const conn = await mongoose_1.default.connect(mongoURI);
+        if (mongoose_1.default.connection.readyState >= 1) {
+            console.log('MongoDB is already connected.');
+            return;
+        }
+        const conn = await mongoose_1.default.connect(mongoURI, {
+            maxPoolSize: 20,
+            minPoolSize: 5,
+        });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     }
     catch (error) {

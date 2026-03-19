@@ -44,6 +44,8 @@ const commentSchema = new mongoose_1.Schema({
     toObject: { virtuals: true },
 });
 // Virtual for createdBy (mirroring Prisma format)
+commentSchema.index({ bookingId: 1 });
+commentSchema.index({ createdById: 1 });
 commentSchema.virtual('createdBy', {
     ref: 'User',
     localField: 'createdById',

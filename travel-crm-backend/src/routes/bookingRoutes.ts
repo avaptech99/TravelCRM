@@ -7,10 +7,10 @@ import {
     assignBooking,
     addComment,
     getComments,
-    addTravelers,
+    addPassengers,
     deleteBooking,
     updateBooking,
-    updateTravelers,
+    updatePassengers,
     addPayment,
     getPayments,
     deletePayment,
@@ -47,9 +47,9 @@ router.route('/:id/comments')
     .get(getComments)
     .post(addComment);
 
-router.route('/:id/travelers')
-    .post(addTravelers)
-    .put(updateTravelers);
+router.route('/:id/passengers')
+    .post(addPassengers)
+    .put(updatePassengers);
 
 router.route('/:id/payments')
     .get(getPayments)

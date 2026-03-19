@@ -9,6 +9,9 @@ const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
 // All booking routes are protected
 router.use(auth_1.protect);
+// Lightweight endpoints (MUST come before /:id)
+router.get('/stats', bookingController_1.getBookingStats);
+router.get('/recent', bookingController_1.getRecentBookings);
 router.route('/')
     .get(bookingController_1.getBookings)
     .post(bookingController_1.createBooking);
@@ -23,9 +26,9 @@ router.route('/:id/assign')
 router.route('/:id/comments')
     .get(bookingController_1.getComments)
     .post(bookingController_1.addComment);
-router.route('/:id/travelers')
-    .post(bookingController_1.addTravelers)
-    .put(bookingController_1.updateTravelers);
+router.route('/:id/passengers')
+    .post(bookingController_1.addPassengers)
+    .put(bookingController_1.updatePassengers);
 router.route('/:id/payments')
     .get(bookingController_1.getPayments)
     .post(bookingController_1.addPayment);

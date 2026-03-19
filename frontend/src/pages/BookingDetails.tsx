@@ -72,6 +72,20 @@ export const BookingDetails: React.FC = () => {
         }
     });
 
+    const updateInterestMutation = useMutation({
+        mutationFn: async (interested: string) => {
+            await api.put(`/bookings/${id}`, { interested });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            queryClient.invalidateQueries({ queryKey: ['bookings'] }); // Refresh table if needed
+            toast.success('Interest updated successfully');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to update interest');
+        }
+    });
+
     if (isLoading) {
         return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
     }
@@ -144,9 +158,26 @@ export const BookingDetails: React.FC = () => {
                             {booking.status}
                         </span>
                     )}
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.interested === 'Yes' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                        {booking.interested === 'Yes' ? 'Interested' : 'Not Interested'}
-                    </span>
+                    
+                    {!isReadOnly ? (
+                        <select
+                            value={booking.interested || 'No'}
+                            onChange={(e) => updateInterestMutation.mutate(e.target.value)}
+                            disabled={updateInterestMutation.isPending}
+                            className={`px-3 py-1.5 rounded-full text-sm font-bold border-2 focus:outline-none focus:ring-opacity-50 transition-colors cursor-pointer disabled:opacity-50 ${
+                                booking.interested === 'Yes' 
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200 focus:ring-emerald-500' 
+                                : 'bg-slate-100 text-slate-800 border-slate-200 focus:ring-slate-500'
+                            }`}
+                        >
+                            <option value="Yes" className="bg-white text-slate-800">Interested</option>
+                            <option value="No" className="bg-white text-slate-800">Not Interested</option>
+                        </select>
+                    ) : (
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.interested === 'Yes' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                            {booking.interested === 'Yes' ? 'Interested' : 'Not Interested'}
+                        </span>
+                    )}
                 </div>
             </div>
 

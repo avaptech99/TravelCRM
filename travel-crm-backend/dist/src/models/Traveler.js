@@ -55,5 +55,6 @@ const travelerSchema = new mongoose_1.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
+travelerSchema.index({ bookingId: 1 });
 const Traveler = mongoose_1.default.model('Traveler', travelerSchema);
 exports.default = Traveler;

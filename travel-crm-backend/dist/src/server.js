@@ -15,7 +15,10 @@ dotenv_1.default.config();
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
+const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
+const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
 const db_1 = __importDefault(require("./config/db"));
+const keepWarm_1 = require("./utils/keepWarm");
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
@@ -34,9 +37,12 @@ app.use((0, cors_1.default)({
     },
     credentials: true,
 }));
-// Dev logging middleware
+// Logging middleware
 if (process.env.NODE_ENV !== 'production') {
     app.use((0, morgan_1.default)('dev'));
+}
+else {
+    app.use((0, morgan_1.default)('tiny')); // Show minimal logs in production
 }
 // Prevent aggressive caching from CDNs/browsers
 app.use((req, res, next) => {
@@ -49,6 +55,16 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/bookings', bookingRoutes_1.default);
 app.use('/api/users', userRoutes_1.default);
+app.use('/api/notifications', notificationRoutes_1.default);
+app.use('/api/analytics', analyticsRoutes_1.default);
+// Ping route for keeping server warm
+app.get('/api/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+// Health endpoint for UptimeRobot
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
 // Basic health check route
 app.get('/', (req, res) => {
     res.send('Travel CRM Backend API is running...');
@@ -80,4 +96,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    // Start self-pinging to keep server warm (if BASE_URL is provided)
+    if (process.env.BASE_URL) {
+        (0, keepWarm_1.startSelfPinging)(process.env.BASE_URL);
+    }
 });

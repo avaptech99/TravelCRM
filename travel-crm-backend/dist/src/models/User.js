@@ -39,6 +39,8 @@ const userSchema = new mongoose_1.Schema({
     email: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
     role: { type: String, default: 'AGENT' },
+    isOnline: { type: Boolean, default: false },
+    lastSeen: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now },
 }, {
     toJSON: { virtuals: true },

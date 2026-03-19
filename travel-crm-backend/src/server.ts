@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes';
 import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
 
@@ -56,6 +57,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Ping route for keeping server warm
 app.get('/api/ping', (req: Request, res: Response) => {

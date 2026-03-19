@@ -26,7 +26,7 @@ export const Users: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editUser, setEditUser] = useState<User | null>(null);
     const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
-    const [travelDateFilter, setTravelDateFilter] = useState('all');
+    const [travelDateFilter, setTravelDateFilter] = useState('upcoming_7_days');
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
@@ -208,10 +208,11 @@ export const Users: React.FC = () => {
                                                                 onChange={(e) => setTravelDateFilter(e.target.value)}
                                                                 className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-2 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[130px]"
                                                             >
-                                                                <option value="all">All Dates</option>
                                                                 <option value="upcoming_7_days">Next 7 Days</option>
+                                                                <option value="upcoming_10_days">Next 10 Days</option>
                                                                 <option value="upcoming_15_days">Next 15 Days</option>
                                                                 <option value="upcoming_30_days">Next 30 Days</option>
+                                                                <option value="all">All Dates</option>
                                                             </select>
                                                         </div>
                                                     </div>

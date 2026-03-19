@@ -1,23 +1,24 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
+import PrimaryContact from '../models/PrimaryContact';
 import Comment from '../models/Comment';
-import Traveler from '../models/Traveler';
+import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
-import { parseTravelInfo } from '../utils/travelParser';
 import {
     createBookingSchema,
     updateBookingStatusSchema,
     assignBookingSchema,
     createCommentSchema,
-    createTravelersSchema,
+    createPassengersSchema,
     updateBookingSchema,
     createPaymentSchema,
 } from '../types';
+import { extractTravelInfo } from '../utils/extractTravelInfo';
 
 // Helper to clear all booking-related caches
 const invalidateBookingCaches = () => {
@@ -41,14 +42,11 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
 
     const query: any = {};
     if (req.user?.role === 'AGENT') {
-        // Must convert ID string to ObjectId for aggregate $match
         query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
     console.time('getBookingStats');
-    
-    // Use a single aggregation pipeline instead of 5 separate countDocuments
-    // This reduces DB round trips from 5 -> 1, massively improving cold-cache latency
+
     const stats = await Booking.aggregate([
         { $match: query },
         {
@@ -72,7 +70,7 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
         sent: stats[0].sent
     } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-    appCache.set(cacheKey, result, 120); // Cache for 120 seconds, invalidates on mutation
+    appCache.set(cacheKey, result, 120);
     res.json(result);
 });
 
@@ -94,14 +92,24 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const bookings = await Booking.find(query)
-        .select('contactPerson status assignedToUserId createdAt destinationCity travelDate travellers')
+        .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUser', 'name')
+        .populate('primaryContact', 'contactName contactPhoneNo bookingType')
         .lean();
 
-    const mapped = bookings.map(b => ({ ...b, id: b._id.toString() }));
-    appCache.set(cacheKey, mapped, 60); // Cache for 60 seconds
+    const mapped = bookings.map(b => ({ 
+        ...b, 
+        id: b._id.toString(),
+        contactPerson: (b as any).primaryContact?.contactName,
+        contactNumber: (b as any).primaryContact?.contactPhoneNo,
+        bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: b.destination,
+        travellers: b.travellers,
+        travelers: (b as any).passengers,
+    }));
+    appCache.set(cacheKey, mapped, 60);
     res.json(mapped);
 });
 
@@ -109,10 +117,9 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, page = '1', limit = '10', myBookings, travelDateFilter } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings } = req.query;
 
-    // Build a cache key from the query params
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${myBookings || ''}_${travelDateFilter || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -121,6 +128,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const query: any = {};
+    const primaryContactQuery: any = {};
 
     if (myBookings === 'true') {
         query.$or = [
@@ -140,47 +148,18 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     if (status) {
-        const allFilters = (status as string).split(',').map(s => s.trim());
-        const realStatuses = allFilters.filter(s => s !== 'Interested' && s !== 'Not Interested');
-        const hasInterested = allFilters.includes('Interested');
-        const hasNotInterested = allFilters.includes('Not Interested');
+        const statusArray = (status as string).split(',').map(s => s.trim());
+        const bookingStatuses = statusArray.filter(s => !['Interested', 'Not Interested'].includes(s));
+        const interestFilters = statusArray.filter(s => ['Interested', 'Not Interested'].includes(s));
 
-        const conditions: any[] = [];
-
-        if (realStatuses.length === 1) {
-            conditions.push({ status: realStatuses[0] });
-        } else if (realStatuses.length > 1) {
-            conditions.push({ status: { $in: realStatuses } });
+        if (bookingStatuses.length > 0) {
+            query.status = { $in: bookingStatuses };
         }
 
-        if (hasInterested) {
-            conditions.push({ interested: 'Yes' });
+        if (interestFilters.length > 0) {
+            const interestValues = interestFilters.map(f => f === 'Interested' ? 'Yes' : 'No');
+            primaryContactQuery.interested = { $in: interestValues };
         }
-        if (hasNotInterested) {
-            conditions.push({ interested: 'No' });
-        }
-
-        if (conditions.length === 1) {
-            Object.assign(query, conditions[0]);
-        } else if (conditions.length > 1) {
-            // If we already have $or from agent filter, wrap in $and
-            if (query.$or) {
-                query.$and = [{ $or: query.$or }, { $or: conditions }];
-                delete query.$or;
-            } else {
-                query.$or = conditions;
-            }
-        }
-    }
-
-    if (search) {
-        const searchStr = search as string;
-        query.$or = [
-            { contactPerson: { $regex: searchStr, $options: 'i' } },
-            { contactNumber: { $regex: searchStr, $options: 'i' } },
-            { requirements: { $regex: searchStr, $options: 'i' } },
-            { uniqueCode: searchStr },
-        ];
     }
 
     if (fromDate || toDate) {
@@ -189,24 +168,107 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         if (toDate) query.createdAt.$lte = new Date(toDate as string);
     }
 
-    if (travelDateFilter) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        let endDate = new Date(today);
+    if (travelDateFilter && travelDateFilter !== 'all') {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const futureDate = new Date(now);
 
         if (travelDateFilter === 'upcoming_7_days') {
-            endDate.setDate(today.getDate() + 7);
+            futureDate.setDate(now.getDate() + 7);
+        } else if (travelDateFilter === 'upcoming_10_days') {
+            futureDate.setDate(now.getDate() + 10);
         } else if (travelDateFilter === 'upcoming_15_days') {
-            endDate.setDate(today.getDate() + 15);
+            futureDate.setDate(now.getDate() + 15);
         } else if (travelDateFilter === 'upcoming_30_days') {
-            endDate.setDate(today.getDate() + 30);
+            futureDate.setDate(now.getDate() + 30);
         }
+        
+        futureDate.setHours(23, 59, 59, 999);
 
-        if (travelDateFilter !== 'all') {
-            query.travelDate = {
-                $gte: today,
-                $lte: endDate
-            };
+        query.travelDate = {
+            $gte: now,
+            $lte: futureDate
+        };
+    }
+
+    if (search) {
+        const searchStr = search as string;
+        const searchRegex = new RegExp(searchStr, 'i');
+        const contactSearchConditions = [
+            { contactName: searchRegex },
+            { contactPhoneNo: searchRegex },
+            { requirements: searchRegex },
+        ];
+
+        if (primaryContactQuery.$or) {
+            primaryContactQuery.$or.push(...contactSearchConditions);
+        } else {
+            primaryContactQuery.$or = contactSearchConditions;
+        }
+    }
+
+    let contactIds: mongoose.Types.ObjectId[] = [];
+    if (Object.keys(primaryContactQuery).length > 0) {
+        const matchingContacts = await PrimaryContact.find(primaryContactQuery).select('_id').lean();
+        contactIds = matchingContacts.map(c => (c as any)._id);
+        
+        if (contactIds.length === 0) {
+            res.json({
+                data: [],
+                meta: {
+                    total: 0,
+                    page: Number(page),
+                    limit: Number(limit),
+                    totalPages: 0,
+                },
+            });
+            return;
+        }
+        query.primaryContactId = { $in: contactIds };
+    }
+
+    if (search) {
+        const searchStr = search as string;
+        const searchRegex = new RegExp(searchStr, 'i');
+        const bookingSearchFields = [
+            { flightFrom: searchRegex },
+            { flightTo: searchRegex },
+        ];
+
+        // If we have contactIds from the search, we want (contactMatch OR flightMatch)
+        // BUT we also need to respect existing query filters (like status, agent)
+        if (query.primaryContactId) {
+            const searchOr = [
+                { primaryContactId: query.primaryContactId },
+                ...bookingSearchFields
+            ];
+            
+            // Remove the single primaryContactId from query and use it in OR
+            delete query.primaryContactId;
+            
+            if (query.$or) {
+                // If we already have $or (like myBookings or Agent assignment), wrap in $and
+                const existingOr = query.$or;
+                delete query.$or;
+                query.$and = [
+                    { $or: existingOr },
+                    { $or: searchOr }
+                ];
+            } else {
+                query.$or = searchOr;
+            }
+        } else {
+            // Just flight search
+            if (query.$or) {
+                const existingOr = query.$or;
+                delete query.$or;
+                query.$and = [
+                    { $or: existingOr },
+                    { $or: bookingSearchFields }
+                ];
+            } else {
+                query.$or = bookingSearchFields;
+            }
         }
     }
 
@@ -217,13 +279,14 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking.find(query)
-            .select('uniqueCode contactPerson contactNumber status interested createdOn createdByUserId assignedToUserId requirements isConvertedToEDT pricePerTicket totalAmount createdAt destinationCity travelDate travellers')
+            .select('uniqueCode status flightFrom flightTo destination travelDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
             .populate('assignedToUser', 'name')
             .populate('createdByUser', 'name')
-            .populate('travelers', 'country departureTime')
+            .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+            .populate('passengers', 'name')
             .lean(),
         Booking.countDocuments(query),
     ]);
@@ -231,7 +294,15 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const mappedBookings = bookings.map(b => ({
         ...b,
-        id: b._id.toString()
+        id: b._id.toString(),
+        contactPerson: (b as any).primaryContact?.contactName,
+        contactNumber: (b as any).primaryContact?.contactPhoneNo,
+        requirements: (b as any).primaryContact?.requirements,
+        interested: (b as any).primaryContact?.interested,
+        bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: b.destination,
+        travellers: b.travellers,
+        travelers: (b as any).passengers,
     }));
 
     const result = {
@@ -244,7 +315,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         },
     };
 
-    appCache.set(cacheKey, result, 60); // Cache for 60 seconds
+    appCache.set(cacheKey, result, 60);
     res.json(result);
 });
 
@@ -272,14 +343,15 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const booking = await Booking.findById(id)
         .populate('assignedToUser', 'name email')
         .populate('createdByUser', 'name')
+        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
         .populate({
             path: 'comments',
             populate: { path: 'createdBy', select: 'name role' },
             options: { sort: { createdAt: -1 } },
             select: 'text createdById createdAt'
         })
-        .populate('travelers', 'name phoneNumber email isPrimary')
-        .populate('payments', 'amount paymentMethod date remarks')
+        .populate('passengers', 'name phoneNumber email dob anniversary')
+        .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
     console.timeEnd(`getBookingById_${id}`);
 
@@ -288,8 +360,24 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Booking not found');
     }
 
-    const result = { ...booking, id: booking._id.toString() };
-    appCache.set(cacheKey, result, 60); // Cache for 60 seconds
+    // Calculate outstanding for each payment context
+    const totalPaid = (booking as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+    const outstanding = ((booking as any).amount || 0) - totalPaid;
+
+    const result = {
+        ...booking,
+        id: booking!._id.toString(),
+        outstanding,
+        contactPerson: (booking as any).primaryContact?.contactName,
+        contactNumber: (booking as any).primaryContact?.contactPhoneNo,
+        requirements: (booking as any).primaryContact?.requirements,
+        interested: (booking as any).primaryContact?.interested,
+        bookingType: (booking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: booking.destination,
+        travellers: booking.travellers,
+        travelers: (booking as any).passengers,
+    };
+    appCache.set(cacheKey, result, 60);
     res.json(result);
 });
 
@@ -313,9 +401,10 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     // Parallel deletion of all related records
     await Promise.all([
         Comment.deleteMany({ bookingId: req.params.id }),
-        Traveler.deleteMany({ bookingId: req.params.id }),
+        Passenger.deleteMany({ bookingId: req.params.id }),
         Payment.deleteMany({ bookingId: req.params.id }),
         Notification.deleteMany({ bookingId: req.params.id }),
+        booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
         Booking.findByIdAndDelete(req.params.id)
     ]);
     console.timeEnd(`deleteBooking_${req.params.id}`);
@@ -336,32 +425,68 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid input');
     }
 
-    const requirements = result.data.requirements || '';
-    const extractStart = Date.now();
-    const travelInfo = parseTravelInfo(requirements);
-    const extractTime = Date.now() - extractStart;
+    // Create PrimaryContact first
+    const primaryContact = await PrimaryContact.create({
+        contactName: result.data.contactPerson,
+        contactPhoneNo: result.data.contactNumber,
+        bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
+        requirements: result.data.requirements || null,
+    });
 
+    // Extract info if not provided
+    let finalDestination = result.data.destination || null;
+    let finalTravelDate = result.data.travelDate ? new Date(result.data.travelDate) : null;
+    let finalTravellers = result.data.travellers || null;
+
+    if (result.data.requirements) {
+        const parsedData = extractTravelInfo(result.data.requirements);
+        if (!finalDestination && parsedData.destinationCity) finalDestination = parsedData.destinationCity;
+        if (!finalTravelDate && parsedData.travelDate) finalTravelDate = parsedData.travelDate;
+        if (!finalTravellers && parsedData.travellers) finalTravellers = parsedData.travellers;
+    }
+
+    // Create booking
     const dbStart = Date.now();
     const booking = await Booking.create({
-        ...result.data,
-        fromCity: travelInfo.fromCity,
-        destinationCity: travelInfo.destinationCity,
-        travelDate: travelInfo.travelDate,
-        travellers: travelInfo.travellers,
-        duration: travelInfo.duration,
+        destination: finalDestination,
+        travelDate: finalTravelDate,
+        flightFrom: result.data.flightFrom || null,
+        flightTo: result.data.flightTo || null,
+        tripType: result.data.tripType || 'one-way',
+        amount: result.data.amount || 0,
+        travellers: finalTravellers,
+        primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
     });
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms | Extraction: ${extractTime}ms`);
+    console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
+
+    // Populate for response
+    const populatedBooking = await Booking.findById(booking._id)
+        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .lean();
+
+    const resultBooking = {
+        ...populatedBooking,
+        id: populatedBooking!._id.toString(),
+        contactPerson: (populatedBooking as any).primaryContact?.contactName,
+        contactNumber: (populatedBooking as any).primaryContact?.contactPhoneNo,
+        requirements: (populatedBooking as any).primaryContact?.requirements,
+        interested: (populatedBooking as any).primaryContact?.interested,
+        bookingType: (populatedBooking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: populatedBooking!.destination,
+        travellers: populatedBooking!.travellers,
+        travelers: (populatedBooking as any).passengers,
+    };
 
     invalidateBookingCaches();
-    res.status(201).json(booking);
+    res.status(201).json(resultBooking);
 });
 
-// @desc    Update a booking (currently requirements)
+// @desc    Update a booking
 // @route   PUT /api/bookings/:id
 // @access  Private
 export const updateBooking = asyncHandler(async (req: Request, res: Response) => {
@@ -385,29 +510,45 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Not authorized to update this booking');
     }
 
-    if (result.data.requirements !== undefined) {
-        booking.requirements = result.data.requirements || null;
-        const travelInfo = parseTravelInfo(result.data.requirements || '');
-        booking.fromCity = travelInfo.fromCity;
-        booking.destinationCity = travelInfo.destinationCity;
-        booking.travelDate = travelInfo.travelDate;
-        booking.travellers = travelInfo.travellers;
-        booking.duration = travelInfo.duration;
-    }
-    if (result.data.pricePerTicket !== undefined) {
-        booking.pricePerTicket = result.data.pricePerTicket;
-    }
-    if (result.data.totalAmount !== undefined) {
-        booking.totalAmount = result.data.totalAmount;
-    }
-    if (result.data.interested !== undefined) {
-        booking.interested = result.data.interested;
+    // Update booking-level fields
+    if (result.data.destination !== undefined) booking.destination = result.data.destination || null;
+    if (result.data.travelDate !== undefined) booking.travelDate = result.data.travelDate ? new Date(result.data.travelDate) : null;
+    if (result.data.flightFrom !== undefined) booking.flightFrom = result.data.flightFrom || null;
+    if (result.data.flightTo !== undefined) booking.flightTo = result.data.flightTo || null;
+    if (result.data.tripType !== undefined) booking.tripType = result.data.tripType || 'one-way';
+    if (result.data.amount !== undefined) booking.amount = result.data.amount;
+    if (result.data.travellers !== undefined) booking.travellers = result.data.travellers || null;
+
+    await booking.save();
+
+    // Update PrimaryContact fields if provided
+    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
+        const updateData: any = {};
+        if (result.data.requirements !== undefined) updateData.requirements = result.data.requirements;
+        if (result.data.interested !== undefined) updateData.interested = result.data.interested;
+        await PrimaryContact.findByIdAndUpdate(booking.primaryContactId, updateData);
     }
 
-    const updatedBooking = await booking.save();
+    const updatedBooking = await Booking.findById(id)
+        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('assignedToUser', 'name')
+        .lean();
+
+    const resultBooking = {
+        ...updatedBooking,
+        id: updatedBooking!._id.toString(),
+        contactPerson: (updatedBooking as any).primaryContact?.contactName,
+        contactNumber: (updatedBooking as any).primaryContact?.contactPhoneNo,
+        requirements: (updatedBooking as any).primaryContact?.requirements,
+        interested: (updatedBooking as any).primaryContact?.interested,
+        bookingType: (updatedBooking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: updatedBooking!.destination,
+        travellers: updatedBooking!.travellers,
+        travelers: (updatedBooking as any).passengers,
+    };
 
     invalidateBookingCaches();
-    res.json(updatedBooking);
+    res.json(resultBooking);
 });
 
 // @desc    Update booking status
@@ -435,10 +576,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     const { status } = result.data;
-    const isConvertedToEDT = status === 'Booked';
-
     existingBooking.status = status;
-    existingBooking.isConvertedToEDT = isConvertedToEDT;
     const updatedBooking = await existingBooking.save();
 
     invalidateBookingCaches();
@@ -568,8 +706,6 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    // Allow any authenticated user to view comments
-
     const comments = await Comment.find({ bookingId: id })
         .populate('createdBy', 'name role')
         .sort({ createdAt: -1 });
@@ -577,20 +713,19 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
     res.json(comments);
 });
 
-// @desc    Add travelers to a booking
-// @route   POST /api/bookings/:id/travelers
+// @desc    Add passengers to a booking
+// @route   POST /api/bookings/:id/passengers
 // @access  Private
-export const addTravelers = asyncHandler(async (req: Request, res: Response) => {
+export const addPassengers = asyncHandler(async (req: Request, res: Response) => {
     const startTime = Date.now();
     const { id } = req.params;
 
-    // Support either single traveler object or array to match frontend requests
     const inputData = Array.isArray(req.body) ? req.body : [req.body];
-    const result = createTravelersSchema.safeParse(inputData);
+    const result = createPassengersSchema.safeParse(inputData);
 
     if (!result.success) {
         res.status(400);
-        throw new Error('Invalid traveler data');
+        throw new Error('Invalid passenger data');
     }
 
     const booking = await Booking.findById(id);
@@ -602,38 +737,38 @@ export const addTravelers = asyncHandler(async (req: Request, res: Response) => 
 
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
-        throw new Error('Not authorized to add travelers to this booking');
+        throw new Error('Not authorized to add passengers to this booking');
     }
 
-    const travelersData = result.data.map(t => ({
-        ...t,
+    const passengersData = result.data.map(p => ({
+        ...p,
         bookingId: id,
     }));
 
     const dbStart = Date.now();
-    const createdTravelers = await Traveler.insertMany(travelersData);
+    const createdPassengers = await Passenger.insertMany(passengersData);
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[PASSENGER PERF] Add Travelers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${travelersData.length}`);
+    console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
 
     invalidateBookingCaches();
-    res.status(201).json(createdTravelers);
+    res.status(201).json(createdPassengers);
 });
 
-// @desc    Update (replace) travelers for a booking
-// @route   PUT /api/bookings/:id/travelers
+// @desc    Update (replace) passengers for a booking
+// @route   PUT /api/bookings/:id/passengers
 // @access  Private
-export const updateTravelers = asyncHandler(async (req: Request, res: Response) => {
+export const updatePassengers = asyncHandler(async (req: Request, res: Response) => {
     const startTime = Date.now();
     const { id } = req.params;
 
     const inputData = Array.isArray(req.body) ? req.body : [req.body];
-    const result = createTravelersSchema.safeParse(inputData);
+    const result = createPassengersSchema.safeParse(inputData);
 
     if (!result.success) {
         res.status(400);
-        throw new Error('Invalid traveler data');
+        throw new Error('Invalid passenger data');
     }
 
     const booking = await Booking.findById(id);
@@ -645,24 +780,24 @@ export const updateTravelers = asyncHandler(async (req: Request, res: Response) 
 
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
-        throw new Error('Not authorized to update travelers for this booking');
+        throw new Error('Not authorized to update passengers for this booking');
     }
 
-    const travelersData = result.data.map(t => ({
-        ...t,
+    const passengersData = result.data.map(p => ({
+        ...p,
         bookingId: id,
     }));
 
     const dbStart = Date.now();
-    await Traveler.deleteMany({ bookingId: id });
-    const createdTravelers = await Traveler.insertMany(travelersData);
+    await Passenger.deleteMany({ bookingId: id });
+    const createdPassengers = await Passenger.insertMany(passengersData);
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
-    console.log(`[PASSENGER PERF] Update Travelers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${travelersData.length}`);
+    console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
 
     invalidateBookingCaches();
-    res.json(createdTravelers);
+    res.json(createdPassengers);
 });
 
 // @desc    Add a payment to a booking
@@ -710,8 +845,6 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-
-    // Allow any authenticated user to view payments
 
     const payments = await Payment.find({ bookingId: id }).sort({ date: -1 });
 

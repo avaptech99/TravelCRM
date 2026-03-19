@@ -1,48 +1,36 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
 export interface IBooking extends Document {
-    createdOn: Date;
-    createdByUserId: mongoose.Types.ObjectId | null;
-    contactPerson: string;
-    contactNumber: string;
-    requirements: string | null;
+    primaryContactId: mongoose.Types.ObjectId;
+    uniqueCode: string;
+    destination: string | null;
+    travelDate: Date | null;
+    flightFrom: string | null;
+    flightTo: string | null;
+    tripType: 'one-way' | 'round-trip';
+    amount: number;
+    travellers: number | null;
+    status: 'Pending' | 'Working' | 'Sent' | 'Booked';
+    createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
-    status: string;
-    isConvertedToEDT: boolean;
-    bookingType: 'B2B' | 'B2C';
-    interested?: string;
-    pricePerTicket?: number;
-    totalAmount?: number;
     createdAt: Date;
     updatedAt: Date;
-    uniqueCode: string;
-    fromCity?: string;
-    destinationCity?: string;
-    travelDate?: Date;
-    travellers?: number;
-    duration?: string;
 }
 
 const bookingSchema = new Schema<IBooking>(
     {
-        createdOn: { type: Date, default: Date.now },
-        createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-        contactPerson: { type: String, required: true },
-        contactNumber: { type: String, required: true },
-        requirements: { type: String, default: null },
-        assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-        status: { type: String, default: 'Pending' },
-        isConvertedToEDT: { type: Boolean, default: false },
-        bookingType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' },
-        interested: { type: String, enum: ['Yes', 'No'], default: 'No' },
-        pricePerTicket: { type: Number, default: 0 },
-        totalAmount: { type: Number, default: 0 },
-        uniqueCode: { type: String, unique: true, sparse: true },
-        fromCity: { type: String, default: null },
-        destinationCity: { type: String, default: null },
+        primaryContactId: { type: Schema.Types.ObjectId, ref: 'PrimaryContact', required: true },
+        uniqueCode: { type: String, unique: true },
+        destination: { type: String, default: null },
         travelDate: { type: Date, default: null },
+        flightFrom: { type: String, default: null },
+        flightTo: { type: String, default: null },
+        tripType: { type: String, enum: ['one-way', 'round-trip'], default: 'one-way' },
+        amount: { type: Number, default: 0 },
         travellers: { type: Number, default: null },
-        duration: { type: String, default: null },
+        status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
+        createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     },
     {
         timestamps: true, // Automatically manages createdAt and updatedAt
@@ -51,16 +39,21 @@ const bookingSchema = new Schema<IBooking>(
     }
 );
 
+bookingSchema.pre('save', function (this: any) {
+    if (!this.uniqueCode) {
+        // Simple random 4-digit code (e.g., 6819) to match aaaa.png
+        this.uniqueCode = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+});
+
 // Indexes to speed up queries
 bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ status: 1 });
-bookingSchema.index({ uniqueCode: 1 });
 bookingSchema.index({ assignedToUserId: 1 });
-bookingSchema.index({ contactPerson: 1 });
-bookingSchema.index({ contactNumber: 1 });
 bookingSchema.index({ createdByUserId: 1 });
+bookingSchema.index({ primaryContactId: 1 });
 
-// Virtual properties to mirror Prisma include logic
+// Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
     localField: 'assignedToUserId',
@@ -71,6 +64,13 @@ bookingSchema.virtual('assignedToUser', {
 bookingSchema.virtual('createdByUser', {
     ref: 'User',
     localField: 'createdByUserId',
+    foreignField: '_id',
+    justOne: true,
+});
+
+bookingSchema.virtual('primaryContact', {
+    ref: 'PrimaryContact',
+    localField: 'primaryContactId',
     foreignField: '_id',
     justOne: true,
 });
@@ -87,26 +87,10 @@ bookingSchema.virtual('payments', {
     foreignField: 'bookingId',
 });
 
-bookingSchema.virtual('travelers', {
-    ref: 'Traveler',
+bookingSchema.virtual('passengers', {
+    ref: 'Passenger',
     localField: '_id',
     foreignField: 'bookingId',
-});
-
-bookingSchema.pre('save', async function () {
-    if (!this.uniqueCode) {
-        let isUnique = false;
-        let code = '';
-        while (!isUnique) {
-            code = Math.floor(1000 + Math.random() * 9000).toString();
-            // @ts-ignore
-            const existing = await mongoose.models.Booking.findOne({ uniqueCode: code });
-            if (!existing) {
-                isUnique = true;
-            }
-        }
-        this.uniqueCode = code;
-    }
 });
 
 const Booking: Model<IBooking> = mongoose.model<IBooking>('Booking', bookingSchema);

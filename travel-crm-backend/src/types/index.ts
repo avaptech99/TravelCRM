@@ -13,18 +13,30 @@ export const createUserSchema = z.object({
 });
 
 export const createBookingSchema = z.object({
-    contactPerson: z.string().min(2, 'Name must be at least 2 characters'),
-    contactNumber: z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits'),
-    requirements: z.string().min(1, 'Requirements are compulsory'),
-    bookingType: z.enum(['B2B', 'B2C']).default('B2C'),
+    contactPerson: z.string().min(2, 'Contact Person must be at least 2 characters'),
+    contactNumber: z.string().min(10, 'Contact Number must be a valid phone number'),
+    bookingType: z.enum(['B2B', 'B2C']),
+    destination: z.string().optional(),
+    travelDate: z.string().optional().nullable(),
+    requirements: z.string().optional(),
+    flightFrom: z.string().optional(),
+    flightTo: z.string().optional(),
+    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    amount: z.number().nonnegative().optional(),
+    travellers: z.number().int().positive().optional(),
 });
 
 export const updateBookingSchema = z.object({
+    destination: z.string().optional(),
+    travelDate: z.string().optional().nullable(),
+    flightFrom: z.string().optional(),
+    flightTo: z.string().optional(),
+    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    amount: z.number().nonnegative().optional(),
     requirements: z.string().optional(),
-    pricePerTicket: z.number().nonnegative().optional(),
-    totalAmount: z.number().optional(),
     interested: z.enum(['Yes', 'No']).optional(),
     bookingType: z.enum(['B2B', 'B2C']).optional(),
+    travellers: z.number().int().positive().optional(),
 });
 
 export const updateBookingStatusSchema = z.object({
@@ -39,25 +51,15 @@ export const createCommentSchema = z.object({
     text: z.string().min(1),
 });
 
-export const travelerSchema = z.object({
+export const passengerSchema = z.object({
     name: z.string().min(1),
     phoneNumber: z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits').optional().or(z.literal('')),
     email: z.string().email().optional().or(z.literal('')),
-    country: z.string().optional(),
-    flightFrom: z.string().optional(),
-    flightTo: z.string().optional(),
-    departureTime: z.string().optional(),
-    arrivalTime: z.string().optional(),
-    tripType: z.enum(['one-way', 'round-trip']).optional(),
-    returnDate: z.string().optional(),
-    returnDepartureTime: z.string().optional(),
-    returnArrivalTime: z.string().optional(),
     dob: z.string().optional(),
     anniversary: z.string().optional(),
-    isPrimary: z.boolean().default(false).optional(),
 });
 
-export const createTravelersSchema = z.array(travelerSchema);
+export const createPassengersSchema = z.array(passengerSchema);
 
 export const createPaymentSchema = z.object({
     amount: z.number().positive(),
