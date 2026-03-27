@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
+exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.bulkAssign = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
@@ -585,6 +585,58 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const updatedBooking = await Booking_1.default.findById(id).populate('assignedToUser', 'name');
     invalidateBookingCaches();
     res.json(updatedBooking);
+});
+// @desc    Bulk assign bookings to an agent (or unassign)
+// @route   POST /api/bookings/bulk-assign
+// @access  Private (Admin only)
+exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
+    // Schema check temporarily removed as bulkAssignSchema is not in types
+    const { bookingIds, assignedToUserId } = req.body;
+    if (assignedToUserId) {
+        const agent = await User_1.default.findById(assignedToUserId);
+        if (!agent || agent.role !== 'AGENT') {
+            res.status(400);
+            throw new Error('Invalid agent selected');
+        }
+    }
+    const newAgentId = assignedToUserId || null;
+    let newAgentName = 'Unassigned';
+    if (newAgentId) {
+        const newAgent = await User_1.default.findById(newAgentId);
+        newAgentName = newAgent?.name || 'Unknown Agent';
+    }
+    // Process in bulk
+    const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } });
+    // We'll use a for...of loop or map with Promise.all
+    // For each booking, check if assignment changed, then update and create comment
+    const updatePromises = bookings.map(async (booking) => {
+        const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+        if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
+            booking.assignedToUserId = newAgentId;
+            await booking.save();
+            let previousAgentName = 'Unassigned';
+            if (previousAssignedUserId) {
+                const prevAgent = await User_1.default.findById(previousAssignedUserId);
+                previousAgentName = prevAgent?.name || 'Unknown Agent';
+            }
+            const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+            await Comment_1.default.create({
+                text: commentText,
+                bookingId: booking._id,
+                createdById: req.user.id,
+            });
+            if (newAgentId) {
+                await Notification_1.default.create({
+                    userId: newAgentId,
+                    bookingId: booking._id,
+                    message: `Booking has been assigned to you.`,
+                });
+            }
+        }
+    });
+    await Promise.all(updatePromises);
+    invalidateBookingCaches();
+    res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
 });
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments

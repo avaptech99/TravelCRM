@@ -37,6 +37,7 @@ const mongoose_1 = __importStar(require("mongoose"));
 const primaryContactSchema = new mongoose_1.Schema({
     contactName: { type: String, required: true },
     contactPhoneNo: { type: String, required: true },
+    contactEmail: { type: String, default: null },
     bookingType: { type: String, enum: ['Agent (B2B)', 'Direct (B2C)'], required: true, default: 'Direct (B2C)' },
     requirements: { type: String, default: null },
     interested: { type: String, enum: ['Yes', 'No'], default: 'No' },
