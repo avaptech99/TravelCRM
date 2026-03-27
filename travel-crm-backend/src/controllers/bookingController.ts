@@ -9,13 +9,9 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
-<<<<<<< Updated upstream
-=======
 import Activity from '../models/Activity';
 import Traveler from '../models/Traveler';
 import { logActivity } from '../utils/activityLogger';
-
->>>>>>> Stashed changes
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -664,8 +660,6 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json(updatedBooking);
 });
 
-<<<<<<< Updated upstream
-=======
 // @desc    Bulk assign bookings to an agent (or unassign)
 // @route   POST /api/bookings/bulk-assign
 // @access  Private (Admin only)
@@ -738,8 +732,6 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     invalidateBookingCaches();
     res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
 });
-
->>>>>>> Stashed changes
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
 // @access  Private

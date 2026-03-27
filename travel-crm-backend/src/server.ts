@@ -3,29 +3,22 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
+
 // Load env vars
 dotenv.config();
 
-// Route files
 // Route files
 import authRoutes from './routes/authRoutes';
 import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
-<<<<<<< Updated upstream
-=======
 import syncRoutes from './routes/syncRoutes';
 import externalRoutes from './routes/externalRoutes';
->>>>>>> Stashed changes
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
 
 const app: Express = express();
-<<<<<<< Updated upstream
-=======
-const httpServer = http.createServer(app);
->>>>>>> Stashed changes
 
 // Connect to MongoDB
 connectDB();
@@ -67,11 +60,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
-<<<<<<< Updated upstream
-=======
 app.use('/api/sync', syncRoutes);
 app.use('/api/external', externalRoutes);
->>>>>>> Stashed changes
 
 // Ping route for keeping server warm
 app.get('/api/ping', (req: Request, res: Response) => {
@@ -101,6 +91,7 @@ app.get('/test-db', async (req: Request, res: Response) => {
         res.status(500).json({ message: "MongoDB connection error", error });
     }
 });
+
 // Custom Error Handler middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
