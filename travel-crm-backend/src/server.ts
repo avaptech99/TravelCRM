@@ -13,10 +13,19 @@ import bookingRoutes from './routes/bookingRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+<<<<<<< Updated upstream
+=======
+import syncRoutes from './routes/syncRoutes';
+import externalRoutes from './routes/externalRoutes';
+>>>>>>> Stashed changes
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
 
 const app: Express = express();
+<<<<<<< Updated upstream
+=======
+const httpServer = http.createServer(app);
+>>>>>>> Stashed changes
 
 // Connect to MongoDB
 connectDB();
@@ -58,6 +67,11 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
+<<<<<<< Updated upstream
+=======
+app.use('/api/sync', syncRoutes);
+app.use('/api/external', externalRoutes);
+>>>>>>> Stashed changes
 
 // Ping route for keeping server warm
 app.get('/api/ping', (req: Request, res: Response) => {

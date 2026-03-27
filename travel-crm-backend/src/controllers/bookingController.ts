@@ -9,6 +9,13 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
+<<<<<<< Updated upstream
+=======
+import Activity from '../models/Activity';
+import Traveler from '../models/Traveler';
+import { logActivity } from '../utils/activityLogger';
+
+>>>>>>> Stashed changes
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -657,6 +664,82 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json(updatedBooking);
 });
 
+<<<<<<< Updated upstream
+=======
+// @desc    Bulk assign bookings to an agent (or unassign)
+// @route   POST /api/bookings/bulk-assign
+// @access  Private (Admin only)
+export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
+    const result = bulkAssignSchema.safeParse(req.body);
+
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid input');
+    }
+
+    const { bookingIds, assignedToUserId } = result.data;
+
+    if (assignedToUserId) {
+        const agent = await User.findById(assignedToUserId);
+        if (!agent || agent.role !== 'AGENT') {
+            res.status(400);
+            throw new Error('Invalid agent selected');
+        }
+    }
+
+    const newAgentId = assignedToUserId || null;
+    let newAgentName = 'Unassigned';
+    
+    if (newAgentId) {
+        const newAgent = await User.findById(newAgentId);
+        newAgentName = newAgent?.name || 'Unknown Agent';
+    }
+
+    // Process in bulk
+    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    
+    // We'll use a for...of loop or map with Promise.all
+    // For each booking, check if assignment changed, then update and create comment
+    const updatePromises = bookings.map(async (booking) => {
+        const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+        
+        if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
+            booking.assignedToUserId = newAgentId as any;
+            await booking.save();
+
+            let previousAgentName = 'Unassigned';
+            if (previousAssignedUserId) {
+                const prevAgent = await User.findById(previousAssignedUserId);
+                previousAgentName = prevAgent?.name || 'Unknown Agent';
+            }
+
+            const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+
+            await Comment.create({
+                text: commentText,
+                bookingId: booking._id,
+                createdById: req.user!.id,
+            });
+
+            await logActivity(booking._id, req.user?.id, 'ASSIGNED', `Agent changed: ${previousAgentName} ➔ ${newAgentName}`);
+
+            if (newAgentId) {
+                await Notification.create({
+                    userId: newAgentId,
+                    bookingId: booking._id,
+                    message: `Booking has been assigned to you.`,
+                });
+            }
+        }
+    });
+
+    await Promise.all(updatePromises);
+
+    invalidateBookingCaches();
+    res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
+});
+
+>>>>>>> Stashed changes
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
 // @access  Private
