@@ -21,7 +21,12 @@ export const createBookingSchema = z.object({
     requirements: z.string().optional(),
     flightFrom: z.string().optional(),
     flightTo: z.string().optional(),
-    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
+    segments: z.array(z.object({
+        from: z.string().optional(),
+        to: z.string().optional(),
+        date: z.string().optional().nullable(),
+    })).optional(),
     amount: z.number().nonnegative().optional(),
     travellers: z.number().int().positive().optional(),
 });
@@ -31,7 +36,12 @@ export const updateBookingSchema = z.object({
     travelDate: z.string().optional().nullable(),
     flightFrom: z.string().optional(),
     flightTo: z.string().optional(),
-    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
+    segments: z.array(z.object({
+        from: z.string().optional(),
+        to: z.string().optional(),
+        date: z.string().optional().nullable(),
+    })).optional(),
     amount: z.number().nonnegative().optional(),
     totalAmount: z.number().nonnegative().optional(),
     finalQuotation: z.string().optional().nullable(),

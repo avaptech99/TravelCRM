@@ -8,7 +8,12 @@ export interface IBooking extends Document {
     returnDate: Date | null;
     flightFrom: string | null;
     flightTo: string | null;
-    tripType: 'one-way' | 'round-trip';
+    tripType: 'one-way' | 'round-trip' | 'multi-city';
+    segments: {
+        from: string;
+        to: string;
+        date: Date | null;
+    }[];
     amount: number;
     totalAmount: number;
     finalQuotation: string | null;
@@ -29,7 +34,12 @@ const bookingSchema = new Schema<IBooking>(
         returnDate: { type: Date, default: null },
         flightFrom: { type: String, default: null },
         flightTo: { type: String, default: null },
-        tripType: { type: String, enum: ['one-way', 'round-trip'], default: 'one-way' },
+        tripType: { type: String, enum: ['one-way', 'round-trip', 'multi-city'], default: 'one-way' },
+        segments: [{
+            from: { type: String, default: null },
+            to: { type: String, default: null },
+            date: { type: Date, default: null },
+        }],
         amount: { type: Number, default: 0 },
         totalAmount: { type: Number, default: 0 },
         finalQuotation: { type: String, default: null },

@@ -68,31 +68,91 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         totalTravellers = travellers;
     }
 
-    // Normalize trip type from WordPress (e.g., formats like "Round Trip", "round-trip", "Multi City")
+    // Normalize trip type
     const normalizedTripType = (tripType || '').toLowerCase().replace(/[^a-z]/g, '');
-    let finalTripType = 'one-way';
-    let addedTripNote = '';
+    let finalTripType: 'one-way' | 'round-trip' | 'multi-city' = 'one-way';
 
     if (normalizedTripType.includes('round')) {
         finalTripType = 'round-trip';
     } else if (normalizedTripType.includes('multi')) {
-        addedTripNote = `\nTrip Type: Multi-City`;
+        finalTripType = 'multi-city';
     }
 
-    // Prepare requirements summary
-    let detailedRequirements = requirements || '';
-    if (tripType) detailedRequirements += `\nTrip Type (Original): ${tripType}`;
-    if (travelDate) detailedRequirements += `\nTravel Date: ${travelDate}`;
-    if (returnDate) detailedRequirements += `\nReturn Date: ${returnDate}`;
-    if (flightFrom) detailedRequirements += `\nFlight From: ${flightFrom}`;
-    if (flightTo) detailedRequirements += `\nFlight To: ${flightTo}`;
-    if (travelClass) detailedRequirements += `\nClass: ${travelClass}`;
-    if (addedTripNote) detailedRequirements += addedTripNote;
-    if (adults || children || infants) {
-        detailedRequirements += `\nBreakdown: ${adults || 0} Adults, ${children || 0} Children, ${infants || 0} Infants`;
+    // Helper: Parse European date (DD/MM/YYYY)
+    const parseDate = (dateStr: any): Date | null => {
+        if (!dateStr || typeof dateStr !== 'string') return null;
+        let parsed: Date | null = null;
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            }
+        } else if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
+                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            } else {
+                parsed = new Date(dateStr); // YYYY-MM-DD
+            }
+        } else {
+            parsed = new Date(dateStr);
+        }
+        return (parsed && !isNaN(parsed.getTime())) ? parsed : null;
+    };
+
+    // Detailed Requirements catch-all (Captures ALL fields for safety)
+    let detailedRequirements = `Direct Booking Inquiry from Website\n\n`;
+    detailedRequirements += `--- Additional Customer Information ---\n`;
+    
+    // Fields already processed or internal to CRM
+    const excludedFields = ['apiKey', 'contactPerson', 'contactNumber', 'contactEmail', 'detailedRequirements', 'segments'];
+    
+    Object.entries(req.body).forEach(([key, value]) => {
+        // Skip excluded, empty, or internal-looking Ninja Forms keys (like '37.1_0' or numeric IDs)
+        // unless they are explicitly mapped in the WP script.
+        const isInternalNF = /^\d+(_\d+)?$/.test(key) || key.includes('_0');
+        
+        if (!excludedFields.includes(key) && value && !isInternalNF) {
+            // Format key for better readability (un-camelcase, replace underscores with spaces, capitalize)
+            const label = key
+                .replace(/([A-Z])/g, ' $1') // Handle camelCase
+                .replace(/_/g, ' ')         // Handle snake_case
+                .trim()
+                .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
+                
+            detailedRequirements += `${label}: ${value}\n`;
+        }
+    });
+    detailedRequirements += `\n-------------------\n`;
+
+    const segments: any[] = [];
+    
+    // Look for multi-city segments (N=1,2,3...)
+    // Pattern matches: flightFrom_1, travelDate_2, from_3, to_1, etc.
+    for (let i = 1; i <= 10; i++) {
+        const from = req.body[`flightFrom_${i}`] || req.body[`from_${i}`];
+        const to = req.body[`flightTo_${i}`] || req.body[`to_${i}`];
+        const date = req.body[`travelDate_${i}`] || req.body[`departure_${i}`] || req.body[`date_${i}`];
+        
+        if (from || to || date) {
+            segments.push({
+                from: from || 'TBD',
+                to: to || 'TBD',
+                date: parseDate(date)
+            });
+        }
     }
 
-    // Get "Website Lead" system user so Created By shows "Website Lead"
+    // If no segments found but it's multi-city, maybe we can use the primary one as segment 1
+    if (segments.length === 0 && finalTripType === 'multi-city' && (flightFrom || flightTo)) {
+        segments.push({
+            from: flightFrom || 'TBD',
+            to: flightTo || 'TBD',
+            date: parseDate(travelDate)
+        });
+    }
+
+    // Get "Website Lead" system user
     const websiteLeadUser = await getWebsiteLeadUser();
 
     // 1. Create PrimaryContact
@@ -104,62 +164,15 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         requirements: detailedRequirements.trim() || null,
     });
 
-    // Safely parse European date format (DD/MM/YYYY) to prevent Mongoose CastError
-    let parsedTravelDate: Date | null = null;
-    let parsedReturnDate: Date | null = null;
-
-    if (travelDate) {
-        if (travelDate.includes('/')) {
-            const parts = travelDate.split('/');
-            if (parts.length === 3) {
-                parsedTravelDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            }
-        } else if (travelDate.includes('-')) {
-            const parts = travelDate.split('-');
-            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
-                parsedTravelDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            } else {
-                parsedTravelDate = new Date(travelDate); // YYYY-MM-DD
-            }
-        } else {
-            parsedTravelDate = new Date(travelDate);
-        }
-
-        if (parsedTravelDate && isNaN(parsedTravelDate.getTime())) {
-            parsedTravelDate = null;
-        }
-    }
-
-    if (returnDate) {
-        if (returnDate.includes('/')) {
-            const parts = returnDate.split('/');
-            if (parts.length === 3) {
-                parsedReturnDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            }
-        } else if (returnDate.includes('-')) {
-            const parts = returnDate.split('-');
-            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
-                parsedReturnDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            } else {
-                parsedReturnDate = new Date(returnDate); // YYYY-MM-DD
-            }
-        } else {
-            parsedReturnDate = new Date(returnDate);
-        }
-
-        if (parsedReturnDate && isNaN(parsedReturnDate.getTime())) {
-            parsedReturnDate = null;
-        }
-    }
-
-    // 2. Create Booking (status defaults to "Pending", createdAt is automatic)
+    // 2. Create Booking
     const booking = await Booking.create({
-        destination: flightTo || null,
-        travelDate: parsedTravelDate,
-        returnDate: parsedReturnDate,
-        flightFrom: flightFrom || null,
-        flightTo: flightTo || null,
+        destination: flightTo || (segments.length > 0 ? segments[segments.length - 1].to : null),
+        travelDate: parseDate(travelDate) || (segments.length > 0 ? segments[0].date : null),
+        returnDate: parseDate(returnDate),
+        flightFrom: flightFrom || (segments.length > 0 ? segments[0].from : null),
+        flightTo: flightTo || (segments.length > 0 ? segments[0].to : null),
         tripType: finalTripType,
+        segments,
         travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
         createdByUserId: websiteLeadUser._id, // Shows "Website Lead" in Created By

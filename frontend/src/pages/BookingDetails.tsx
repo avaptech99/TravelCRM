@@ -285,61 +285,107 @@ export const BookingDetails: React.FC = () => {
                                                         <span className="capitalize">{primary.tripType}</span>
                                                     </div>
                                                 )}
-                                                {hasFlightInfo && (
-                                                    <div className="bg-white/80 p-3 rounded-md border border-secondary/20">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightFrom || 'TBD'}</span>
-                                                            <span className="text-secondary/40 text-lg">→</span>
-                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightTo || 'TBD'}</span>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
-                                                            {primary.departureTime && (
-                                                                <div>
-                                                                    <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
-                                                                    {dayjs(primary.departureTime).format('MMM DD, YYYY')}
-                                                                </div>
-                                                            )}
-                                                            {primary.arrivalTime && (
-                                                                <div>
-                                                                    <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
-                                                                    {dayjs(primary.arrivalTime).format('MMM DD, YYYY')}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
-                                                            <div className="mt-3 pt-3 border-t border-amber-200/50 bg-amber-50/50 -mx-4 px-4 pb-3 rounded-b-lg">
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest flex items-center gap-1.5">
-                                                                        <span className="w-1 h-1 rounded-full bg-amber-400"></span> Return Flight
-                                                                    </p>
-                                                                    <span className="bg-white/80 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-900 flex items-center gap-1 shadow-xs">
-                                                                        {primary.flightTo || '...'} <span className="text-amber-500/50">→</span> {primary.flightFrom || '...'}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-3 text-xs text-amber-900/80">
-                                                                    {primary.returnDate && (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className="font-semibold text-amber-700/70">📅 Date:</span>{' '}
-                                                                            <span className="font-medium">{dayjs(primary.returnDate).format('MMM DD, YYYY')}</span>
+                                                        {hasFlightInfo && (
+                                                            <div className="space-y-4">
+                                                                {/* Primary/Departure Flight */}
+                                                                <div className="bg-white/80 p-3 rounded-md border border-secondary/20 shadow-sm transition-all hover:shadow-md">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightFrom || 'TBD'}</span>
+                                                                            <span className="text-secondary/40 text-lg">→</span>
+                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightTo || 'TBD'}</span>
                                                                         </div>
-                                                                    )}
-                                                                    {primary.returnDepartureTime && (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className="font-semibold text-amber-700/70">🛫 Departs:</span>{' '}
-                                                                            <span className="font-medium">{dayjs(primary.returnDepartureTime).format('MMM DD, YYYY')}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    {primary.returnArrivalTime && (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className="font-semibold text-amber-700/70">🛬 Arrives:</span>{' '}
-                                                                            <span className="font-medium">{dayjs(primary.returnArrivalTime).format('MMM DD, YYYY')}</span>
-                                                                        </div>
-                                                                    )}
+                                                                        {primary.tripType === 'multi-city' && (
+                                                                            <span className="text-[10px] bg-secondary/10 text-secondary/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Leg 1</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
+                                                                        {primary.departureTime && (
+                                                                            <div>
+                                                                                <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
+                                                                                {dayjs(primary.departureTime).format('MMM DD, YYYY')}
+                                                                            </div>
+                                                                        )}
+                                                                        {primary.arrivalTime && (
+                                                                            <div>
+                                                                                <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
+                                                                                {dayjs(primary.arrivalTime).format('MMM DD, YYYY')}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
+
+                                                                {/* Multi-City Segments (Leg 2+) */}
+                                                                {primary.tripType === 'multi-city' && booking.segments && booking.segments.length > 0 && (
+                                                                    <div className="space-y-3 relative before:absolute before:left-3 before:top-0 before:bottom-0 before:w-0.5 before:bg-secondary/5 pt-1">
+                                                                        {booking.segments.map((segment, idx) => {
+                                                                            // Skip leg 1 if it matches primary to avoid duplicate if captured that way
+                                                                            if (idx === 0 && segment.from === primary.flightFrom && segment.to === primary.flightTo) return null;
+                                                                            
+                                                                            return (
+                                                                                <div key={idx} className="bg-white/60 p-3 rounded-md border border-secondary/10 ml-6 relative">
+                                                                                    {/* Connector dot */}
+                                                                                    <div className="absolute -left-[27px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-secondary/20 border border-white"></div>
+                                                                                    
+                                                                                    <div className="flex items-center justify-between mb-2">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className="bg-secondary/10 text-secondary font-medium px-2 py-0.5 rounded text-[11px]">{segment.from || 'TBD'}</span>
+                                                                                            <span className="text-secondary/30 text-sm">→</span>
+                                                                                            <span className="bg-secondary/10 text-secondary font-medium px-2 py-0.5 rounded text-[11px]">{segment.to || 'TBD'}</span>
+                                                                                        </div>
+                                                                                        <span className="text-[9px] text-secondary/40 font-bold uppercase tracking-wider">Leg {idx + 2}</span>
+                                                                                    </div>
+                                                                                    <div className="text-xs text-secondary">
+                                                                                        {segment.date && (
+                                                                                            <div>
+                                                                                                <span className="font-medium text-secondary/60">📅 Date:</span>{' '}
+                                                                                                {dayjs(segment.date).format('MMM DD, YYYY')}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Return Flight (Round Trip) */}
+                                                                {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
+                                                                    <div className="mt-4 pt-4 border-t border-secondary/20">
+                                                                        <p className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-secondary/40"></span> Return Flight
+                                                                        </p>
+                                                                        <div className="bg-white/80 p-3 rounded-md border border-secondary/20">
+                                                                            <div className="flex items-center gap-3 mb-2">
+                                                                                <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightTo || 'TBD'}</span>
+                                                                                <span className="text-secondary/40 text-lg">→</span>
+                                                                                <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{primary.flightFrom || 'TBD'}</span>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
+                                                                                {primary.returnDate && (
+                                                                                    <div>
+                                                                                        <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
+                                                                                        {dayjs(primary.returnDate).format('MMM DD, YYYY')}
+                                                                                    </div>
+                                                                                )}
+                                                                                {primary.returnDepartureTime && !primary.returnDate && (
+                                                                                    <div>
+                                                                                        <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
+                                                                                        {dayjs(primary.returnDepartureTime).format('MMM DD, YYYY')}
+                                                                                    </div>
+                                                                                )}
+                                                                                {primary.returnArrivalTime && (
+                                                                                    <div>
+                                                                                        <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
+                                                                                        {dayjs(primary.returnArrivalTime).format('MMM DD, YYYY')}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     );

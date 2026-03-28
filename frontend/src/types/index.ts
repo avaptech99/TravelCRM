@@ -72,7 +72,12 @@ export interface Booking {
     destinationCity?: string;
     flightFrom?: string;
     flightTo?: string;
-    tripType?: 'one-way' | 'round-trip';
+    tripType?: 'one-way' | 'round-trip' | 'multi-city';
+    segments?: {
+        from: string;
+        to: string;
+        date: string | null;
+    }[];
     travelDate?: string;
     returnDate?: string;
     travellers?: number;

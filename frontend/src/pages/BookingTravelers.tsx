@@ -106,6 +106,7 @@ export const BookingTravelers: React.FC = () => {
     const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [paymentRemarks, setPaymentRemarks] = useState<string>('');
     const [keepSameContact, setKeepSameContact] = useState<boolean>(true);
+    const [segments, setSegments] = useState<{ from: string; to: string; date: string }[]>([]);
 
     const isInitialized = useRef(false);
     const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
@@ -221,6 +222,16 @@ export const BookingTravelers: React.FC = () => {
             } else {
                setKeepSameContact(false);
             }
+            if (booking.segments && booking.segments.length > 0) {
+                setSegments(booking.segments.map(s => ({
+                    from: s.from || '',
+                    to: s.to || '',
+                    date: s.date ? new Date(s.date).toISOString().split('T')[0] : ''
+                })));
+            } else {
+                setSegments([{ from: '', to: '', date: '' }]);
+            }
+
             isInitialized.current = true;
         }
     }, [booking, reset]);
@@ -376,6 +387,8 @@ export const BookingTravelers: React.FC = () => {
                 finalQuotation: finalQuotationAmount,
                 flightFrom: primaryTraveler?.flightFrom || null,
                 flightTo: primaryTraveler?.flightTo || null,
+                tripType: primaryTraveler?.tripType || 'one-way',
+                segments: segments.filter(s => s.from || s.to),
             }));
 
             // 3. Auto-update status to Booked if payment exists
@@ -646,6 +659,7 @@ export const BookingTravelers: React.FC = () => {
                                                     >
                                                         <option value="one-way">One Way</option>
                                                         <option value="round-trip">Round Trip</option>
+                                                        <option value="multi-city">Multi City</option>
                                                     </select>
                                                 </div>
 
@@ -671,14 +685,89 @@ export const BookingTravelers: React.FC = () => {
                                                         <div className="hidden md:block"></div>
                                                     </div>
                                                 )}
-                                            </div>
-                                        </div>
-                                    )}
+                                                 {watch(`travelers.${index}.tripType`) === 'multi-city' && (
+                                                     <div className="md:col-span-2 mt-4 space-y-4">
+                                                         <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                                                            <h5 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                                                <List size={14} className="text-secondary" /> Multi-City segments (Next Legs)
+                                                            </h5>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => setSegments([...segments, { from: '', to: '', date: '' }])}
+                                                                className="text-[10px] bg-secondary/10 text-secondary px-2 py-1 rounded font-bold hover:bg-secondary/20 transition-colors uppercase tracking-wider"
+                                                            >
+                                                                + Add Segment
+                                                            </button>
+                                                         </div>
+                                                         
+                                                         <div className="space-y-3">
+                                                            {segments.map((segment, sIdx) => (
+                                                                <div key={sIdx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative group">
+                                                                    <div className="md:col-span-3">
+                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From</label>
+                                                                        <input 
+                                                                            type="text"
+                                                                            value={segment.from}
+                                                                            onChange={(e) => {
+                                                                                const newSegments = [...segments];
+                                                                                newSegments[sIdx].from = e.target.value.toUpperCase();
+                                                                                setSegments(newSegments);
+                                                                            }}
+                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
+                                                                            placeholder="Leg From"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="md:col-span-3">
+                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">To</label>
+                                                                        <input 
+                                                                            type="text"
+                                                                            value={segment.to}
+                                                                            onChange={(e) => {
+                                                                                const newSegments = [...segments];
+                                                                                newSegments[sIdx].to = e.target.value.toUpperCase();
+                                                                                setSegments(newSegments);
+                                                                            }}
+                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
+                                                                            placeholder="Leg To"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="md:col-span-4">
+                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label>
+                                                                        <input 
+                                                                            type="date"
+                                                                            value={segment.date || ''}
+                                                                            onChange={(e) => {
+                                                                                const newSegments = [...segments];
+                                                                                newSegments[sIdx].date = e.target.value;
+                                                                                setSegments(newSegments);
+                                                                            }}
+                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="md:col-span-2">
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => setSegments(segments.filter((_, i) => i !== sIdx))}
+                                                                            className="w-full py-1.5 border border-red-200 text-red-500 rounded hover:bg-red-50 transition-colors flex items-center justify-center"
+                                                                            title="Remove segment"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {segments.length === 0 && (
+                                                                <p className="text-xs text-slate-400 italic text-center py-2">No additional segments added yet.</p>
+                                                            )}
+                                                         </div>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     )}
                                 </div>
                             </div>
                         </React.Fragment>
-                    ))}
-
                         <button
                             type="button"
                             onClick={() => append(emptyTraveler, { shouldFocus: false })}
