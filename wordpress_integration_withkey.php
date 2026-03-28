@@ -23,10 +23,16 @@ if ( ! function_exists( 'travelwindow_crm_ninja_forms_submit_v2' ) ) {
 
         // 4. Map Fields (Using safer Ninja Forms v3 array structure)
         $fields_by_key = array();
+        $return_date = '';
         if ( isset( $form_data['fields'] ) && is_array( $form_data['fields'] ) ) {
             foreach( $form_data['fields'] as $field ) {
                 if ( isset( $field['key'] ) && isset( $field['value'] ) ) {
                     $fields_by_key[ $field['key'] ] = $field['value'];
+                    
+                    // Auto-detect the return date field even if the exact ID is unknown
+                    if (strpos(strtolower($field['key']), 'return') !== false && !empty($field['value'])) {
+                        $return_date = $field['value'];
+                    }
                 }
             }
         }
@@ -38,6 +44,7 @@ if ( ! function_exists( 'travelwindow_crm_ninja_forms_submit_v2' ) ) {
             'flightFrom'    => isset($fields_by_key['from_1710741487545']) ? $fields_by_key['from_1710741487545'] : '',
             'flightTo'      => isset($fields_by_key['to_1710741556864']) ? $fields_by_key['to_1710741556864'] : '',
             'travelDate'    => isset($fields_by_key['departure_1710741636353']) ? ltrim($fields_by_key['departure_1710741636353']) : '',
+            'returnDate'    => $return_date,
             'tripType'      => isset($fields_by_key['listradio_1710745253292']) ? $fields_by_key['listradio_1710745253292'] : 'one-way',
             'adults'        => isset($fields_by_key['adults_12y_1712752891789']) ? (int)$fields_by_key['adults_12y_1712752891789'] : 0,
             'children'      => isset($fields_by_key['children_2y_-_12y_1712752915056']) ? (int)$fields_by_key['children_2y_-_12y_1712752915056'] : 0,

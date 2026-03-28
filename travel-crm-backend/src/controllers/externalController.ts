@@ -38,6 +38,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         flightFrom,
         flightTo,
         travelDate,
+        returnDate,
         travellers,
         tripType,
         requirements,
@@ -81,6 +82,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     // Prepare requirements summary
     let detailedRequirements = requirements || '';
     if (travelDate) detailedRequirements += `\nTravel Date: ${travelDate}`;
+    if (returnDate) detailedRequirements += `\nReturn Date: ${returnDate}`;
     if (flightFrom) detailedRequirements += `\nFlight From: ${flightFrom}`;
     if (flightTo) detailedRequirements += `\nFlight To: ${flightTo}`;
     if (tripType) detailedRequirements += `\nTrip Type (Original): ${tripType}`;

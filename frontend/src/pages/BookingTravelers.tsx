@@ -246,6 +246,12 @@ export const BookingTravelers: React.FC = () => {
                  if (!currentTravelers[0].departureTime && booking.travelDate) {
                      currentTravelers[0].departureTime = dayjs(booking.travelDate).format('YYYY-MM-DD');
                  }
+                 if (!currentTravelers[0].flightFrom && booking.flightFrom) {
+                     currentTravelers[0].flightFrom = booking.flightFrom;
+                 }
+                 if (!currentTravelers[0].flightTo && booking.flightTo) {
+                     currentTravelers[0].flightTo = booking.flightTo;
+                 }
                  
                  setValue('travelers', currentTravelers);
              }
