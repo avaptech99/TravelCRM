@@ -768,6 +768,8 @@ export const BookingTravelers: React.FC = () => {
                                 </div>
                             </div>
                         </React.Fragment>
+                    ))}
+
                         <button
                             type="button"
                             onClick={() => append(emptyTraveler, { shouldFocus: false })}
