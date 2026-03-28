@@ -188,13 +188,13 @@ export const BookingTravelers: React.FC = () => {
                             phoneNumber: pNumber,
                             email: t.email || '',
                             country: t.country || '',
-                            flightFrom: t.flightFrom || '',
-                            flightTo: t.flightTo || '',
-                            departureTime: t.departureTime || '',
+                            flightFrom: t.flightFrom || booking.flightFrom || '',
+                            flightTo: t.flightTo || booking.flightTo || '',
+                            departureTime: t.departureTime || (booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : ''),
                             arrivalTime: t.arrivalTime || '',
-                            tripType: (t.tripType as 'one-way' | 'round-trip') || 'one-way',
+                            tripType: t.tripType || booking.tripType || 'one-way',
                             returnDate: t.returnDate || '',
-                            returnDepartureTime: t.returnDepartureTime || '',
+                            returnDepartureTime: t.returnDepartureTime || (booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : ''),
                             returnArrivalTime: t.returnArrivalTime || '',
                             dob: t.dob || '',
                             anniversary: t.anniversary || '',
@@ -202,7 +202,37 @@ export const BookingTravelers: React.FC = () => {
                     }),
                 });
             } else {
-                reset({ travelers: [emptyTraveler] });
+                // For new leads from WordPress, booking.travelers is empty.
+                // We should initialize the primary traveler with booking-level contact and trip data.
+                const rawPhone = booking.contactNumber || '';
+                let cCode = '+91';
+                let pNumber = rawPhone;
+
+                const matchedCC = countryCodes.find(cc => rawPhone.startsWith(cc.code));
+                if (matchedCC) {
+                    cCode = matchedCC.code;
+                    pNumber = rawPhone.slice(matchedCC.code.length);
+                }
+
+                reset({ 
+                    travelers: [{
+                        name: booking.contactPerson || '',
+                        countryCode: cCode,
+                        phoneNumber: pNumber,
+                        email: booking.contactEmail || '',
+                        country: booking.destinationCity || '',
+                        flightFrom: booking.flightFrom || '',
+                        flightTo: booking.flightTo || '',
+                        departureTime: booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : '',
+                        arrivalTime: '',
+                        tripType: booking.tripType || 'one-way',
+                        returnDate: '',
+                        returnDepartureTime: booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : '',
+                        returnArrivalTime: '',
+                        dob: '',
+                        anniversary: ''
+                    }] 
+                });
             }
 
             if (booking.totalAmount !== undefined && booking.totalAmount !== null) {
@@ -235,56 +265,6 @@ export const BookingTravelers: React.FC = () => {
             isInitialized.current = true;
         }
     }, [booking, reset]);
-
-    // Auto-fill primary traveler from booking contact details if empty initially
-    useEffect(() => {
-        if (booking && fields.length > 0 && !fields[0].name && !fields[0].phoneNumber) {
-             const rawPhone = booking.contactNumber || '';
-             let cCode = '+91';
-             let pNumber = rawPhone;
-
-             // Try to find the matching country code from our list
-             const matchedCC = countryCodes.find(cc => rawPhone.startsWith(cc.code));
-             if (matchedCC) {
-                 cCode = matchedCC.code;
-                 pNumber = rawPhone.slice(matchedCC.code.length);
-             }
-
-             const currentTravelers = watch('travelers');
-             if(currentTravelers && currentTravelers[0]) {
-                 currentTravelers[0].name = booking.contactPerson;
-                 currentTravelers[0].countryCode = cCode;
-                 currentTravelers[0].phoneNumber = pNumber;
-                 if (booking.contactEmail && !currentTravelers[0].email) {
-                     currentTravelers[0].email = booking.contactEmail;
-                 }
-                 
-                 // Auto-reflect extracted data if fields are empty
-                 if (!currentTravelers[0].country && booking.destinationCity) {
-                     currentTravelers[0].country = booking.destinationCity;
-                 }
-                 if (!currentTravelers[0].departureTime && booking.travelDate) {
-                     currentTravelers[0].departureTime = dayjs(booking.travelDate).format('YYYY-MM-DD');
-                 }
-                 if (!currentTravelers[0].returnDepartureTime && booking.returnDate) {
-                     currentTravelers[0].returnDepartureTime = dayjs(booking.returnDate).format('YYYY-MM-DD');
-                 }
-                 if (!currentTravelers[0].flightFrom && booking.flightFrom) {
-                     currentTravelers[0].flightFrom = booking.flightFrom;
-                 }
-                 if (!currentTravelers[0].flightTo && booking.flightTo) {
-                     currentTravelers[0].flightTo = booking.flightTo;
-                 }
-                 // If tripType is falsy OR if it's identical to the default 'one-way' value, overwrite it
-                 if ((!currentTravelers[0].tripType || currentTravelers[0].tripType === 'one-way') && booking.tripType) {
-                     currentTravelers[0].tripType = booking.tripType as 'one-way' | 'round-trip' | 'multi-city';
-                 }
-                 
-                 // CRITICAL: Spread the array so react-hook-form detects the reference change and forces a re-render!
-                 setValue('travelers', [...currentTravelers]);
-             }
-        }
-    }, [booking, fields.length, setValue, watch]);
 
     // Effect for "Keep Same" checkbox logic
     useEffect(() => {
