@@ -68,6 +68,9 @@ export interface Booking {
     uniqueCode?: string;
     fromCity?: string;
     destinationCity?: string;
+    flightFrom?: string;
+    flightTo?: string;
+    tripType?: 'one-way' | 'round-trip';
     travelDate?: string;
     travellers?: number;
     duration?: string;

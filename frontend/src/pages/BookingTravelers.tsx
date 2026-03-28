@@ -252,6 +252,9 @@ export const BookingTravelers: React.FC = () => {
                  if (!currentTravelers[0].flightTo && booking.flightTo) {
                      currentTravelers[0].flightTo = booking.flightTo;
                  }
+                 if (!currentTravelers[0].tripType && booking.tripType) {
+                     currentTravelers[0].tripType = booking.tripType === 'round-trip' ? 'Round Trip' : 'One Way';
+                 }
                  
                  setValue('travelers', currentTravelers);
              }

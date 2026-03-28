@@ -23,18 +23,57 @@ if ( ! function_exists( 'travelwindow_crm_ninja_forms_submit_v2' ) ) {
 
         // 4. Map Fields (Using safer Ninja Forms v3 array structure)
         $fields_by_key = array();
-        $return_date = '';
+        $unmapped_data = "\n\n--- Additional Customer Information ---\n";
+        
+        // Define the exact keys of the fields we already map manually, so we don't duplicate them in the notes
+        $mapped_keys = array(
+            'phone_1710741985398',
+            'email_1710741948527',
+            'from_1710741487545',
+            'to_1710741556864',
+            'departure_1710741636353',
+            'return_1710741682217',
+            'listradio_1710745253292',
+            'adults_12y_1712752891789',
+            'children_2y_-_12y_1712752915056',
+            'infants_below_2y_1712752927823',
+            'travellers_and_amp_class_1712754155672'
+        );
+
         if ( isset( $form_data['fields'] ) && is_array( $form_data['fields'] ) ) {
             foreach( $form_data['fields'] as $field ) {
                 if ( isset( $field['key'] ) && isset( $field['value'] ) ) {
                     $fields_by_key[ $field['key'] ] = $field['value'];
                     
-                    // Auto-detect the return date field even if the exact ID is unknown
-                    if (strpos(strtolower($field['key']), 'return') !== false && !empty($field['value'])) {
-                        $return_date = $field['value'];
+                    // If it is NOT one of our manually mapped keys, and it's NOT empty, and NOT a submit button...
+                    // We automatically capture it as "Extra Information"
+                    if ( !in_array($field['key'], $mapped_keys) && !empty($field['value']) && strpos(strtolower($field['key']), 'submit') === false ) {
+                        // Use the field's label if it exists, otherwise just fall back to the raw key
+                        $label = isset($field['label']) ? $field['label'] : $field['key'];
+                        $raw_value = $field['value'];
+                        
+                        // Recursive flatten function for deeply nested arrays
+                        $flattened_value = '';
+                        if (is_array($raw_value)) {
+                            $flat_array = array();
+                            array_walk_recursive($raw_value, function($a) use (&$flat_array) { $flat_array[] = $a; });
+                            $flattened_value = implode(', ', $flat_array);
+                        } else {
+                            $flattened_value = $raw_value;
+                        }
+                        
+                        // Only add if there is actual content
+                        if (!empty(trim($flattened_value))) {
+                            $unmapped_data .= "- " . strip_tags($label) . ": " . strip_tags($flattened_value) . "\n";
+                        }
                     }
                 }
             }
+        }
+
+        // If no extra data was captured, remove the header so it stays clean
+        if (trim($unmapped_data) === "--- Additional Customer Information ---") {
+            $unmapped_data = "";
         }
 
         $payload = array(
@@ -44,13 +83,13 @@ if ( ! function_exists( 'travelwindow_crm_ninja_forms_submit_v2' ) ) {
             'flightFrom'    => isset($fields_by_key['from_1710741487545']) ? $fields_by_key['from_1710741487545'] : '',
             'flightTo'      => isset($fields_by_key['to_1710741556864']) ? $fields_by_key['to_1710741556864'] : '',
             'travelDate'    => isset($fields_by_key['departure_1710741636353']) ? ltrim($fields_by_key['departure_1710741636353']) : '',
-            'returnDate'    => $return_date,
+            'returnDate'    => isset($fields_by_key['return_1710741682217']) ? $fields_by_key['return_1710741682217'] : '',
             'tripType'      => isset($fields_by_key['listradio_1710745253292']) ? $fields_by_key['listradio_1710745253292'] : 'one-way',
             'adults'        => isset($fields_by_key['adults_12y_1712752891789']) ? (int)$fields_by_key['adults_12y_1712752891789'] : 0,
             'children'      => isset($fields_by_key['children_2y_-_12y_1712752915056']) ? (int)$fields_by_key['children_2y_-_12y_1712752915056'] : 0,
             'infants'       => isset($fields_by_key['infants_below_2y_1712752927823']) ? (int)$fields_by_key['infants_below_2y_1712752927823'] : 0,
             'class'         => isset($fields_by_key['travellers_and_amp_class_1712754155672']) ? $fields_by_key['travellers_and_amp_class_1712754155672'] : 'Economy',
-            'requirements'  => "Direct Booking Inquiry from Website"
+            'requirements'  => "Direct Booking Inquiry from Website" . $unmapped_data 
         );
 
         // Extract name from email if email is provided
