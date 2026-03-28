@@ -121,6 +121,11 @@ export const BookingDetails: React.FC = () => {
                         <p className="text-slate-500 text-sm mt-1">
                             Created on {dayjs(booking.createdOn).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
                         </p>
+                        {booking.finalQuotation && (
+                            <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 shadow-sm uppercase tracking-wider">
+                                <CreditCard size={12} /> Final Quotation: {booking.finalQuotation}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex space-x-3 items-center">
@@ -291,21 +296,26 @@ export const BookingDetails: React.FC = () => {
                                                             {primary.departureTime && (
                                                                 <div>
                                                                     <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
-                                                                    {dayjs(primary.departureTime).format('MMM DD, h:mm A')}
+                                                                    {dayjs(primary.departureTime).format('MMM DD, YYYY')}
                                                                 </div>
                                                             )}
                                                             {primary.arrivalTime && (
                                                                 <div>
                                                                     <span className="font-medium text-secondary/70">🛬 Arrives:</span>{' '}
-                                                                    {dayjs(primary.arrivalTime).format('MMM DD, h:mm A')}
+                                                                    {dayjs(primary.arrivalTime).format('MMM DD, YYYY')}
                                                                 </div>
                                                             )}
                                                         </div>
                                                         {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
                                                             <div className="mt-3 pt-3 border-t border-amber-200/50 bg-amber-50/50 -mx-4 px-4 pb-3 rounded-b-lg">
-                                                                <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                                   <span className="w-1 h-1 rounded-full bg-amber-400"></span> Return Flight
-                                                                </p>
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest flex items-center gap-1.5">
+                                                                        <span className="w-1 h-1 rounded-full bg-amber-400"></span> Return Flight
+                                                                    </p>
+                                                                    <span className="bg-white/80 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-900 flex items-center gap-1 shadow-xs">
+                                                                        {primary.flightTo || '...'} <span className="text-amber-500/50">→</span> {primary.flightFrom || '...'}
+                                                                    </span>
+                                                                </div>
                                                                 <div className="grid grid-cols-2 gap-3 text-xs text-amber-900/80">
                                                                     {primary.returnDate && (
                                                                         <div className="flex items-center gap-1.5">
@@ -316,13 +326,13 @@ export const BookingDetails: React.FC = () => {
                                                                     {primary.returnDepartureTime && (
                                                                         <div className="flex items-center gap-1.5">
                                                                             <span className="font-semibold text-amber-700/70">🛫 Departs:</span>{' '}
-                                                                            <span className="font-medium">{dayjs(primary.returnDepartureTime).format('MMM DD, h:mm A')}</span>
+                                                                            <span className="font-medium">{dayjs(primary.returnDepartureTime).format('MMM DD, YYYY')}</span>
                                                                         </div>
                                                                     )}
                                                                     {primary.returnArrivalTime && (
                                                                         <div className="flex items-center gap-1.5">
                                                                             <span className="font-semibold text-amber-700/70">🛬 Arrives:</span>{' '}
-                                                                            <span className="font-medium">{dayjs(primary.returnArrivalTime).format('MMM DD, h:mm A')}</span>
+                                                                            <span className="font-medium">{dayjs(primary.returnArrivalTime).format('MMM DD, YYYY')}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -399,7 +409,7 @@ export const BookingDetails: React.FC = () => {
                                         const outstanding = totalAmount - totalPaid;
                                         return (
                                             <span className="ml-4 px-2.5 py-1 bg-red-50 text-red-600 text-sm font-medium rounded-md border border-red-100">
-                                                Outstanding: ${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                Outstanding: {outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         );
                                     })()}
@@ -420,7 +430,7 @@ export const BookingDetails: React.FC = () => {
                                         <div key={payment.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-bold text-slate-800 text-lg">${payment.amount.toFixed(2)}</span>
+                                                    <span className="font-bold text-slate-800 text-lg">{payment.amount.toFixed(2)}</span>
                                                     <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-medium rounded">{payment.paymentMethod}</span>
                                                 </div>
                                                 <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">

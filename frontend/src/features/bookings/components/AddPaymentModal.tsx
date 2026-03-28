@@ -39,7 +39,7 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
             }
 
             if (payAmt > currentOutstanding + 0.01) { // Allowing small float margin
-                throw new Error(`Payment cannot exceed outstanding amount ($${currentOutstanding.toFixed(2)})`);
+                throw new Error(`Payment cannot exceed outstanding amount (${currentOutstanding.toFixed(2)})`);
             }
 
             await api.post(`/bookings/${booking.id}/payments`, {
@@ -86,13 +86,13 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
                         <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mb-1 block">Total Booking Amount</span>
                             <span className="text-lg font-bold text-slate-800">
-                                ${totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                         <div className="bg-orange-50/50 border border-orange-100 rounded-lg p-3">
                             <span className="text-[10px] font-bold text-orange-600 uppercase tracking-tight mb-1 block">Current Outstanding</span>
                             <span className="text-lg font-bold text-orange-700">
-                                ${currentOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {currentOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>
@@ -102,7 +102,6 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
                             <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Amount Received *</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-slate-400 sm:text-sm font-bold">$</span>
                                 </div>
                                 <input
                                     type="text"
@@ -193,7 +192,7 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
                     <div>
                         {paymentAmount && parseFloat(paymentAmount) > 0 && (
                             <span className="text-[11px] font-bold text-slate-500 uppercase">
-                                Balance after payment: <span className={finalOutstanding > 0 ? 'text-red-500' : 'text-emerald-600'}>${finalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                Balance after payment: <span className={finalOutstanding > 0 ? 'text-red-500' : 'text-emerald-600'}>{finalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </span>
                         )}
                     </div>

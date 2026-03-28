@@ -10,6 +10,8 @@ export interface IBooking extends Document {
     flightTo: string | null;
     tripType: 'one-way' | 'round-trip';
     amount: number;
+    totalAmount: number;
+    finalQuotation: string | null;
     travellers: number | null;
     status: 'Pending' | 'Working' | 'Sent' | 'Booked';
     createdByUserId: mongoose.Types.ObjectId;
@@ -29,6 +31,8 @@ const bookingSchema = new Schema<IBooking>(
         flightTo: { type: String, default: null },
         tripType: { type: String, enum: ['one-way', 'round-trip'], default: 'one-way' },
         amount: { type: Number, default: 0 },
+        totalAmount: { type: Number, default: 0 },
+        finalQuotation: { type: String, default: null },
         travellers: { type: Number, default: null },
         status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },

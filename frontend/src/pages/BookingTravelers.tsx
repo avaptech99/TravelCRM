@@ -99,6 +99,7 @@ export const BookingTravelers: React.FC = () => {
     const queryClient = useQueryClient();
 
     const [lumpSumAmount, setLumpSumAmount] = useState<number>(0);
+    const [finalQuotationAmount, setFinalQuotationAmount] = useState<string>('0');
     const [paymentAmount, setPaymentAmount] = useState<string>('');
     const [paymentMethod, setPaymentMethod] = useState<string>('Bank Transfer');
     const [paymentTransactionId, setPaymentTransactionId] = useState<string>('');
@@ -210,6 +211,11 @@ export const BookingTravelers: React.FC = () => {
                 const passengerCount = booking.travelers ? booking.travelers.length : 1;
                 setLumpSumAmount(booking.pricePerTicket * passengerCount);
             }
+
+            if (booking.finalQuotation) {
+                setFinalQuotationAmount(booking.finalQuotation);
+            }
+
             if (booking.bookingType === 'B2B') {
                setKeepSameContact(true);
             } else {
@@ -361,10 +367,15 @@ export const BookingTravelers: React.FC = () => {
             // Since we moved to lump sum, pricePerTicket will be derived or just stored as 0
             const passengerCount = data.travelers.length || 1;
             const derivedPricePerTicket = totalPayment / passengerCount;
+            const primaryTraveler = data.travelers[0];
 
             promises.push(api.put(`/bookings/${id}`, {
                 pricePerTicket: derivedPricePerTicket,
-                totalAmount: totalPayment
+                amount: lumpSumAmount || 0,
+                totalAmount: lumpSumAmount || 0,
+                finalQuotation: finalQuotationAmount,
+                flightFrom: primaryTraveler?.flightFrom || null,
+                flightTo: primaryTraveler?.flightTo || null,
             }));
 
             // 3. Auto-update status to Booked if payment exists
@@ -415,6 +426,7 @@ export const BookingTravelers: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-900">
                         Finalize Booking
                     </h1>
+                    {/* @ts-ignore */}
                     <p className="text-slate-500 text-sm mt-1">
                         Configure travelers, pricing, and recorded payments for <span className="font-semibold text-slate-700">{booking.contactPerson}</span>
                     </p>
@@ -422,6 +434,31 @@ export const BookingTravelers: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+
+                {/* Final Quotation Section */}
+                <div className="bg-brand-gradient p-0.5 rounded-xl shadow-lg transform transition-all hover:scale-[1.01]">
+                    <div className="bg-white rounded-[10px] p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-primary/10 p-3 rounded-lg">
+                                    <CreditCard size={24} className="text-primary" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-medium text-slate-900">Final Quotation No.</h2>
+                                </div>
+                            </div>
+                            <div className="relative min-w-[240px]">
+                                <input
+                                    type="text"
+                                    value={finalQuotationAmount}
+                                    onChange={(e) => setFinalQuotationAmount(e.target.value)}
+                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner"
+                                    placeholder="Enter final quotation..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* 1. TRAVELERS SECTION */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -613,10 +650,10 @@ export const BookingTravelers: React.FC = () => {
                                                 </div>
 
                                                  {watch(`travelers.${index}.tripType`) === 'round-trip' && (
-                                                    <div className="md:col-span-2 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div className="md:col-span-2 border-b border-amber-200/50 pb-2 mb-1">
-                                                            <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Return Flight</p>
-                                                        </div>
+                                                     <div className="md:col-span-1 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60">
+                                                         <div className="border-b border-amber-200/50 pb-2 mb-3">
+                                                             <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Return Flight</p>
+                                                         </div>
                                                         <div>
                                                             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                                                                 <Plane size={13} className="text-amber-500 rotate-180" /> Return Date
@@ -698,7 +735,7 @@ export const BookingTravelers: React.FC = () => {
                                     <CreditCard size={10} /> Total Payment Amount
                                 </label>
                                 <div className="text-4xl font-bold text-secondary tracking-tight">
-                                    <span className="text-2xl mr-0.5 font-semibold">$</span>{totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {totalPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
                         </div>
@@ -718,7 +755,6 @@ export const BookingTravelers: React.FC = () => {
                                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide px-1">Amount Rec.</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="text-slate-400 sm:text-sm font-bold">$</span>
                                     </div>
                                     <input
                                         type="number"
@@ -748,7 +784,7 @@ export const BookingTravelers: React.FC = () => {
                             <div className="bg-slate-50/50 border border-slate-100 rounded-lg p-2.5 flex flex-col justify-center items-center">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mb-1">Outstanding</span>
                                 <span className={`text-sm font-bold ${finalOutstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                    ${finalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    {finalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
 
