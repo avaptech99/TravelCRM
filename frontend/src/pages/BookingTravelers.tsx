@@ -255,11 +255,13 @@ export const BookingTravelers: React.FC = () => {
                  if (!currentTravelers[0].flightTo && booking.flightTo) {
                      currentTravelers[0].flightTo = booking.flightTo;
                  }
-                 if (!currentTravelers[0].tripType && booking.tripType) {
+                 // If tripType is falsy OR if it's identical to the default 'one-way' value, overwrite it
+                 if ((!currentTravelers[0].tripType || currentTravelers[0].tripType === 'one-way') && booking.tripType) {
                      currentTravelers[0].tripType = booking.tripType === 'round-trip' ? 'round-trip' : 'one-way';
                  }
                  
-                 setValue('travelers', currentTravelers);
+                 // CRITICAL: Spread the array so react-hook-form detects the reference change and forces a re-render!
+                 setValue('travelers', [...currentTravelers]);
              }
         }
     }, [booking, fields.length, setValue, watch]);
