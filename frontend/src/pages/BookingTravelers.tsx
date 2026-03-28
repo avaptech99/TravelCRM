@@ -736,6 +736,7 @@ export const BookingTravelers: React.FC = () => {
                                                                         <input 
                                                                             type="date"
                                                                             value={segment.date || ''}
+                                                                            min={sIdx === 0 ? watch(`travelers.${index}.departureTime`) : segments[sIdx - 1].date}
                                                                             onChange={(e) => {
                                                                                 const newSegments = [...segments];
                                                                                 newSegments[sIdx].date = e.target.value;
