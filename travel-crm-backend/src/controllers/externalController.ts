@@ -31,6 +31,28 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         throw new Error('Unauthorized: Invalid API Key');
     }
 
+    // --- SMART PARSER for Raw Ninja Forms Data ---
+    // If the data comes from a simple pass-through script, it will be in req.body.fields
+    if (req.body.fields && Array.isArray(req.body.fields)) {
+        req.body.fields.forEach((f: any) => {
+            const key = f.key || f.id;
+            const val = f.value;
+            if (val !== undefined && val !== null) {
+                // Flatten repeaters into the body
+                if (Array.isArray(val)) {
+                    val.forEach((row: any, rIdx: number) => {
+                        Object.keys(row).forEach(subKey => {
+                            const subVal = row[subKey]?.value || row[subKey];
+                            req.body[`${key}_${rIdx + 1}_${subKey}`] = subVal;
+                        });
+                    });
+                } else {
+                    req.body[key] = val;
+                }
+            }
+        });
+    }
+
     const {
         contactPerson,
         contactNumber,
