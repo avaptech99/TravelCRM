@@ -523,6 +523,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.totalAmount !== undefined) booking.totalAmount = result.data.totalAmount;
     if (result.data.finalQuotation !== undefined) booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined) booking.travellers = result.data.travellers || null;
+    if (result.data.segments !== undefined) booking.segments = result.data.segments;
 
     await booking.save();
 
