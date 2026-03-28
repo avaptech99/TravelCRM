@@ -73,6 +73,7 @@ export interface Booking {
     flightTo?: string;
     tripType?: 'one-way' | 'round-trip';
     travelDate?: string;
+    returnDate?: string;
     travellers?: number;
     duration?: string;
 }

@@ -106,11 +106,12 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
 
     // Safely parse European date format (DD/MM/YYYY) to prevent Mongoose CastError
     let parsedTravelDate: Date | null = null;
+    let parsedReturnDate: Date | null = null;
+
     if (travelDate) {
         if (travelDate.includes('/')) {
             const parts = travelDate.split('/');
             if (parts.length === 3) {
-                // new Date(YYYY, MM-1, DD)
                 parsedTravelDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
             }
         } else if (travelDate.includes('-')) {
@@ -124,9 +125,30 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
             parsedTravelDate = new Date(travelDate);
         }
 
-        // Validate parsed date
         if (parsedTravelDate && isNaN(parsedTravelDate.getTime())) {
             parsedTravelDate = null;
+        }
+    }
+
+    if (returnDate) {
+        if (returnDate.includes('/')) {
+            const parts = returnDate.split('/');
+            if (parts.length === 3) {
+                parsedReturnDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            }
+        } else if (returnDate.includes('-')) {
+            const parts = returnDate.split('-');
+            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
+                parsedReturnDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            } else {
+                parsedReturnDate = new Date(returnDate); // YYYY-MM-DD
+            }
+        } else {
+            parsedReturnDate = new Date(returnDate);
+        }
+
+        if (parsedReturnDate && isNaN(parsedReturnDate.getTime())) {
+            parsedReturnDate = null;
         }
     }
 
@@ -134,6 +156,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     const booking = await Booking.create({
         destination: flightTo || null,
         travelDate: parsedTravelDate,
+        returnDate: parsedReturnDate,
         flightFrom: flightFrom || null,
         flightTo: flightTo || null,
         tripType: finalTripType,

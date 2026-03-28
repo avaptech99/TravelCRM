@@ -5,6 +5,7 @@ export interface IBooking extends Document {
     uniqueCode: string;
     destination: string | null;
     travelDate: Date | null;
+    returnDate: Date | null;
     flightFrom: string | null;
     flightTo: string | null;
     tripType: 'one-way' | 'round-trip';
@@ -23,6 +24,7 @@ const bookingSchema = new Schema<IBooking>(
         uniqueCode: { type: String, unique: true },
         destination: { type: String, default: null },
         travelDate: { type: Date, default: null },
+        returnDate: { type: Date, default: null },
         flightFrom: { type: String, default: null },
         flightTo: { type: String, default: null },
         tripType: { type: String, enum: ['one-way', 'round-trip'], default: 'one-way' },
