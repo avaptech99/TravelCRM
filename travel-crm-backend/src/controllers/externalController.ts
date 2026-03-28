@@ -100,48 +100,76 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         return (parsed && !isNaN(parsed.getTime())) ? parsed : null;
     };
 
-    // Detailed Requirements catch-all (Captures ALL fields for safety)
-    let detailedRequirements = `Direct Booking Inquiry from Website\n\n`;
-    detailedRequirements += `--- Additional Customer Information ---\n`;
+    // Detailed Requirements: Prefer pre-formatted string from WP, otherwise build catch-all
+    let detailedRequirements = req.body.detailedRequirements || '';
     
-    // Fields already processed or internal to CRM
-    const excludedFields = ['apiKey', 'contactPerson', 'contactNumber', 'contactEmail', 'detailedRequirements', 'segments'];
-    
-    Object.entries(req.body).forEach(([key, value]) => {
-        // Skip excluded, empty, or internal-looking Ninja Forms keys (like '37.1_0' or numeric IDs)
-        // unless they are explicitly mapped in the WP script.
-        const isInternalNF = /^\d+(_\d+)?$/.test(key) || key.includes('_0');
+    if (!detailedRequirements) {
+        detailedRequirements = `Direct Booking Inquiry from Website\n\n`;
+        detailedRequirements += `--- Additional Customer Information ---\n`;
         
-        if (!excludedFields.includes(key) && value && !isInternalNF) {
-            // Format key for better readability (un-camelcase, replace underscores with spaces, capitalize)
-            const label = key
-                .replace(/([A-Z])/g, ' $1') // Handle camelCase
-                .replace(/_/g, ' ')         // Handle snake_case
-                .trim()
-                .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
-                
-            detailedRequirements += `${label}: ${value}\n`;
+        // Fields already processed or internal to CRM
+        const excludedFields = ['apiKey', 'contactPerson', 'contactNumber', 'contactEmail', 'detailedRequirements', 'segments', 'nf_labels'];
+        
+        Object.entries(req.body).forEach(([key, value]) => {
+            // Skip excluded, empty, or internal-looking Ninja Forms keys (like '37.1_0' or numeric IDs)
+            const isInternalNF = /^\d+(_\d+)?$/.test(key) || key.includes('_0');
+            
+            if (!excludedFields.includes(key) && value && !isInternalNF) {
+                const label = key
+                    .replace(/([A-Z])/g, ' $1')
+                    .replace(/_/g, ' ')
+                    .trim()
+                    .replace(/^./, (str) => str.toUpperCase());
+                    
+                detailedRequirements += `${label}: ${value}\n`;
+            }
+        });
+        detailedRequirements += `\n-------------------\n`;
+    } else {
+        // Wrap the provided requirements with header/footer if not already present
+        if (!detailedRequirements.includes('Direct Booking Inquiry')) {
+            detailedRequirements = `Direct Booking Inquiry from Website\n\n${detailedRequirements}\n\n-------------------\n`;
         }
-    });
-    detailedRequirements += `\n-------------------\n`;
+    }
 
     const segments: any[] = [];
     
-    // Look for multi-city segments (N=1,2,3...)
-    // Pattern matches: flightFrom_1, travelDate_2, from_3, to_1, etc.
-    for (let i = 1; i <= 10; i++) {
-        const from = req.body[`flightFrom_${i}`] || req.body[`from_${i}`];
-        const to = req.body[`flightTo_${i}`] || req.body[`to_${i}`];
-        const date = req.body[`travelDate_${i}`] || req.body[`departure_${i}`] || req.body[`date_${i}`];
+    // Dynamic Segment Detection: Collect all keys that look like From, To, or Date
+    // Ninja Forms uses random IDs like 'from_1712816481069', so we group by order.
+    const bodyKeys = Object.keys(req.body);
+    const fKeys = bodyKeys.filter(k => k.toLowerCase().startsWith('from') || k.toLowerCase().startsWith('flightfrom')).sort();
+    const tKeys = bodyKeys.filter(k => k.toLowerCase().startsWith('to') || k.toLowerCase().startsWith('flightto')).sort();
+    const dKeys = bodyKeys.filter(k => k.toLowerCase().includes('traveldate') || k.toLowerCase().includes('departure') || k.toLowerCase().includes('date')).sort();
+
+    const maxCount = Math.max(fKeys.length, tKeys.length, dKeys.length);
+    
+    for (let i = 0; i < maxCount; i++) {
+        const from = req.body[fKeys[i]];
+        const to = req.body[tKeys[i]];
+        const dateRaw = req.body[dKeys[i]];
+        const parsedDate = parseDate(dateRaw);
         
-        if (from || to || date) {
-            segments.push({
-                from: from || 'TBD',
-                to: to || 'TBD',
-                date: parseDate(date)
-            });
+        if (from || to || parsedDate) {
+            // Avoid duplicates (e.g. if 'from' maps to 'from_123', both will be found)
+            const isDuplicate = segments.some(s => 
+                s.from === from && 
+                s.to === to && 
+                (s.date?.getTime() === parsedDate?.getTime())
+            );
+
+            if (!isDuplicate) {
+                segments.push({
+                    from: from || '',
+                    to: to || '',
+                    date: parsedDate
+                });
+            }
         }
     }
+
+    // Clean up: If Leg 1 matches the primary flight, we can keep it (BookingDetails handles hiding duplicates)
+    // or we can remove it if we want the primary fields to be standalone.
+    // Let's keep all for complete history.
 
     // If no segments found but it's multi-city, maybe we can use the primary one as segment 1
     if (segments.length === 0 && finalTripType === 'multi-city' && (flightFrom || flightTo)) {
