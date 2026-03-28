@@ -238,6 +238,9 @@ export const BookingTravelers: React.FC = () => {
                  currentTravelers[0].name = booking.contactPerson;
                  currentTravelers[0].countryCode = cCode;
                  currentTravelers[0].phoneNumber = pNumber;
+                 if (booking.contactEmail && !currentTravelers[0].email) {
+                     currentTravelers[0].email = booking.contactEmail;
+                 }
                  
                  // Auto-reflect extracted data if fields are empty
                  if (!currentTravelers[0].country && booking.destinationCity) {

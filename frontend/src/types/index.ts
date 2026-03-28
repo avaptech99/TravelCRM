@@ -51,6 +51,7 @@ export interface Booking {
     createdOn: string;
     contactPerson: string;
     contactNumber: string;
+    contactEmail?: string;
     requirements?: string;
     status: 'Pending' | 'Working' | 'Sent' | 'Booked';
     assignedToUser?: User;
