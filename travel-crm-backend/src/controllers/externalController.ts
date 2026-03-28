@@ -89,10 +89,36 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         requirements: detailedRequirements.trim() || null,
     });
 
+    // Safely parse European date format (DD/MM/YYYY) to prevent Mongoose CastError
+    let parsedTravelDate: Date | null = null;
+    if (travelDate) {
+        if (travelDate.includes('/')) {
+            const parts = travelDate.split('/');
+            if (parts.length === 3) {
+                // new Date(YYYY, MM-1, DD)
+                parsedTravelDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            }
+        } else if (travelDate.includes('-')) {
+            const parts = travelDate.split('-');
+            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
+                parsedTravelDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            } else {
+                parsedTravelDate = new Date(travelDate); // YYYY-MM-DD
+            }
+        } else {
+            parsedTravelDate = new Date(travelDate);
+        }
+
+        // Validate parsed date
+        if (parsedTravelDate && isNaN(parsedTravelDate.getTime())) {
+            parsedTravelDate = null;
+        }
+    }
+
     // 2. Create Booking (status defaults to "Pending", createdAt is automatic)
     const booking = await Booking.create({
         destination: flightTo || null,
-        travelDate: travelDate ? new Date(travelDate) : null,
+        travelDate: parsedTravelDate,
         flightFrom: flightFrom || null,
         flightTo: flightTo || null,
         tripType: (tripType === 'round-trip') ? 'round-trip' : 'one-way',
