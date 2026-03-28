@@ -65,6 +65,7 @@ export interface Booking {
     payments: Payment[];
     pricePerTicket?: number;
     totalAmount?: number;
+    finalQuotation?: string;
     interested?: 'Yes' | 'No';
     uniqueCode?: string;
     fromCity?: string;
