@@ -25,6 +25,7 @@ export const Dashboard: React.FC = () => {
             };
         },
         staleTime: 1000 * 60 * 2, // Cache for 2 minutes
+        refetchInterval: 30000, // Automatically refresh stats every 30 seconds
     });
 
     const cards = [
@@ -45,6 +46,7 @@ export const Dashboard: React.FC = () => {
             return data;
         },
         staleTime: 1000 * 60 * 2,
+        refetchInterval: 30000, // Automatically refresh recent bookings every 30 seconds
     });
 
     return (

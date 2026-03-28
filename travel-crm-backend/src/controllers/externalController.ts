@@ -67,14 +67,23 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         totalTravellers = travellers;
     }
 
+    // Normalize trip type from WordPress (e.g., formats like "Round Trip", "round-trip", "Multi City")
+    const normalizedTripType = (tripType || '').toLowerCase().replace(/[^a-z]/g, '');
+    let finalTripType = 'one-way';
+    let addedTripNote = '';
+
+    if (normalizedTripType.includes('round')) {
+        finalTripType = 'round-trip';
+    } else if (normalizedTripType.includes('multi')) {
+        addedTripNote = `\nTrip Type: Multi-City`;
+    }
+
     // Prepare requirements summary
     let detailedRequirements = requirements || '';
     if (travelClass) detailedRequirements += `\nClass: ${travelClass}`;
+    if (addedTripNote) detailedRequirements += addedTripNote;
     if (adults || children || infants) {
         detailedRequirements += `\nBreakdown: ${adults || 0} Adults, ${children || 0} Children, ${infants || 0} Infants`;
-    }
-    if (tripType === 'multi-city') {
-        detailedRequirements += `\nTrip Type: Multi City`;
     }
 
     // Get "Website Lead" system user so Created By shows "Website Lead"
@@ -121,7 +130,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         travelDate: parsedTravelDate,
         flightFrom: flightFrom || null,
         flightTo: flightTo || null,
-        tripType: (tripType === 'round-trip') ? 'round-trip' : 'one-way',
+        tripType: finalTripType,
         travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
         createdByUserId: websiteLeadUser._id, // Shows "Website Lead" in Created By
