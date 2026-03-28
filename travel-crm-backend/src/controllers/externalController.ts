@@ -86,30 +86,62 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
             if (!val) continue;
             if (typeof val === 'string' && lLow.includes('submit')) continue;
 
-            // ---- REPEATER ARRAYS (Add City) ----
-            // These come as arrays of objects with sub-keys like "37.1_0", "37.2_0", "37.3_0"
+            // ---- REPEATER / ADD CITY DATA ----
+            // Ninja Forms sends repeater data as a FLAT OBJECT like:
+            // { "37.1_0": {"value":"tronto","id":"..."}, "37.2_0": {"value":"Dubai","id":"..."}, "37.3_0": {"value":"30/03/2026","id":"..."}, 
+            //   "37.1_1": {"value":"dubai","id":"..."}, "37.2_1": {"value":"Singapore","id":"..."}, "37.3_1": {"value":"31/03/2026","id":"..."} }
+            // Pattern: X.Y_Z  where Y=field position (1=from, 2=to, 3=date), Z=row index
+            if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                // Group entries by row index (the _Z suffix)
+                const rows: Record<string, Array<{pos: string; value: string}>> = {};
+                
+                for (const [k, v] of Object.entries(val)) {
+                    // Extract the value string from {value: "...", id: "..."}
+                    let extractedVal = '';
+                    if (typeof v === 'object' && v !== null && 'value' in v) {
+                        extractedVal = String((v as any).value).trim();
+                    } else if (typeof v === 'string') {
+                        extractedVal = v.trim();
+                    }
+                    if (!extractedVal) continue;
+                    
+                    // Parse key like "37.1_0" -> pos="37.1", rowIdx="0"
+                    const match = k.match(/^(\d+\.\d+)_(\d+)$/);
+                    if (match) {
+                        const pos = match[1];  // e.g. "37.1"
+                        const rowIdx = match[2]; // e.g. "0"
+                        if (!rows[rowIdx]) rows[rowIdx] = [];
+                        rows[rowIdx].push({ pos, value: extractedVal });
+                    }
+                }
+
+                // Sort rows by index and extract From, To, Date for each
+                const sortedRowKeys = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
+                for (const rowIdx of sortedRowKeys) {
+                    const rowFields = rows[rowIdx].sort((a, b) => a.pos.localeCompare(b.pos));
+                    // Fields come in order: .1 = From, .2 = To, .3 = Date
+                    if (rowFields.length >= 2) {
+                        additionalLegs.push({
+                            from: rowFields[0]?.value || '',
+                            to: rowFields[1]?.value || '',
+                            date: rowFields[2]?.value || ''
+                        });
+                    }
+                }
+                continue;
+            }
+
+            // Also handle if it comes as an actual array (safety fallback)
             if (Array.isArray(val)) {
                 for (const row of val) {
                     if (typeof row === 'object' && row !== null) {
-                        // Each row has keys like { "37.1_0": "tronto", "37.2_0": "Dubai", "37.3_0": "31/03/2026", "37.1_0_id": "..." }
-                        const entries = Object.entries(row);
                         const values: string[] = [];
-                        
-                        for (const [k, v] of entries) {
-                            // Skip internal ID fields
+                        for (const [k, v] of Object.entries(row)) {
                             if (k.endsWith('_id') || k.includes('_id_')) continue;
-                            if (typeof v === 'string' && v.trim()) {
-                                values.push(v.trim());
-                            }
+                            if (typeof v === 'string' && v.trim()) values.push(v.trim());
                         }
-                        
-                        // Values should be in order: From, To, Date
                         if (values.length >= 2) {
-                            additionalLegs.push({
-                                from: values[0] || '',
-                                to: values[1] || '',
-                                date: values[2] || ''
-                            });
+                            additionalLegs.push({ from: values[0], to: values[1], date: values[2] || '' });
                         }
                     }
                 }
