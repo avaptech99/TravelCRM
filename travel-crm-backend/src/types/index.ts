@@ -57,6 +57,15 @@ export const passengerSchema = z.object({
     email: z.string().email().optional().or(z.literal('')),
     dob: z.string().optional(),
     anniversary: z.string().optional(),
+    country: z.string().optional(),
+    flightFrom: z.string().optional(),
+    flightTo: z.string().optional(),
+    departureTime: z.string().optional(),
+    arrivalTime: z.string().optional(),
+    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    returnDate: z.string().optional(),
+    returnDepartureTime: z.string().optional(),
+    returnArrivalTime: z.string().optional(),
 });
 
 export const createPassengersSchema = z.array(passengerSchema);

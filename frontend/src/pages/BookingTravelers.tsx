@@ -612,9 +612,9 @@ export const BookingTravelers: React.FC = () => {
                                                     </select>
                                                 </div>
 
-                                                {watch(`travelers.${index}.tripType`) === 'round-trip' && (
-                                                    <div className="md:col-span-2 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60">
-                                                        <div className="col-span-1 border-b border-amber-200/50 pb-2 mb-3">
+                                                 {watch(`travelers.${index}.tripType`) === 'round-trip' && (
+                                                    <div className="md:col-span-2 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="md:col-span-2 border-b border-amber-200/50 pb-2 mb-1">
                                                             <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Return Flight</p>
                                                         </div>
                                                         <div>
@@ -631,6 +631,7 @@ export const BookingTravelers: React.FC = () => {
                                                                 <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.returnDepartureTime?.message}</p>
                                                             )}
                                                         </div>
+                                                        <div className="hidden md:block"></div>
                                                     </div>
                                                 )}
                                             </div>

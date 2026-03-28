@@ -370,6 +370,29 @@ export const BookingDetails: React.FC = () => {
                                                             <span>Anniversary: {dayjs(traveler.anniversary).format('MMM DD, YYYY')}</span>
                                                         </div>
                                                     )}
+                                                    {(traveler.flightFrom || traveler.flightTo) && (
+                                                        <div className="mt-2 pt-2 border-t border-slate-200/60">
+                                                            <div className="flex items-center gap-1.5 text-secondary font-semibold text-xs mb-1">
+                                                                <Plane size={11} /> Flight Details
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-xs">
+                                                                <span className="font-bold">{traveler.flightFrom || 'TBD'}</span>
+                                                                <span className="text-slate-400">→</span>
+                                                                <span className="font-bold">{traveler.flightTo || 'TBD'}</span>
+                                                                {traveler.tripType && <span className="ml-1 px-1.5 py-0.5 bg-slate-200 rounded-full text-[10px] uppercase font-bold text-slate-600">{traveler.tripType.replace('-', ' ')}</span>}
+                                                            </div>
+                                                            {traveler.departureTime && (
+                                                                <div className="text-[10px] text-slate-500 mt-1">
+                                                                    🛫 {dayjs(traveler.departureTime).format('MMM DD, h:mm A')}
+                                                                </div>
+                                                            )}
+                                                            {traveler.returnDate && !traveler.returnDepartureTime && (
+                                                                <div className="text-[10px] text-amber-700 mt-0.5">
+                                                                    📅 Return: {dayjs(traveler.returnDate).format('MMM DD, YYYY')}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
