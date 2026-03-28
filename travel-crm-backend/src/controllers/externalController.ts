@@ -31,22 +31,128 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         throw new Error('Unauthorized: Invalid API Key');
     }
 
-    const {
-        contactPerson,
-        contactNumber,
-        contactEmail,
-        flightFrom,
-        flightTo,
-        travelDate,
-        returnDate,
-        travellers,
-        tripType,
-        requirements,
-        adults,
-        children,
-        infants,
-        class: travelClass
-    } = req.body;
+    // Helper: Parse European date (DD/MM/YYYY)
+    const parseDate = (dateStr: any): Date | null => {
+        if (!dateStr || typeof dateStr !== 'string') return null;
+        const trimmed = dateStr.trim();
+        let parsed: Date | null = null;
+        if (trimmed.includes('/')) {
+            const parts = trimmed.split('/');
+            if (parts.length === 3) {
+                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            }
+        } else if (trimmed.includes('-')) {
+            const parts = trimmed.split('-');
+            if (parts[0].length === 2 && parts.length === 3) {
+                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            } else {
+                parsed = new Date(trimmed);
+            }
+        } else {
+            parsed = new Date(trimmed);
+        }
+        return (parsed && !isNaN(parsed.getTime())) ? parsed : null;
+    };
+
+    // ============================================================
+    // NEW: Handle raw_fields from simplified WordPress v4.0 script
+    // ============================================================
+    const rawFields: Array<{key: string; label: string; value: any}> = req.body.raw_fields || [];
+
+    let contactPerson = '';
+    let contactNumber = '';
+    let contactEmail = '';
+    let flightFrom = '';
+    let flightTo = '';
+    let travelDate = '';
+    let returnDate = '';
+    let tripType = '';
+    let adults = 0;
+    let children = 0;
+    let infants = 0;
+    let travelClass = 'Economy';
+
+    // Additional legs from repeater fields
+    const additionalLegs: Array<{from: string; to: string; date: string}> = [];
+
+    if (rawFields.length > 0) {
+        // ---- PARSE RAW FIELDS ----
+        for (const field of rawFields) {
+            const label = (field.label || '').trim();
+            const lLow = label.toLowerCase();
+            const val = field.value;
+
+            // Skip empty, submit buttons, internal IDs
+            if (!val) continue;
+            if (typeof val === 'string' && lLow.includes('submit')) continue;
+
+            // ---- REPEATER ARRAYS (Add City) ----
+            // These come as arrays of objects with sub-keys like "37.1_0", "37.2_0", "37.3_0"
+            if (Array.isArray(val)) {
+                for (const row of val) {
+                    if (typeof row === 'object' && row !== null) {
+                        // Each row has keys like { "37.1_0": "tronto", "37.2_0": "Dubai", "37.3_0": "31/03/2026", "37.1_0_id": "..." }
+                        const entries = Object.entries(row);
+                        const values: string[] = [];
+                        
+                        for (const [k, v] of entries) {
+                            // Skip internal ID fields
+                            if (k.endsWith('_id') || k.includes('_id_')) continue;
+                            if (typeof v === 'string' && v.trim()) {
+                                values.push(v.trim());
+                            }
+                        }
+                        
+                        // Values should be in order: From, To, Date
+                        if (values.length >= 2) {
+                            additionalLegs.push({
+                                from: values[0] || '',
+                                to: values[1] || '',
+                                date: values[2] || ''
+                            });
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // ---- STANDARD SINGLE FIELDS ----
+            const strVal = String(val).trim();
+            if (!strVal) continue;
+
+            if (lLow === 'from') { flightFrom = strVal; }
+            else if (lLow === 'to') { flightTo = strVal; }
+            else if (lLow === 'departure') { travelDate = strVal; }
+            else if (lLow === 'return') { returnDate = strVal; }
+            else if (lLow.includes('adult')) { adults = parseInt(strVal) || 0; }
+            else if (lLow.includes('child')) { children = parseInt(strVal) || 0; }
+            else if (lLow.includes('infant')) { infants = parseInt(strVal) || 0; }
+            else if (lLow.includes('class')) { travelClass = strVal; }
+            else if (lLow.includes('radio') || lLow.includes('trip')) { tripType = strVal; }
+            else if (lLow.includes('email')) { contactEmail = strVal; }
+            else if (lLow.includes('phone') || lLow.includes('mobile')) { contactNumber = strVal; }
+            else if (lLow.includes('name') && !lLow.includes('user')) { contactPerson = strVal; }
+        }
+    } else {
+        // Legacy: direct key-value payload (old WordPress scripts)
+        contactPerson = req.body.contactPerson || '';
+        contactNumber = req.body.contactNumber || '';
+        contactEmail = req.body.contactEmail || '';
+        flightFrom = req.body.flightFrom || '';
+        flightTo = req.body.flightTo || '';
+        travelDate = req.body.travelDate || '';
+        returnDate = req.body.returnDate || '';
+        tripType = req.body.tripType || '';
+        adults = Number(req.body.adults) || 0;
+        children = Number(req.body.children) || 0;
+        infants = Number(req.body.infants) || 0;
+        travelClass = req.body.class || 'Economy';
+
+        // Check for pre-formatted detailedRequirements
+        if (req.body.detailedRequirements) {
+            // Use it as-is (legacy path)
+        }
+    }
 
     if (!contactNumber) {
         res.status(400);
@@ -61,123 +167,82 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     }
 
     // Calculate total travellers
-    let totalTravellers = 0;
-    if (adults || children || infants) {
-        totalTravellers = (Number(adults) || 0) + (Number(children) || 0) + (Number(infants) || 0);
-    } else if (typeof travellers === 'number') {
-        totalTravellers = travellers;
-    }
+    const totalTravellers = (adults || 0) + (children || 0) + (infants || 0);
 
     // Normalize trip type
     const normalizedTripType = (tripType || '').toLowerCase().replace(/[^a-z]/g, '');
     let finalTripType: 'one-way' | 'round-trip' | 'multi-city' = 'one-way';
-
     if (normalizedTripType.includes('round')) {
         finalTripType = 'round-trip';
     } else if (normalizedTripType.includes('multi')) {
         finalTripType = 'multi-city';
     }
 
-    // Helper: Parse European date (DD/MM/YYYY)
-    const parseDate = (dateStr: any): Date | null => {
-        if (!dateStr || typeof dateStr !== 'string') return null;
-        let parsed: Date | null = null;
-        if (dateStr.includes('/')) {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) {
-                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            }
-        } else if (dateStr.includes('-')) {
-            const parts = dateStr.split('-');
-            if (parts[0].length === 2 && parts.length === 3) { // DD-MM-YYYY
-                parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            } else {
-                parsed = new Date(dateStr); // YYYY-MM-DD
-            }
-        } else {
-            parsed = new Date(dateStr);
-        }
-        return (parsed && !isNaN(parsed.getTime())) ? parsed : null;
-    };
-
-    // Detailed Requirements: Prefer pre-formatted string from WP, otherwise build catch-all
+    // ============================================================
+    // BUILD DETAILED REQUIREMENTS IN THE EXACT FORMAT REQUESTED
+    // ============================================================
     let detailedRequirements = req.body.detailedRequirements || '';
-    
+
     if (!detailedRequirements) {
-        detailedRequirements = `Direct Booking Inquiry from Website\n\n`;
-        detailedRequirements += `--- Additional Customer Information ---\n`;
+        const tripLabel = finalTripType === 'multi-city' ? 'Multi-City' : 
+                          finalTripType === 'round-trip' ? 'Round-Trip' : 'One-Way';
         
-        // Fields already processed or internal to CRM
-        const excludedFields = ['apiKey', 'contactPerson', 'contactNumber', 'contactEmail', 'detailedRequirements', 'segments', 'nf_labels'];
-        
-        Object.entries(req.body).forEach(([key, value]) => {
-            // Skip excluded, empty, or internal-looking Ninja Forms keys (like '37.1_0' or numeric IDs)
-            const isInternalNF = /^\d+(_\d+)?$/.test(key) || key.includes('_0');
-            
-            if (!excludedFields.includes(key) && value && !isInternalNF) {
-                const label = key
-                    .replace(/([A-Z])/g, ' $1')
-                    .replace(/_/g, ' ')
-                    .trim()
-                    .replace(/^./, (str) => str.toUpperCase());
-                    
-                detailedRequirements += `${label}: ${value}\n`;
-            }
-        });
-        detailedRequirements += `\n-------------------\n`;
-    } else {
-        // Wrap the provided requirements with header/footer if not already present
-        if (!detailedRequirements.includes('Direct Booking Inquiry')) {
-            detailedRequirements = `Direct Booking Inquiry from Website\n\n${detailedRequirements}\n\n-------------------\n`;
+        let log = `Direct Booking Inquiry from Website\n\n`;
+        log += `Trip Type: ${tripLabel}\n\n`;
+
+        // Leg-1 (Primary)
+        log += `Leg-1 flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
+        log += `Travel Date: ${travelDate}\n\n`;
+
+        // Additional Legs (from repeater)
+        for (let i = 0; i < additionalLegs.length; i++) {
+            const legNum = i + 2;
+            const leg = additionalLegs[i];
+            log += `Leg-${legNum} Flight From: ${leg.from}  -->  Flight to: ${leg.to}\n`;
+            log += `Travel Date: ${leg.date}\n\n`;
         }
+
+        log += `Class: ${travelClass}\n\n`;
+        log += `Passenger Breakdown: ${adults} Adults, ${children} Children, ${infants} Infants`;
+
+        detailedRequirements = log;
     }
 
+    // Build segments array for database
     const segments: any[] = [];
     
-    // Dynamic Segment Detection: Collect all keys that look like From, To, or Date
-    // Ninja Forms uses random IDs like 'from_1712816481069', so we group by order.
-    const bodyKeys = Object.keys(req.body);
-    const fKeys = bodyKeys.filter(k => k.toLowerCase().startsWith('from') || k.toLowerCase().startsWith('flightfrom')).sort();
-    const tKeys = bodyKeys.filter(k => k.toLowerCase().startsWith('to') || k.toLowerCase().startsWith('flightto')).sort();
-    const dKeys = bodyKeys.filter(k => k.toLowerCase().includes('traveldate') || k.toLowerCase().includes('departure') || k.toLowerCase().includes('date')).sort();
-
-    const maxCount = Math.max(fKeys.length, tKeys.length, dKeys.length);
-    
-    for (let i = 0; i < maxCount; i++) {
-        const from = req.body[fKeys[i]];
-        const to = req.body[tKeys[i]];
-        const dateRaw = req.body[dKeys[i]];
-        const parsedDate = parseDate(dateRaw);
-        
-        if (from || to || parsedDate) {
-            // Avoid duplicates (e.g. if 'from' maps to 'from_123', both will be found)
-            const isDuplicate = segments.some(s => 
-                s.from === from && 
-                s.to === to && 
-                (s.date?.getTime() === parsedDate?.getTime())
-            );
-
-            if (!isDuplicate) {
-                segments.push({
-                    from: from || '',
-                    to: to || '',
-                    date: parsedDate
-                });
-            }
-        }
-    }
-
-    // Clean up: If Leg 1 matches the primary flight, we can keep it (BookingDetails handles hiding duplicates)
-    // or we can remove it if we want the primary fields to be standalone.
-    // Let's keep all for complete history.
-
-    // If no segments found but it's multi-city, maybe we can use the primary one as segment 1
-    if (segments.length === 0 && finalTripType === 'multi-city' && (flightFrom || flightTo)) {
+    // Leg 1
+    if (flightFrom || flightTo) {
         segments.push({
-            from: flightFrom || 'TBD',
-            to: flightTo || 'TBD',
+            from: flightFrom || '',
+            to: flightTo || '',
             date: parseDate(travelDate)
         });
+    }
+
+    // Additional legs
+    for (const leg of additionalLegs) {
+        segments.push({
+            from: leg.from || '',
+            to: leg.to || '',
+            date: parseDate(leg.date)
+        });
+    }
+
+    // Also check legacy keys (flightFrom_2, flightFrom_3, etc.)
+    const bodyKeys = Object.keys(req.body);
+    for (let n = 2; n <= 10; n++) {
+        const fk = bodyKeys.find(k => k === `flightFrom_${n}`);
+        const tk = bodyKeys.find(k => k === `flightTo_${n}`);
+        if (fk || tk) {
+            const legFrom = req.body[fk || ''] || '';
+            const legTo = req.body[tk || ''] || '';
+            const legDate = req.body[`travelDate_${n}`] || '';
+            const isDup = segments.some(s => s.from === legFrom && s.to === legTo);
+            if (!isDup && (legFrom || legTo)) {
+                segments.push({ from: legFrom, to: legTo, date: parseDate(legDate) });
+            }
+        }
     }
 
     // Get "Website Lead" system user
@@ -203,10 +268,9 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         segments,
         travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
-        createdByUserId: websiteLeadUser._id, // Shows "Website Lead" in Created By
+        createdByUserId: websiteLeadUser._id,
         assignedToUserId: null,
     });
-
 
     // Invalidate caches
     appCache.invalidateByPrefix('bookings_');
