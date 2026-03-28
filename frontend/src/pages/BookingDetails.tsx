@@ -318,7 +318,7 @@ export const BookingDetails: React.FC = () => {
                                                                 {/* Multi-City Segments (Leg 2+) */}
                                                                 {primary.tripType === 'multi-city' && booking.segments && booking.segments.length > 0 && (
                                                                     <div className="space-y-3 relative before:absolute before:left-3 before:top-0 before:bottom-0 before:w-0.5 before:bg-secondary/5 pt-1">
-                                                                        {booking.segments.map((segment, idx) => {
+                                                                        {booking.segments.map((segment: { from: string; to: string; date: string | null }, idx: number) => {
                                                                             // Skip leg 1 if it matches primary to avoid duplicate if captured that way
                                                                             if (idx === 0 && segment.from === primary.flightFrom && segment.to === primary.flightTo) return null;
                                                                             

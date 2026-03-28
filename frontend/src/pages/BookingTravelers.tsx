@@ -7,7 +7,7 @@ import * as z from 'zod';
 import api from '../api/client';
 import type { Booking } from '../types';
 import { toast } from 'sonner';
-import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText } from 'lucide-react';
+import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText, List } from 'lucide-react';
 import { countryCodes } from '../utils/countryCodes';
 import dayjs from 'dayjs';
 
@@ -21,7 +21,7 @@ const travelerBaseSchema = z.object({
     flightTo: z.string().optional(),
     departureTime: z.string().optional(),
     arrivalTime: z.string().optional(),
-    tripType: z.enum(['one-way', 'round-trip']).optional(),
+    tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
     returnDate: z.string().optional(),
     returnDepartureTime: z.string().optional(),
     returnArrivalTime: z.string().optional(),
