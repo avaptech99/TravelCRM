@@ -48,23 +48,28 @@ if ( ! function_exists( 'travelwindow_crm_ninja_forms_submit_v2' ) ) {
                     // If it is NOT one of our manually mapped keys, and it's NOT empty, and NOT a submit button...
                     // We automatically capture it as "Extra Information"
                     if ( !in_array($field['key'], $mapped_keys) && !empty($field['value']) && strpos(strtolower($field['key']), 'submit') === false ) {
-                        // Use the field's label if it exists, otherwise just fall back to the raw key
-                        $label = isset($field['label']) ? $field['label'] : $field['key'];
-                        $raw_value = $field['value'];
+                        // Use the field's label if it exists
+                        $label = isset($field['label']) ? trim($field['label']) : '';
                         
-                        // Recursive flatten function for deeply nested arrays
-                        $flattened_value = '';
-                        if (is_array($raw_value)) {
-                            $flat_array = array();
-                            array_walk_recursive($raw_value, function($a) use (&$flat_array) { $flat_array[] = $a; });
-                            $flattened_value = implode(', ', $flat_array);
-                        } else {
-                            $flattened_value = $raw_value;
-                        }
-                        
-                        // Only add if there is actual content
-                        if (!empty(trim($flattened_value))) {
-                            $unmapped_data .= "- " . strip_tags($label) . ": " . strip_tags($flattened_value) . "\n";
+                        // ONLY capture if it has a real human-readable label!
+                        // This prevents hidden fields like "37.1_0" from printing out.
+                        if (!empty($label) && $label !== $field['key']) {
+                            $raw_value = $field['value'];
+                            
+                            // Recursive flatten function for deeply nested arrays
+                            $flattened_value = '';
+                            if (is_array($raw_value)) {
+                                $flat_array = array();
+                                array_walk_recursive($raw_value, function($a) use (&$flat_array) { $flat_array[] = $a; });
+                                $flattened_value = implode(', ', $flat_array);
+                            } else {
+                                $flattened_value = $raw_value;
+                            }
+                            
+                            // Only add if there is actual content
+                            if (!empty(trim($flattened_value))) {
+                                $unmapped_data .= "- " . strip_tags($label) . ": " . strip_tags($flattened_value) . "\n";
+                            }
                         }
                     }
                 }
