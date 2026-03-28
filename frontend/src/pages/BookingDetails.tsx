@@ -260,7 +260,15 @@ export const BookingDetails: React.FC = () => {
                             <div className="space-y-5">
                                 {/* Travel Details — shown once from primary traveler */}
                                 {(() => {
-                                    const primary = booking.travelers[0];
+                                    const traveler = booking.travelers[0];
+                                    // For WordPress leads: the traveler may not have tripType/flight set,
+                                    // but the booking-level fields DO have the correct values.
+                                    const primary = {
+                                        ...traveler,
+                                        tripType: traveler.tripType || booking.tripType || 'one-way',
+                                        flightFrom: traveler.flightFrom || booking.flightFrom || '',
+                                        flightTo: traveler.flightTo || booking.flightTo || '',
+                                    };
                                     const hasFlightInfo = primary.flightFrom || primary.flightTo;
                                     const hasTripInfo = primary.tripType || primary.country;
 

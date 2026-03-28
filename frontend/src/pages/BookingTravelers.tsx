@@ -277,7 +277,7 @@ export const BookingTravelers: React.FC = () => {
                  }
                  // If tripType is falsy OR if it's identical to the default 'one-way' value, overwrite it
                  if ((!currentTravelers[0].tripType || currentTravelers[0].tripType === 'one-way') && booking.tripType) {
-                     currentTravelers[0].tripType = booking.tripType === 'round-trip' ? 'round-trip' : 'one-way';
+                     currentTravelers[0].tripType = booking.tripType as 'one-way' | 'round-trip' | 'multi-city';
                  }
                  
                  // CRITICAL: Spread the array so react-hook-form detects the reference change and forces a re-render!
