@@ -17,6 +17,8 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import externalRoutes from './routes/externalRoutes';
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
+import User from './models/User';
+import bcrypt from 'bcrypt';
 
 const app: Express = express();
 
@@ -103,6 +105,26 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
+// Auto-seed admin user if the database is completely empty
+mongoose.connection.once('open', async () => {
+    try {
+        const count = await User.countDocuments();
+        if (count === 0) {
+            console.log('Auto-Seeder: Database is empty! Creating default admin user...');
+            const adminPasswordHash = await bcrypt.hash('admin123', 10);
+            await User.create({
+                name: 'System Admin',
+                email: 'admin@travel.com',
+                passwordHash: adminPasswordHash,
+                role: 'ADMIN',
+            });
+            console.log('Auto-Seeder: Admin user created successfully. You can now log in.');
+        }
+    } catch (error) {
+        console.error('Auto-Seeder Error:', error);
+    }
+});
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

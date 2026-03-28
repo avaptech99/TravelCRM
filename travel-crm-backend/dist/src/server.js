@@ -19,6 +19,8 @@ const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
 const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
 const db_1 = __importDefault(require("./config/db"));
 const keepWarm_1 = require("./utils/keepWarm");
+const User_1 = __importDefault(require("./models/User"));
+const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
@@ -95,6 +97,26 @@ app.use((err, req, res, next) => {
     });
 });
 const PORT = process.env.PORT || 5000;
+// Auto-seed admin user if the database is completely empty
+mongoose_1.default.connection.once('open', async () => {
+    try {
+        const count = await User_1.default.countDocuments();
+        if (count === 0) {
+            console.log('Auto-Seeder: Database is empty! Creating default admin user...');
+            const adminPasswordHash = await bcrypt_1.default.hash('admin123', 10);
+            await User_1.default.create({
+                name: 'System Admin',
+                email: 'admin@travel.com',
+                passwordHash: adminPasswordHash,
+                role: 'ADMIN',
+            });
+            console.log('Auto-Seeder: Admin user created successfully. You can now log in.');
+        }
+    }
+    catch (error) {
+        console.error('Auto-Seeder Error:', error);
+    }
+});
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
     // Start self-pinging to keep server warm (if BASE_URL is provided)
