@@ -1,3 +1,4 @@
+<?php
 /**
  * Travel CRM - WordPress Ninja Forms Integration (v4.0 FINAL)
  * Form ID 3 only. Super simple: forward ALL raw fields to backend. Backend handles formatting.
@@ -50,6 +51,12 @@ if ( ! function_exists( 'travelwindow_crm_send_all_v4' ) ) {
         }
 
         $debug_log("Sending " . count($all_fields) . " fields to CRM.");
+        $debug_log("--- FULL PAYLOAD ---");
+        foreach ($all_fields as $idx => $field) {
+            $val_str = is_array($field['value']) ? json_encode($field['value']) : $field['value'];
+            $debug_log("  Field #$idx | Label: " . $field['label'] . " | Key: " . $field['key'] . " | Value: " . $val_str);
+        }
+        $debug_log("--- END PAYLOAD ---");
 
         $payload = array(
             'raw_fields' => $all_fields

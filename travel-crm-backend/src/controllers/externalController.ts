@@ -123,7 +123,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
             if (lLow === 'from') { flightFrom = strVal; }
             else if (lLow === 'to') { flightTo = strVal; }
             else if (lLow === 'departure') { travelDate = strVal; }
-            else if (lLow === 'return') { returnDate = strVal; }
+            else if (lLow === 'return' || lLow.includes('return date') || lLow.includes('return')) { returnDate = strVal; }
             else if (lLow.includes('adult')) { adults = parseInt(strVal) || 0; }
             else if (lLow.includes('child')) { children = parseInt(strVal) || 0; }
             else if (lLow.includes('infant')) { infants = parseInt(strVal) || 0; }
@@ -180,6 +180,10 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
 
     // ============================================================
     // BUILD DETAILED REQUIREMENTS IN THE EXACT FORMAT REQUESTED
+    // Format differs by trip type:
+    //   One-Way:    No leg prefix, no return
+    //   Round-Trip: Departure + "Return" block
+    //   Multi-City: Leg-1, Leg-2, Leg-3...
     // ============================================================
     let detailedRequirements = req.body.detailedRequirements || '';
 
@@ -190,16 +194,30 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         let log = `Direct Booking Inquiry from Website\n\n`;
         log += `Trip Type: ${tripLabel}\n\n`;
 
-        // Leg-1 (Primary)
-        log += `Leg-1 flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
-        log += `Travel Date: ${travelDate}\n\n`;
+        if (finalTripType === 'one-way') {
+            // ONE-WAY FORMAT (no leg prefix)
+            log += `flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
+            log += `Travel Date: ${travelDate}\n\n`;
 
-        // Additional Legs (from repeater)
-        for (let i = 0; i < additionalLegs.length; i++) {
-            const legNum = i + 2;
-            const leg = additionalLegs[i];
-            log += `Leg-${legNum} Flight From: ${leg.from}  -->  Flight to: ${leg.to}\n`;
-            log += `Travel Date: ${leg.date}\n\n`;
+        } else if (finalTripType === 'round-trip') {
+            // ROUND-TRIP FORMAT (departure + return block)
+            log += `flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
+            log += `Travel Date: ${travelDate}\n\n`;
+            log += `Return\n`;
+            log += `Flight from: ${flightTo} --> Flight to: ${flightFrom}\n`;
+            log += `Travel Date : ${returnDate}\n\n`;
+
+        } else {
+            // MULTI-CITY FORMAT (Leg-1, Leg-2, Leg-3...)
+            log += `Leg-1 flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
+            log += `Travel Date: ${travelDate}\n\n`;
+
+            for (let i = 0; i < additionalLegs.length; i++) {
+                const legNum = i + 2;
+                const leg = additionalLegs[i];
+                log += `Leg-${legNum} Flight From: ${leg.from}  -->  Flight to: ${leg.to}\n`;
+                log += `Travel Date: ${leg.date}\n\n`;
+            }
         }
 
         log += `Class: ${travelClass}\n\n`;
