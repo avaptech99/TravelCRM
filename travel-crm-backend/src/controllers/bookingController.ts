@@ -96,7 +96,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUser', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
 
     const mapped = bookings.map(b => ({ 
@@ -344,14 +344,14 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const booking = await Booking.findById(id)
         .populate('assignedToUser', 'name email')
         .populate('createdByUser', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate({
             path: 'comments',
             populate: { path: 'createdBy', select: 'name role' },
             options: { sort: { createdAt: -1 } },
             select: 'text createdById createdAt'
         })
-        .populate('passengers', 'name phoneNumber email dob anniversary')
+        .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
     console.timeEnd(`getBookingById_${id}`);
@@ -468,7 +468,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
 
     // Populate for response
     const populatedBooking = await Booking.findById(booking._id)
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .lean();
 
     const resultBooking = {
@@ -476,6 +476,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         id: populatedBooking!._id.toString(),
         contactPerson: (populatedBooking as any).primaryContact?.contactName,
         contactNumber: (populatedBooking as any).primaryContact?.contactPhoneNo,
+        contactEmail: (populatedBooking as any).primaryContact?.contactEmail,
         requirements: (populatedBooking as any).primaryContact?.requirements,
         interested: (populatedBooking as any).primaryContact?.interested,
         bookingType: (populatedBooking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -532,7 +533,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     const updatedBooking = await Booking.findById(id)
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate('assignedToUser', 'name')
         .lean();
 

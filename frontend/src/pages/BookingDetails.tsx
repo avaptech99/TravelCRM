@@ -483,6 +483,12 @@ export const BookingDetails: React.FC = () => {
                                 <Phone size={18} className="text-slate-400" />
                                 <span>{booking.contactNumber}</span>
                             </div>
+                            {booking.contactEmail && (
+                                <div className="flex items-center space-x-3 text-slate-700">
+                                    <Mail size={18} className="text-slate-400" />
+                                    <span>{booking.contactEmail}</span>
+                                </div>
+                            )}
                             {booking.bookingType && (
                                 <div className="flex items-center space-x-3 text-slate-700 pt-2 border-t border-slate-100">
                                     {booking.bookingType === 'B2B' ? (
