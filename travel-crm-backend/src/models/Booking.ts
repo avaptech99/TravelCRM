@@ -1,4 +1,5 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
+import Counter from './Counter';
 
 export interface IBooking extends Document {
     primaryContactId: mongoose.Types.ObjectId;
@@ -49,16 +50,29 @@ const bookingSchema = new Schema<IBooking>(
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     },
     {
-        timestamps: true, // Automatically manages createdAt and updatedAt
+        timestamps: true,
         toJSON: { virtuals: true },
         toObject: { virtuals: true },
     }
 );
 
-bookingSchema.pre('save', function (this: any) {
+bookingSchema.pre('save', async function (this: any) {
     if (!this.uniqueCode) {
-        // Simple random 4-digit code (e.g., 6819) to match aaaa.png
-        this.uniqueCode = Math.floor(1000 + Math.random() * 9000).toString();
+        try {
+            const counter = await Counter.findByIdAndUpdate(
+                'bookingId',
+                { $inc: { seq: 1 } },
+                { new: true, upsert: true }
+            );
+            
+            if (counter) {
+                const seqStr = counter.seq.toString().padStart(4, '0');
+                this.uniqueCode = `TW${seqStr}`;
+            }
+        } catch (error) {
+            console.error('Error generating sequential uniqueCode:', error);
+            this.uniqueCode = 'TW' + Math.floor(1000 + Math.random() * 9000).toString();
+        }
     }
 });
 

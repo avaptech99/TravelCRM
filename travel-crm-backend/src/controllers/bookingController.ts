@@ -956,3 +956,62 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });
+
+// @desc    Get calendar bookings for a given month
+// @route   GET /api/bookings/calendar
+// @access  Private
+export const getCalendarBookings = asyncHandler(async (req: Request, res: Response) => {
+    const { month, year } = req.query;
+    const m = parseInt(month as string) || (new Date().getMonth() + 1);
+    const y = parseInt(year as string) || new Date().getFullYear();
+
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0, 23, 59, 59);
+
+    const query: any = {
+        travelDate: { $gte: startDate, $lte: endDate },
+    };
+
+    if (req.user?.role === 'AGENT') {
+        query.assignedToUserId = req.user.id;
+    }
+
+    const bookings = await Booking.find(query)
+        .select('uniqueCode status destination travelDate primaryContactId')
+        .populate('primaryContact', 'contactName')
+        .lean();
+
+    const events = bookings.map(b => ({
+        id: b._id.toString(),
+        title: (b as any).primaryContact?.contactName || b.uniqueCode || 'Booking',
+        date: b.travelDate,
+        status: b.status,
+        destination: b.destination || '',
+    }));
+
+    res.json(events);
+});
+
+// @desc    Get activity log for a booking
+// @route   GET /api/bookings/:id/activity
+// @access  Private
+export const getBookingActivity = asyncHandler(async (req: Request, res: Response) => {
+    const { default: Activity } = await import('../models/Activity');
+    
+    const activities = await Activity.find({ bookingId: req.params.id })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate('userId', 'name')
+        .lean();
+
+    const mapped = activities.map(a => ({
+        id: (a as any)._id.toString(),
+        action: a.action,
+        details: a.details,
+        user: (a as any).userId?.name || 'System',
+        createdAt: a.createdAt,
+    }));
+
+    res.json(mapped);
+});
+

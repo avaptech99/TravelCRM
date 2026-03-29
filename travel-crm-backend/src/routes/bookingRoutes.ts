@@ -16,6 +16,9 @@ import {
     deletePayment,
     getBookingStats,
     getRecentBookings,
+    getCalendarBookings,
+    getBookingActivity,
+    bulkAssign,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -27,6 +30,8 @@ router.use(protect);
 // Lightweight endpoints (MUST come before /:id)
 router.get('/stats', getBookingStats);
 router.get('/recent', getRecentBookings);
+router.get('/calendar', getCalendarBookings);
+router.post('/bulk-assign', adminGuard, bulkAssign);
 
 router.route('/')
     .get(getBookings)
@@ -50,6 +55,8 @@ router.route('/:id/comments')
 router.route('/:id/passengers')
     .post(addPassengers)
     .put(updatePassengers);
+
+router.get('/:id/activity', getBookingActivity);
 
 router.route('/:id/payments')
     .get(getPayments)
