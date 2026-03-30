@@ -286,9 +286,9 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         <div className="flex flex-col gap-3 py-3 border-y border-slate-50">
                                             <div className="text-xs text-slate-500 bg-slate-50/50 p-2 rounded-lg border border-slate-100/50">
                                                 <span className="font-medium mr-1">Created by</span>
-                                                <strong className="text-slate-700">{booking.createdByUser?.name?.split(' ')[0] || 'Unknown'}</strong>
+                                                <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                 <span className="mx-1.5">on</span>
-                                                <strong className="text-slate-700">{booking.createdOn ? dayjs(booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
+                                                <strong className="text-slate-700">{((booking as any).createdAt || booking.createdOn) ? dayjs((booking as any).createdAt || booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-4">
