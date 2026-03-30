@@ -341,8 +341,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
 
             {!isLoading && totalCount > 0 && (
                 <div className="bg-white px-4 py-3 border border-slate-200 md:border-t-0 md:rounded-b-lg rounded-xl mt-4 md:mt-0 flex items-center justify-between sm:px-6 shadow-sm md:shadow-none">
-                    <div className="flex-1 flex items-center justify-between">
-                        <p className="text-sm text-slate-700">
+                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
+                        <p className="text-sm text-slate-700 text-center sm:text-left">
                             Showing{' '}
                             <span className="font-medium text-slate-900">
                                 {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
@@ -357,23 +357,23 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             {' '}of{' '}
                             <span className="font-medium text-slate-900">{totalCount}</span> results
                         </p>
-                        <nav className="flex items-center gap-1">
+                        <nav className="flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto">
                             <button
                                 onClick={() => table.previousPage()}
                                 disabled={!table.getCanPreviousPage()}
-                                className="relative inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="relative inline-flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-1 sm:flex-none justify-center"
                             >
-                                <ChevronLeft size={16} className="mr-1" /> Previous
+                                <ChevronLeft size={16} className="sm:mr-1" /> <span className="hidden md:inline">Previous</span>
                             </button>
-                            <span className="px-3 py-1.5 text-sm text-slate-600 font-medium">
-                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                            <span className="px-2 sm:px-3 py-1.5 text-sm text-slate-600 font-bold whitespace-nowrap">
+                                <span className="hidden sm:inline">Page </span>{table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
                             </span>
                             <button
                                 onClick={() => table.nextPage()}
                                 disabled={!table.getCanNextPage()}
-                                className="relative inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="relative inline-flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-1 sm:flex-none justify-center"
                             >
-                                Next <ChevronRight size={16} className="ml-1" />
+                                <span className="hidden md:inline">Next</span> <ChevronRight size={16} className="sm:ml-1" />
                             </button>
                         </nav>
                     </div>
