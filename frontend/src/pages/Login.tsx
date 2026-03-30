@@ -14,12 +14,16 @@ export const Login: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
-    // Effect to check and load remembered email
+    // Effect to check and load remembered email and password
     React.useEffect(() => {
         const savedEmail = localStorage.getItem('remembered_email');
+        const savedPassword = localStorage.getItem('remembered_password');
         if (savedEmail) {
             setEmail(savedEmail);
             setRememberMe(true);
+        }
+        if (savedPassword) {
+            try { setPassword(atob(savedPassword)); } catch (e) {}
         }
     }, []);
 
@@ -30,11 +34,13 @@ export const Login: React.FC = () => {
         try {
             const { data } = await api.post('/auth/login', { email, password });
             
-            // Persist email if remember me is checked
+            // Persist email and password if remember me is checked
             if (rememberMe) {
                 localStorage.setItem('remembered_email', email);
+                localStorage.setItem('remembered_password', btoa(password));
             } else {
                 localStorage.removeItem('remembered_email');
+                localStorage.removeItem('remembered_password');
             }
 
             login(data.token);
