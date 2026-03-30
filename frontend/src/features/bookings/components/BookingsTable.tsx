@@ -182,12 +182,15 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const totalCount = data?.meta?.total || 0;
 
     return (
-        <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
+        <div className="bg-transparent md:bg-white rounded-none md:rounded-lg shadow-none md:shadow-sm border-0 md:border border-slate-200 overflow-hidden">
+            <div className="w-full">
                 {isLoading ? (
-                    <div className="p-8 text-center text-slate-500">Loading bookings...</div>
+                    <div className="p-8 text-center text-slate-500 bg-white rounded-lg shadow-sm border border-slate-200">Loading bookings...</div>
                 ) : (
-                    <table className="min-w-full divide-y divide-slate-200">
+                    <>
+                        {/* Desktop View Table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <tr key={headerGroup.id}>
@@ -239,12 +242,105 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 </tr>
                             )}
                         </tbody>
-                    </table>
+                            </table>
+                        </div>
+
+                        {/* Mobile View Cards */}
+                        <div className="md:hidden flex flex-col gap-4">
+                            {table.getRowModel().rows.map((row) => {
+                                const booking = row.original;
+                                const flightDate = booking.travelers?.[0]?.departureTime;
+                                const tDate = flightDate || booking.travelDate;
+                                const isBooked = booking.status === 'Booked';
+
+                                return (
+                                    <div 
+                                        key={row.id} 
+                                        onClick={() => navigate(`/bookings/${booking.id}`)}
+                                        className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex flex-1 items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 font-bold border border-slate-100">
+                                                    {booking.contactPerson?.charAt(0) || 'U'}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-slate-900 leading-tight">{booking.contactPerson || 'Unknown'}</h3>
+                                                    <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500">
+                                                        <span>{booking.contactNumber || 'No Phone'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-slate-400 tracking-wider">#{booking.uniqueCode || '-'}</span>
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                    isBooked ? 'bg-green-50 text-green-700 border border-green-200' :
+                                                    booking.status === 'Working' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                                    booking.status === 'Sent' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                                                    'bg-blue-50 text-blue-700 border border-blue-200'
+                                                }`}>
+                                                    {booking.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-3 py-3 border-y border-slate-50">
+                                            <div className="text-xs text-slate-500 bg-slate-50/50 p-2 rounded-lg border border-slate-100/50">
+                                                <span className="font-medium mr-1">Created by</span>
+                                                <strong className="text-slate-700">{booking.createdByUser?.name?.split(' ')[0] || 'Unknown'}</strong>
+                                                <span className="mx-1.5">on</span>
+                                                <strong className="text-slate-700">{booking.createdOn ? dayjs(booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Travel Date</span>
+                                                    <span className="text-[13px] font-semibold text-slate-700">{tDate ? dayjs(tDate).format('DD MMM YYYY') : '-'}</span>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Destination</span>
+                                                    <span className="text-[13px] font-semibold text-slate-700 line-clamp-1" title={booking.travelers?.[0]?.flightTo || booking.destinationCity || '-'}>{booking.travelers?.[0]?.flightTo || booking.destinationCity || '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
+                                                    {(booking.assignedToUser?.name || 'U').charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Assignee</span>
+                                                    <span className="text-xs font-bold text-slate-700 leading-tight">
+                                                        {booking.assignedToUser?.name?.split(' ')[0] || 'Unassigned'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <ActionDropdown
+                                                    booking={booking}
+                                                    onEditClick={(b: Booking) => setActiveEditBooking(b)}
+                                                    onUnassignClick={
+                                                        isInlineView && user?.role === 'ADMIN' && booking.assignedToUser
+                                                            ? (b: Booking) => unassignMutation.mutate(b.id)
+                                                            : undefined
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {table.getRowModel().rows.length === 0 && (
+                                <div className="p-8 text-center bg-white rounded-xl border border-slate-200 shadow-sm">
+                                    <p className="text-slate-500 text-sm">No bookings found matching the criteria.</p>
+                                </div>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
 
             {!isLoading && totalCount > 0 && (
-                <div className="bg-white px-4 py-3 border-t border-slate-200 flex items-center justify-between sm:px-6">
+                <div className="bg-white px-4 py-3 border border-slate-200 md:border-t-0 md:rounded-b-lg rounded-xl mt-4 md:mt-0 flex items-center justify-between sm:px-6 shadow-sm md:shadow-none">
                     <div className="flex-1 flex items-center justify-between">
                         <p className="text-sm text-slate-700">
                             Showing{' '}

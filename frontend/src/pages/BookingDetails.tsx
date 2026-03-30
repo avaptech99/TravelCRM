@@ -109,26 +109,26 @@ export const BookingDetails: React.FC = () => {
     return (
         <div className="max-w-5xl mx-auto space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                    <Link to="/bookings" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3 max-w-full">
+                    <Link to="/bookings" className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0 mt-1 sm:mt-0 -ml-2 sm:ml-0">
                         <ArrowLeft size={20} className="text-slate-600" />
                     </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 break-words">
                             Booking for {booking.contactPerson}
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1">
+                        <p className="text-slate-500 text-xs sm:text-sm mt-1">
                             Created on {dayjs(booking.createdOn).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
                         </p>
                         {booking.finalQuotation && (
                             <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 shadow-sm uppercase tracking-wider">
-                                <CreditCard size={12} /> Final Quotation: {booking.finalQuotation}
+                                <CreditCard size={12} /> Final Quota: {booking.finalQuotation}
                             </span>
                         )}
                     </div>
                 </div>
-                <div className="flex space-x-3 items-center">
+                <div className="flex flex-wrap gap-2 items-center pl-8 sm:pl-0 w-full sm:w-auto">
                     {isReadOnly && (
                         <button
                             onClick={() => assignToMeMutation.mutate()}
@@ -141,7 +141,13 @@ export const BookingDetails: React.FC = () => {
                     {!isReadOnly ? (
                         <select
                             value={booking.status}
-                            onChange={(e) => updateStatusMutation.mutate(e.target.value)}
+                            onChange={(e) => {
+                                if (e.target.value === 'Booked') {
+                                    navigate(`/bookings/${id}/travelers`);
+                                } else {
+                                    updateStatusMutation.mutate(e.target.value);
+                                }
+                            }}
                             disabled={updateStatusMutation.isPending}
                             className={`px-3 py-1.5 rounded-full text-sm font-bold border-2 focus:outline-none focus:ring-opacity-50 transition-colors cursor-pointer disabled:opacity-50 ${booking.status === 'Booked' ? 'bg-green-100 text-green-800 border-green-200 focus:ring-green-500' :
                                 booking.status === 'Working' ? 'bg-purple-100 text-purple-800 border-purple-200 focus:ring-purple-500' :

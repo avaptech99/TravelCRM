@@ -135,14 +135,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             { assignedToUserId: req.user?.id },
             { createdByUserId: req.user?.id },
         ];
-    } else if (req.user?.role === 'AGENT') {
-        if (!search) {
-            query.$or = [
-                { assignedToUserId: req.user.id },
-                { assignedToUserId: { $exists: false } },
-                { assignedToUserId: null },
-            ];
-        }
     } else if (assignedTo) {
         query.assignedToUserId = assignedTo as string;
     }

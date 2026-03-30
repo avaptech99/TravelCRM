@@ -409,9 +409,9 @@ export const BookingTravelers: React.FC = () => {
     }
 
     return (
-        <div className="max-w-5xl mx-auto pb-12">
+        <div className="max-w-5xl mx-auto pb-28 px-3 sm:px-6 lg:px-8 pt-4 sm:pt-0">
             {/* Header */}
-            <div className="flex items-center space-x-4 mb-8">
+            <div className="flex items-center space-x-4 mb-6 sm:mb-8">
                 <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                     <ArrowLeft size={20} className="text-slate-600" />
                 </button>
@@ -430,8 +430,8 @@ export const BookingTravelers: React.FC = () => {
 
                 {/* Final Quotation Section */}
                 <div className="bg-brand-gradient p-0.5 rounded-xl shadow-lg transform transition-all hover:scale-[1.01]">
-                    <div className="bg-white rounded-[10px] p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="bg-white rounded-[10px] p-4 sm:p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                             <div className="flex items-center gap-4">
                                 <div className="bg-primary/10 p-3 rounded-lg">
                                     <CreditCard size={24} className="text-primary" />
@@ -455,12 +455,12 @@ export const BookingTravelers: React.FC = () => {
 
                 {/* 1. TRAVELERS SECTION */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-2">
+                    <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2">
                         <Users size={18} className="text-secondary" />
                         <h2 className="text-lg font-semibold text-slate-800">Traveler Details</h2>
                     </div>
 
-                    <div className="p-6 space-y-6">
+                    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
                         {fields.map((field, index) => (
                             <React.Fragment key={field.id}>
                                 {index === 1 && (
@@ -477,7 +477,7 @@ export const BookingTravelers: React.FC = () => {
                                         </label>
                                     </div>
                                 )}
-                                <div className="p-5 bg-slate-50/50 border border-slate-200 rounded-lg relative">
+                                <div className="p-4 sm:p-5 bg-slate-50/50 border border-slate-200 rounded-lg relative">
 
                                 <div className="flex justify-between items-center mb-5 border-b border-slate-200 pb-3">
                                     <h4 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -544,7 +544,7 @@ export const BookingTravelers: React.FC = () => {
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                                                 <Calendar size={13} className="text-slate-500" /> Date of Birth *
@@ -587,7 +587,7 @@ export const BookingTravelers: React.FC = () => {
                                                         placeholder="e.g. France"
                                                     />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From <span className="text-red-500">*</span></label>
                                                         <input
@@ -765,7 +765,7 @@ export const BookingTravelers: React.FC = () => {
 
                 {/* 2. PRICING SECTION */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center justify-between">
+                    <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <FileText size={18} className="text-amber-600" />
                             <h2 className="text-base font-semibold text-slate-800">Pricing Information</h2>
@@ -816,7 +816,7 @@ export const BookingTravelers: React.FC = () => {
 
                 {/* 3. INLINE PAYMENT SECTION */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-emerald-50 border-b border-emerald-100 px-6 py-3 flex items-center gap-2">
+                    <div className="bg-emerald-50 border-b border-emerald-100 px-4 sm:px-6 py-3 flex items-center gap-2">
                         <CreditCard size={18} className="text-emerald-600" />
                         <h2 className="text-base font-semibold text-emerald-900">Add Payment</h2>
                     </div>
@@ -979,18 +979,18 @@ export const BookingTravelers: React.FC = () => {
                 </div>
 
                 {/* Submissions Actions */}
-                <div className="flex justify-end space-x-4 pt-4 pb-8">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-4 pb-8">
                     <button
                         type="button"
                         onClick={() => navigate(-1)}
-                        className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all"
+                        className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all text-center"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
                         disabled={saveChangesMutation.isPending}
-                        className="px-8 py-3 flex items-center gap-2 text-sm font-bold text-white bg-brand-gradient border border-transparent rounded-xl shadow-md hover:opacity-90 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full sm:w-auto px-8 py-3 flex items-center justify-center gap-2 text-sm font-bold text-white bg-brand-gradient border border-transparent rounded-xl shadow-md hover:opacity-90 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                         {saveChangesMutation.isPending ? 'Saving All Changes...' : 'Save & Confirm Booking'}
                     </button>

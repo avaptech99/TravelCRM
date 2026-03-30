@@ -83,14 +83,14 @@ export const Dashboard: React.FC = () => {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
-            <div className="px-2 border-b border-slate-200 pb-5 flex justify-between items-start">
+            <div className="px-2 border-b border-slate-200 pb-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Overview</h1>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight whitespace-nowrap">Overview</h1>
                     <p className="text-slate-500 text-sm mt-2">Welcome, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Bookings.</p>
                 </div>
                 <button
                     onClick={() => setIsNewBookingModalOpen(true)}
-                    className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold mt-1 transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold mt-1 md:mt-0 transform hover:scale-[1.02] active:scale-[0.98] w-full md:w-auto justify-center md:justify-start"
                 >
                     <Plus size={18} />
                     <span>New Booking</span>
@@ -98,17 +98,17 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-2">
                 {cards.map((card, idx) => (
-                    <div key={idx} className={`rounded-xl shadow-sm border p-6 flex flex-col justify-between hover:shadow-md transition-all duration-200 ${card.bg}`}>
+                    <div key={idx} className={`rounded-xl shadow-sm border p-4 md:p-6 flex flex-col justify-between hover:shadow-md transition-all duration-200 ${card.bg}`}>
                         <div className="flex justify-between items-start mb-2">
-                            <div className="p-2.5 rounded-lg bg-white shadow-sm border border-white/50">
+                            <div className="p-2 md:p-2.5 rounded-lg bg-white shadow-sm border border-white/50">
                                 {card.icon}
                             </div>
                         </div>
                         <div>
-                            <p className="text-3xl font-bold text-slate-900 mt-2">{card.value}</p>
-                            <h3 className="text-slate-600 text-sm font-medium mt-1">{card.title}</h3>
+                            <p className="text-2xl md:text-3xl font-bold text-slate-900 mt-2">{card.value}</p>
+                            <h3 className="text-slate-600 text-xs md:text-sm font-medium mt-1">{card.title}</h3>
                         </div>
                     </div>
                 ))}
@@ -116,58 +116,8 @@ export const Dashboard: React.FC = () => {
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 pb-10">
-                {/* Recent Activity Table */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50">
-                        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                            <Clock size={18} className="text-primary" />
-                            Recent Activity
-                        </h2>
-                        <p className="text-slate-500 text-xs mt-1">Latest 5 bookings logged in the system.</p>
-                    </div>
-                    <div className="flex-1 overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Assigned</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-slate-100">
-                                {recentBookings?.map((booking: any) => (
-                                    <tr key={booking.id || booking._id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">
-                                            {booking.contactPerson}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-tight ${
-                                                booking.status === 'Booked' ? 'bg-emerald-100 text-emerald-700' :
-                                                booking.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-slate-100 text-slate-700'
-                                            }`}>
-                                                {booking.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-right font-medium">
-                                            {booking.assignedToUser?.name?.split(' ')[0] || 'Unassigned'}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {!recentBookings?.length && (
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-12 text-center text-slate-400 text-sm">
-                                            No recent bookings found.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 {/* Notifications Log */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div className="hidden md:flex bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-col">
                     <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
                         <div>
                             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -216,6 +166,92 @@ export const Dashboard: React.FC = () => {
                             </button>
                         </div>
                     )}
+                </div>
+
+                {/* Recent Activity Table */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50">
+                        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <Clock size={18} className="text-primary" />
+                            Recent Activity
+                        </h2>
+                        <p className="text-slate-500 text-xs mt-1">Latest 5 bookings logged in the system.</p>
+                    </div>
+                    {/* Desktop View Table */}
+                    <div className="hidden md:block flex-1 overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Assigned</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                                {recentBookings?.map((booking: any) => (
+                                    <tr key={booking.id || booking._id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
+                                            {booking.contactPerson}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                                                booking.status === 'Booked' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                booking.status === 'Pending' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                'bg-slate-100 text-slate-700 border border-slate-200'
+                                            }`}>
+                                                {booking.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-right font-medium">
+                                            {booking.assignedToUser?.name?.split(' ')[0] || 'Unassigned'}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {!recentBookings?.length && (
+                                    <tr>
+                                        <td colSpan={3} className="px-6 py-12 text-center text-slate-500 text-sm">
+                                            No recent bookings found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View Cards */}
+                    <div className="md:hidden flex flex-col gap-3 p-4 bg-slate-50/50">
+                        {recentBookings?.map((booking: any) => (
+                            <div key={booking.id || booking._id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col gap-3 relative">
+                                <div className="flex justify-between items-start pr-20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center font-bold text-lg border border-slate-100">
+                                            {booking.contactPerson.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-slate-800 leading-tight">{booking.contactPerson}</h3>
+                                            <p className="text-xs font-medium text-slate-500 mt-0.5">
+                                                Assigned: {booking.assignedToUser?.name?.split(' ')[0] || 'Unassigned'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="absolute top-4 right-4 flex flex-col items-end">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                        booking.status === 'Booked' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                        booking.status === 'Pending' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                        'bg-slate-50 text-slate-700 border border-slate-200'
+                                    }`}>
+                                        {booking.status}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                        {!recentBookings?.length && (
+                            <div className="text-center py-6 text-slate-400 text-sm">
+                                No recent bookings found.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

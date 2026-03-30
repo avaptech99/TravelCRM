@@ -16,9 +16,11 @@ const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
+const syncRoutes_1 = __importDefault(require("./routes/syncRoutes"));
 const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
 const db_1 = __importDefault(require("./config/db"));
 const keepWarm_1 = require("./utils/keepWarm");
+// Socket.io is available in ./socket.ts for future real-time upgrades
 const User_1 = __importDefault(require("./models/User"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
@@ -59,6 +61,7 @@ app.use('/api/bookings', bookingRoutes_1.default);
 app.use('/api/users', userRoutes_1.default);
 app.use('/api/notifications', notificationRoutes_1.default);
 app.use('/api/analytics', analyticsRoutes_1.default);
+app.use('/api/sync', syncRoutes_1.default);
 app.use('/api/external', externalRoutes_1.default);
 // Ping route for keeping server warm
 app.get('/api/ping', (req, res) => {

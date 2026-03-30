@@ -135,15 +135,15 @@ export const CalendarView: React.FC = () => {
 
     return (
         <div className="space-y-6 relative">
-            <div className="flex items-center justify-between px-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between px-2 gap-4 md:gap-0">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2 whitespace-nowrap">
                         <CalendarIcon className="text-primary" />
                         Travel Calendar
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Track upcoming departures and arrivals.</p>
                 </div>
-                <div className="flex items-center space-x-4 bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex flex-wrap items-center justify-center gap-2 md:space-x-4 bg-white p-1 rounded-xl shadow-sm border border-slate-200">
                     <button
                         onClick={prevMonth}
                         className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"

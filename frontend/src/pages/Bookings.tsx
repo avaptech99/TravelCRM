@@ -54,12 +54,12 @@ export const Bookings: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center px-2">
+            <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 md:gap-0 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">All Bookings</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 whitespace-nowrap">All Bookings</h1>
                     <p className="text-slate-500 text-sm mt-1">Manage and track all customer travel bookings.</p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search size={18} className="text-slate-400" />
@@ -142,7 +142,7 @@ export const Bookings: React.FC = () => {
                                 className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary px-3 py-1.5 shadow-sm min-w-[180px]"
                             >
                                 <option value="">All Agents</option>
-                                {agents?.map(a => (
+                                {agents?.filter(a => a.name !== 'Website Lead').map(a => (
                                     <option key={a.id} value={a.id}>{a.name}</option>
                                 ))}
                             </select>

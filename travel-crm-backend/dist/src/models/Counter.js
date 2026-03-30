@@ -34,27 +34,9 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const passengerSchema = new mongoose_1.Schema({
-    bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true },
-    name: { type: String, required: true },
-    phoneNumber: { type: String, default: null },
-    email: { type: String, default: null },
-    dob: { type: String, default: null },
-    anniversary: { type: String, default: null },
-    country: { type: String, default: null },
-    flightFrom: { type: String, default: null },
-    flightTo: { type: String, default: null },
-    departureTime: { type: String, default: null },
-    arrivalTime: { type: String, default: null },
-    tripType: { type: String, default: 'one-way' },
-    returnDate: { type: String, default: null },
-    returnDepartureTime: { type: String, default: null },
-    returnArrivalTime: { type: String, default: null },
-}, {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+const counterSchema = new mongoose_1.Schema({
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 },
 });
-passengerSchema.index({ bookingId: 1 });
-const Passenger = mongoose_1.default.model('Passenger', passengerSchema);
-exports.default = Passenger;
+const Counter = mongoose_1.default.model('Counter', counterSchema);
+exports.default = Counter;

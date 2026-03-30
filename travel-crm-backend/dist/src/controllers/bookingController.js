@@ -1,9 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.bulkAssign = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
+exports.getBookingActivity = exports.getCalendarBookings = exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.bulkAssign = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
@@ -83,7 +116,7 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUser', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
     const mapped = bookings.map(b => ({
         ...b,
@@ -117,15 +150,6 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             { assignedToUserId: req.user?.id },
             { createdByUserId: req.user?.id },
         ];
-    }
-    else if (req.user?.role === 'AGENT') {
-        if (!search) {
-            query.$or = [
-                { assignedToUserId: req.user.id },
-                { assignedToUserId: { $exists: false } },
-                { assignedToUserId: null },
-            ];
-        }
     }
     else if (assignedTo) {
         query.assignedToUserId = assignedTo;
@@ -254,7 +278,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
@@ -271,6 +295,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         id: b._id.toString(),
         contactPerson: b.primaryContact?.contactName,
         contactNumber: b.primaryContact?.contactPhoneNo,
+        contactEmail: b.primaryContact?.contactEmail,
         requirements: b.primaryContact?.requirements,
         interested: b.primaryContact?.interested,
         bookingType: b.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -311,14 +336,14 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     const booking = await Booking_1.default.findById(id)
         .populate('assignedToUser', 'name email')
         .populate('createdByUser', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate({
         path: 'comments',
         populate: { path: 'createdBy', select: 'name role' },
         options: { sort: { createdAt: -1 } },
         select: 'text createdById createdAt'
     })
-        .populate('passengers', 'name phoneNumber email dob anniversary')
+        .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
     console.timeEnd(`getBookingById_${id}`);
@@ -335,6 +360,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         outstanding,
         contactPerson: booking.primaryContact?.contactName,
         contactNumber: booking.primaryContact?.contactPhoneNo,
+        contactEmail: booking.primaryContact?.contactEmail,
         requirements: booking.primaryContact?.requirements,
         interested: booking.primaryContact?.interested,
         bookingType: booking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -421,13 +447,14 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
     console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
     // Populate for response
     const populatedBooking = await Booking_1.default.findById(booking._id)
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .lean();
     const resultBooking = {
         ...populatedBooking,
         id: populatedBooking._id.toString(),
         contactPerson: populatedBooking.primaryContact?.contactName,
         contactNumber: populatedBooking.primaryContact?.contactPhoneNo,
+        contactEmail: populatedBooking.primaryContact?.contactEmail,
         requirements: populatedBooking.primaryContact?.requirements,
         interested: populatedBooking.primaryContact?.interested,
         bookingType: populatedBooking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -470,8 +497,19 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.tripType = result.data.tripType || 'one-way';
     if (result.data.amount !== undefined)
         booking.amount = result.data.amount;
+    if (result.data.totalAmount !== undefined)
+        booking.totalAmount = result.data.totalAmount;
+    if (result.data.finalQuotation !== undefined)
+        booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined)
         booking.travellers = result.data.travellers || null;
+    if (result.data.segments !== undefined) {
+        booking.segments = (result.data.segments || []).map(s => ({
+            from: s.from || '',
+            to: s.to || '',
+            date: s.date ? new Date(s.date) : null
+        }));
+    }
     await booking.save();
     // Update PrimaryContact fields if provided
     if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
@@ -483,7 +521,7 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         await PrimaryContact_1.default.findByIdAndUpdate(booking.primaryContactId, updateData);
     }
     const updatedBooking = await Booking_1.default.findById(id)
-        .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate('assignedToUser', 'name')
         .lean();
     const resultBooking = {
@@ -809,4 +847,51 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
     await Payment_1.default.findByIdAndDelete(paymentId);
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
+});
+// @desc    Get calendar bookings for a given month
+// @route   GET /api/bookings/calendar
+// @access  Private
+exports.getCalendarBookings = (0, express_async_handler_1.default)(async (req, res) => {
+    const { month, year } = req.query;
+    const m = parseInt(month) || (new Date().getMonth() + 1);
+    const y = parseInt(year) || new Date().getFullYear();
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0, 23, 59, 59);
+    const query = {
+        travelDate: { $gte: startDate, $lte: endDate },
+    };
+    if (req.user?.role === 'AGENT') {
+        query.assignedToUserId = req.user.id;
+    }
+    const bookings = await Booking_1.default.find(query)
+        .select('uniqueCode status destination travelDate primaryContactId')
+        .populate('primaryContact', 'contactName')
+        .lean();
+    const events = bookings.map(b => ({
+        id: b._id.toString(),
+        title: b.primaryContact?.contactName || b.uniqueCode || 'Booking',
+        date: b.travelDate,
+        status: b.status,
+        destination: b.destination || '',
+    }));
+    res.json(events);
+});
+// @desc    Get activity log for a booking
+// @route   GET /api/bookings/:id/activity
+// @access  Private
+exports.getBookingActivity = (0, express_async_handler_1.default)(async (req, res) => {
+    const { default: Activity } = await Promise.resolve().then(() => __importStar(require('../models/Activity')));
+    const activities = await Activity.find({ bookingId: req.params.id })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate('userId', 'name')
+        .lean();
+    const mapped = activities.map(a => ({
+        id: a._id.toString(),
+        action: a.action,
+        details: a.details,
+        user: a.userId?.name || 'System',
+        createdAt: a.createdAt,
+    }));
+    res.json(mapped);
 });

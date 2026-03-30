@@ -23,7 +23,7 @@ export const Sidebar: React.FC = () => {
     const visibleItems = navItems.filter(item => item.roles.includes(user?.role || ''));
 
     return (
-        <aside className="w-64 bg-white text-slate-900 flex flex-col h-full border-r border-slate-200 shadow-sm">
+        <aside className="hidden md:flex w-64 bg-white text-slate-900 flex-col h-full border-r border-slate-200 shadow-sm relative">
             <div className="p-6">
                 <Link to="/" className="block">
                     <img 
@@ -33,7 +33,7 @@ export const Sidebar: React.FC = () => {
                     />
                 </Link>
             </div>
-            <nav className="flex-1 px-4 space-y-2">
+            <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
                 {visibleItems.map((item) => {
                     const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
                     return (

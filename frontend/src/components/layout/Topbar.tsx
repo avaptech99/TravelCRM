@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, Bell } from 'lucide-react';
+import { LogOut, Bell, Settings, User } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
@@ -14,6 +14,8 @@ export const Topbar: React.FC = () => {
     const queryClient = useQueryClient();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const profileRef = useRef<HTMLDivElement>(null);
 
     const { data: notifications = [] } = useQuery<Notification[]>({
         queryKey: ['notifications', user?.id],
@@ -62,6 +64,9 @@ export const Topbar: React.FC = () => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
             }
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setIsProfileOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -88,14 +93,14 @@ export const Topbar: React.FC = () => {
     };
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
-            <div className="flex-1">
-                <h1 className="text-xl font-semibold text-slate-800">Dashboard</h1>
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-30 relative">
+            <div className="flex items-center flex-1">
+                <h1 className="text-xl font-semibold text-slate-800 truncate">Dashboard</h1>
             </div>
             <div className="flex items-center space-x-6">
                 {/* Online/Offline Toggle */}
-                <div className="flex items-center gap-3 pr-4 border-r border-slate-100">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-green-500' : 'text-slate-400'}`}>
+                <div className="flex items-center gap-2 md:gap-3 pr-2 md:pr-4 border-r border-slate-100">
+                    <span className={`hidden md:block text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-green-500' : 'text-slate-400'}`}>
                         {isOnline ? 'Online' : 'Offline'}
                     </span>
                     <button
@@ -169,10 +174,45 @@ export const Topbar: React.FC = () => {
                     )}
                 </div>
 
-                {/* Logout */}
+                {/* Profile Dropdown (Mobile Only) */}
+                <div className="relative md:hidden" ref={profileRef}>
+                    <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors focus:outline-none"
+                    >
+                        <span className="font-bold text-xs uppercase">{user?.name?.charAt(0) || 'U'}</span>
+                    </button>
+
+                    {isProfileOpen && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 overflow-hidden z-50">
+                            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                                <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
+                                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{user?.role}</p>
+                            </div>
+                            <div className="p-1">
+                                <button 
+                                    onClick={() => { setIsProfileOpen(false); navigate('/settings'); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors font-medium"
+                                >
+                                    <Settings size={16} />
+                                    <span>Settings</span>
+                                </button>
+                                <button 
+                                    onClick={() => { setIsProfileOpen(false); handleLogout(); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium mt-1"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Logout</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Direct Logout Button (Desktop Only) */}
                 <button
                     onClick={handleLogout}
-                    className="flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-red-600 transition-colors"
+                    className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"
                 >
                     <LogOut size={18} />
                     <span>Logout</span>

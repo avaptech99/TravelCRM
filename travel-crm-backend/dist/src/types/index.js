@@ -21,7 +21,12 @@ exports.createBookingSchema = zod_1.z.object({
     requirements: zod_1.z.string().optional(),
     flightFrom: zod_1.z.string().optional(),
     flightTo: zod_1.z.string().optional(),
-    tripType: zod_1.z.enum(['one-way', 'round-trip']).optional(),
+    tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
+    segments: zod_1.z.array(zod_1.z.object({
+        from: zod_1.z.string().optional(),
+        to: zod_1.z.string().optional(),
+        date: zod_1.z.string().optional().nullable(),
+    })).optional(),
     amount: zod_1.z.number().nonnegative().optional(),
     travellers: zod_1.z.number().int().positive().optional(),
 });
@@ -30,8 +35,15 @@ exports.updateBookingSchema = zod_1.z.object({
     travelDate: zod_1.z.string().optional().nullable(),
     flightFrom: zod_1.z.string().optional(),
     flightTo: zod_1.z.string().optional(),
-    tripType: zod_1.z.enum(['one-way', 'round-trip']).optional(),
+    tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
+    segments: zod_1.z.array(zod_1.z.object({
+        from: zod_1.z.string().optional(),
+        to: zod_1.z.string().optional(),
+        date: zod_1.z.string().optional().nullable(),
+    })).optional(),
     amount: zod_1.z.number().nonnegative().optional(),
+    totalAmount: zod_1.z.number().nonnegative().optional(),
+    finalQuotation: zod_1.z.string().optional().nullable(),
     requirements: zod_1.z.string().optional(),
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
     bookingType: zod_1.z.enum(['B2B', 'B2C']).optional(),
@@ -52,6 +64,15 @@ exports.passengerSchema = zod_1.z.object({
     email: zod_1.z.string().email().optional().or(zod_1.z.literal('')),
     dob: zod_1.z.string().optional(),
     anniversary: zod_1.z.string().optional(),
+    country: zod_1.z.string().optional(),
+    flightFrom: zod_1.z.string().optional(),
+    flightTo: zod_1.z.string().optional(),
+    departureTime: zod_1.z.string().optional(),
+    arrivalTime: zod_1.z.string().optional(),
+    tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
+    returnDate: zod_1.z.string().optional(),
+    returnDepartureTime: zod_1.z.string().optional(),
+    returnArrivalTime: zod_1.z.string().optional(),
 });
 exports.createPassengersSchema = zod_1.z.array(exports.passengerSchema);
 exports.createPaymentSchema = zod_1.z.object({

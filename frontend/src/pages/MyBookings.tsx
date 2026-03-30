@@ -39,12 +39,12 @@ export const MyBookings: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center px-2">
+            <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 md:gap-0 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">My Bookings</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 whitespace-nowrap">My Bookings</h1>
                     <p className="text-slate-500 text-sm mt-1">Manage bookings assigned to you or created by you.</p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search size={18} className="text-slate-400" />

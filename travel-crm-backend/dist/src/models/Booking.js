@@ -32,30 +32,51 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
+const Counter_1 = __importDefault(require("./Counter"));
 const bookingSchema = new mongoose_1.Schema({
     primaryContactId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'PrimaryContact', required: true },
     uniqueCode: { type: String, unique: true },
     destination: { type: String, default: null },
     travelDate: { type: Date, default: null },
+    returnDate: { type: Date, default: null },
     flightFrom: { type: String, default: null },
     flightTo: { type: String, default: null },
-    tripType: { type: String, enum: ['one-way', 'round-trip'], default: 'one-way' },
+    tripType: { type: String, enum: ['one-way', 'round-trip', 'multi-city'], default: 'one-way' },
+    segments: [{
+            from: { type: String, default: null },
+            to: { type: String, default: null },
+            date: { type: Date, default: null },
+        }],
     amount: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
+    finalQuotation: { type: String, default: null },
     travellers: { type: Number, default: null },
     status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
 }, {
-    timestamps: true, // Automatically manages createdAt and updatedAt
+    timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
-bookingSchema.pre('save', function () {
+bookingSchema.pre('save', async function () {
     if (!this.uniqueCode) {
-        // Simple random 4-digit code (e.g., 6819) to match aaaa.png
-        this.uniqueCode = Math.floor(1000 + Math.random() * 9000).toString();
+        try {
+            const counter = await Counter_1.default.findByIdAndUpdate('bookingId', { $inc: { seq: 1 } }, { new: true, upsert: true });
+            if (counter) {
+                const seqStr = counter.seq.toString().padStart(4, '0');
+                this.uniqueCode = `TW${seqStr}`;
+            }
+        }
+        catch (error) {
+            console.error('Error generating sequential uniqueCode:', error);
+            this.uniqueCode = 'TW' + Math.floor(1000 + Math.random() * 9000).toString();
+        }
     }
 });
 // Indexes to speed up queries
