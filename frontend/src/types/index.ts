@@ -48,7 +48,7 @@ export interface Payment {
 
 export interface Booking {
     id: string;
-    createdOn: string;
+    createdAt: string;
     contactPerson: string;
     contactNumber: string;
     contactEmail?: string;

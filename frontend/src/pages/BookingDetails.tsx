@@ -124,7 +124,7 @@ export const BookingDetails: React.FC = () => {
                             Booking for {booking.contactPerson}
                         </h1>
                         <p className="text-slate-500 text-xs sm:text-sm mt-1">
-                            Created on {dayjs(booking.createdOn).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
+                            Created on {dayjs(booking.createdAt).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
                         </p>
                         {booking.finalQuotation && (
                             <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 shadow-sm uppercase tracking-wider">
