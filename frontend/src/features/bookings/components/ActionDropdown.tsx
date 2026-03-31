@@ -23,9 +23,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                    (user?.role === 'AGENT' && (booking.assignedToUserId === user.id || booking.createdByUserId === user.id)) ||
                    (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.assignedToUserId);
 
-    const canDelete = user?.role === 'ADMIN' ||
-                     (user?.role === 'AGENT' && booking.createdByUserId === user.id) ||
-                     (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.hasBeenAssigned);
+    const canDelete = user?.role === 'ADMIN';
 
     const isReadOnly = !canEdit;
 

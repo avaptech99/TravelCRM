@@ -59,6 +59,7 @@ const bookingSchema = new mongoose_1.Schema({
     status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
+    hasBeenAssigned: { type: Boolean, default: false },
 }, {
     timestamps: true,
     toJSON: { virtuals: true },

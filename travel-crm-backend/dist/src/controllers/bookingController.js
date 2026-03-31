@@ -387,8 +387,14 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Booking not found');
     }
     if (req.user?.role === 'MARKETER') {
-        res.status(403);
-        throw new Error('Marketers are not authorized to delete bookings');
+        if (booking.createdByUserId?.toString() !== req.user.id) {
+            res.status(403);
+            throw new Error('Not authorized to delete this booking');
+        }
+        if (booking.hasBeenAssigned) {
+            res.status(403);
+            throw new Error('Marketers cannot delete a lead that has been assigned to an agent');
+        }
     }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
         res.status(403);
@@ -619,6 +625,9 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
         booking.assignedToUserId = newAssignedUserId;
+        if (newAssignedUserId) {
+            booking.hasBeenAssigned = true;
+        }
         await booking.save();
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {
@@ -679,6 +688,9 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
         const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
         if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
             booking.assignedToUserId = newAgentId;
+            if (newAgentId) {
+                booking.hasBeenAssigned = true;
+            }
             await booking.save();
             let previousAgentName = 'Unassigned';
             if (previousAssignedUserId) {

@@ -82,7 +82,6 @@ export interface Booking {
     returnDate?: string;
     travellers?: number;
     duration?: string;
-    hasBeenAssigned: boolean;
 }
 
 export interface PaginatedResponse<T> {

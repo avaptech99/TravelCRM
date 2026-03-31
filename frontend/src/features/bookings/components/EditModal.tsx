@@ -207,7 +207,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 </div>
 
                 <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
-                    {(user?.role === 'ADMIN' || (user?.role === 'AGENT' && booking.createdByUserId === user.id) || (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.hasBeenAssigned)) && (
+                    {user?.role === 'ADMIN' && (
                         <button
                             type="button"
                             onClick={() => deleteMutation.mutate()}

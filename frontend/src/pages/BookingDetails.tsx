@@ -37,7 +37,7 @@ export const BookingDetails: React.FC = () => {
     
     // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
     // Now we refine this to follow the user's requirement: edit only if unassigned.
-    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking?.hasBeenAssigned));
+    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking?.assignedToUserId));
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {

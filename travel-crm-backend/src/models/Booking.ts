@@ -22,7 +22,6 @@ export interface IBooking extends Document {
     status: 'Pending' | 'Working' | 'Sent' | 'Booked';
     createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
-    hasBeenAssigned: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -49,7 +48,6 @@ const bookingSchema = new Schema<IBooking>(
         status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-        hasBeenAssigned: { type: Boolean, default: false },
     },
     {
         timestamps: true,
