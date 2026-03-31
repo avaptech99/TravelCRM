@@ -2,7 +2,7 @@ export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'ADMIN' | 'AGENT';
+    role: 'ADMIN' | 'AGENT' | 'MARKETER';
     isOnline?: boolean;
     lastSeen?: string;
 }

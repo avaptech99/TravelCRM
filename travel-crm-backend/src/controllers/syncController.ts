@@ -24,8 +24,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     const recentQuery: any = {};
 
     if (userRole === 'AGENT') {
-        statsQuery.assignedToUserId = new mongoose.Types.ObjectId(userId);
-        recentQuery.assignedToUserId = userId;
+        const objId = new mongoose.Types.ObjectId(userId);
+        statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
+        recentQuery.$or = [{ assignedToUserId: userId }, { createdByUserId: userId }];
+    } else if (userRole === 'MARKETER') {
+        statsQuery.createdByUserId = new mongoose.Types.ObjectId(userId);
+        recentQuery.createdByUserId = userId;
     }
 
     // Run all queries in parallel

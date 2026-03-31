@@ -10,14 +10,14 @@ export const Sidebar: React.FC = () => {
     const location = useLocation();
 
     const navItems = [
-        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
         { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'My Bookings', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
-        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
     ];
 
     const visibleItems = navItems.filter(item => item.roles.includes(user?.role || ''));

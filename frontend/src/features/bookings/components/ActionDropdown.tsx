@@ -17,9 +17,15 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
-    const isReadOnly = isAgent && !isAssignedToMe;
+    const isCreatedByMe = booking?.createdByUserId === user?.id;
+    
+    // Marketers can only edit if they created it.
+    // Agents can only edit if assigned to them or created by them.
+    const canEdit = user?.role === 'ADMIN' || isCreatedByMe || (isAgent && isAssignedToMe);
+    const isReadOnly = !canEdit;
 
     return (
         <div className="flex items-center gap-1">

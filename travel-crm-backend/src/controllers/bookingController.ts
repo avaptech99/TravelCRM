@@ -130,7 +130,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const query: any = {};
     const primaryContactQuery: any = {};
 
-    if (myBookings === 'true') {
+    if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
+    } else if (myBookings === 'true') {
         query.$or = [
             { assignedToUserId: req.user?.id },
             { createdByUserId: req.user?.id },
@@ -346,11 +348,15 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
-    console.timeEnd(`getBookingById_${id}`);
 
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to view this booking');
     }
 
     // Calculate outstanding for each payment context
@@ -384,6 +390,11 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to delete this booking');
     }
 
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
