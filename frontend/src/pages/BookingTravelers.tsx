@@ -793,16 +793,13 @@ export const BookingTravelers: React.FC = () => {
                             <div className="flex-1 bg-slate-50/50 rounded-lg border border-slate-100 p-4 flex flex-col justify-center">
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Lump Sum Amount</label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="text-slate-400 sm:text-sm font-semibold">$</span>
-                                    </div>
                                     <input
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         value={lumpSumAmount || ''}
                                         onChange={(e) => setLumpSumAmount(parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-xl font-bold text-slate-800 transition-all shadow-sm"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-xl font-bold text-slate-800 transition-all shadow-sm"
                                         placeholder="0.00"
                                     />
                                 </div>
