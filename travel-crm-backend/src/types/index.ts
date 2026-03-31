@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
-    role: z.enum(['ADMIN', 'AGENT']),
+    role: z.enum(['ADMIN', 'AGENT', 'MARKETER']),
 });
 
 export const createBookingSchema = z.object({
