@@ -43,6 +43,8 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
     console.time('getBookingStats');
@@ -89,6 +91,8 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
     }
 
     const bookings = await Booking.find(query)
