@@ -92,12 +92,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             header: 'Booking ID',
             cell: (info) => info.getValue() || '-',
         }),
-<<<<<<< HEAD
-        columnHelper.accessor((row) => row.createdAt || row.createdOn, {
-            id: 'createdOn',
-            header: 'Created On',
-            cell: (info) => info.getValue() ? dayjs(info.getValue()).format('DD MMM YYYY') : '-',
-=======
         columnHelper.accessor('createdAt', {
             header: 'Created On',
             cell: (info) => {
@@ -110,7 +104,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     </div>
                 );
             },
->>>>>>> testing-branch
         }),
         columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
             id: 'createdBy',
@@ -309,11 +302,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 <span className="font-medium mr-1">Created by</span>
                                                 <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                 <span className="mx-1.5">on</span>
-<<<<<<< HEAD
-                                                <strong className="text-slate-700">{ (booking.createdAt || booking.createdOn) ? dayjs(booking.createdAt || booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
-=======
                                                 <strong className="text-slate-700">{booking.createdAt ? dayjs(booking.createdAt).format('DD MMM YYYY') : '-'}</strong>
->>>>>>> testing-branch
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-4">

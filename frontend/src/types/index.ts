@@ -49,10 +49,6 @@ export interface Payment {
 export interface Booking {
     id: string;
     createdAt: string;
-<<<<<<< HEAD
-    createdOn: string;
-=======
->>>>>>> testing-branch
     contactPerson: string;
     contactNumber: string;
     contactEmail?: string;
