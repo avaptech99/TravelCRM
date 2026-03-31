@@ -121,6 +121,7 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
     const mapped = bookings.map(b => ({
         ...b,
         id: b._id.toString(),
+        createdOn: b.createdAt,
         contactPerson: b.primaryContact?.contactName,
         contactNumber: b.primaryContact?.contactPhoneNo,
         bookingType: b.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -293,6 +294,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const mappedBookings = bookings.map(b => ({
         ...b,
         id: b._id.toString(),
+        createdOn: b.createdAt,
         contactPerson: b.primaryContact?.contactName,
         contactNumber: b.primaryContact?.contactPhoneNo,
         contactEmail: b.primaryContact?.contactEmail,
@@ -357,6 +359,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     const result = {
         ...booking,
         id: booking._id.toString(),
+        createdOn: booking.createdAt,
         outstanding,
         contactPerson: booking.primaryContact?.contactName,
         contactNumber: booking.primaryContact?.contactPhoneNo,
@@ -452,6 +455,7 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const resultBooking = {
         ...populatedBooking,
         id: populatedBooking._id.toString(),
+        createdOn: populatedBooking.createdAt,
         contactPerson: populatedBooking.primaryContact?.contactName,
         contactNumber: populatedBooking.primaryContact?.contactPhoneNo,
         contactEmail: populatedBooking.primaryContact?.contactEmail,
@@ -527,6 +531,7 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const resultBooking = {
         ...updatedBooking,
         id: updatedBooking._id.toString(),
+        createdOn: updatedBooking.createdAt,
         contactPerson: updatedBooking.primaryContact?.contactName,
         contactNumber: updatedBooking.primaryContact?.contactPhoneNo,
         requirements: updatedBooking.primaryContact?.requirements,

@@ -102,6 +102,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     const mapped = bookings.map(b => ({ 
         ...b, 
         id: b._id.toString(),
+        createdOn: b.createdAt,
         contactPerson: (b as any).primaryContact?.contactName,
         contactNumber: (b as any).primaryContact?.contactPhoneNo,
         bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
@@ -287,6 +288,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const mappedBookings = bookings.map(b => ({
         ...b,
         id: b._id.toString(),
+        createdOn: b.createdAt,
         contactPerson: (b as any).primaryContact?.contactName,
         contactNumber: (b as any).primaryContact?.contactPhoneNo,
         contactEmail: (b as any).primaryContact?.contactEmail,
@@ -360,6 +362,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const result = {
         ...booking,
         id: booking!._id.toString(),
+        createdOn: booking.createdAt,
         outstanding,
         contactPerson: (booking as any).primaryContact?.contactName,
         contactNumber: (booking as any).primaryContact?.contactPhoneNo,
@@ -466,6 +469,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     const resultBooking = {
         ...populatedBooking,
         id: populatedBooking!._id.toString(),
+        createdOn: populatedBooking!.createdAt,
         contactPerson: (populatedBooking as any).primaryContact?.contactName,
         contactNumber: (populatedBooking as any).primaryContact?.contactPhoneNo,
         contactEmail: (populatedBooking as any).primaryContact?.contactEmail,
@@ -541,6 +545,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     const resultBooking = {
         ...updatedBooking,
         id: updatedBooking!._id.toString(),
+        createdOn: updatedBooking!.createdAt,
         contactPerson: (updatedBooking as any).primaryContact?.contactName,
         contactNumber: (updatedBooking as any).primaryContact?.contactPhoneNo,
         requirements: (updatedBooking as any).primaryContact?.requirements,

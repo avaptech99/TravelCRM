@@ -92,9 +92,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             header: 'Booking ID',
             cell: (info) => info.getValue() || '-',
         }),
-        columnHelper.accessor('createdOn', {
+        columnHelper.accessor((row) => row.createdAt || row.createdOn, {
+            id: 'createdOn',
             header: 'Created On',
-            cell: (info) => dayjs(info.getValue()).format('DD MMM YYYY'),
+            cell: (info) => info.getValue() ? dayjs(info.getValue()).format('DD MMM YYYY') : '-',
         }),
         columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
             id: 'createdBy',
@@ -288,7 +289,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 <span className="font-medium mr-1">Created by</span>
                                                 <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                 <span className="mx-1.5">on</span>
-                                                <strong className="text-slate-700">{((booking as any).createdAt || booking.createdOn) ? dayjs((booking as any).createdAt || booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
+                                                <strong className="text-slate-700">{ (booking.createdAt || booking.createdOn) ? dayjs(booking.createdAt || booking.createdOn).format('DD MMM YYYY') : '-'}</strong>
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-4">
