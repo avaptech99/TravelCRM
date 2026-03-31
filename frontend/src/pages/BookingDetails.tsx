@@ -25,6 +25,7 @@ export const BookingDetails: React.FC = () => {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
+    const [commentText, setCommentText] = useState('');
     const { user } = useAuth();
 
     const queryClient = useQueryClient();
@@ -35,8 +36,8 @@ export const BookingDetails: React.FC = () => {
     const isReadOnly = isAgent && !isAssignedToMe;
     
     // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
-    // Actually, user said: "marketer can edit Detailed Requirements but when assigned to some one then marketer can not to any edits"
-    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking.assignedToUserId));
+    // Now we refine this to follow the user's requirement: edit only if unassigned.
+    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking.hasBeenAssigned));
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
@@ -88,6 +89,20 @@ export const BookingDetails: React.FC = () => {
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.message || 'Failed to update interest');
+        }
+    });
+
+    const addCommentMutation = useMutation({
+        mutationFn: async (text: string) => {
+            await api.post(`/bookings/${id}/comments`, { text });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            setCommentText('');
+            toast.success('Comment added successfully');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to add comment');
         }
     });
 
@@ -574,6 +589,30 @@ export const BookingDetails: React.FC = () => {
                             <MessageSquare size={16} className="mr-2" />
                             Comments & Remarks
                         </h2>
+
+                        <div className="mb-6">
+                            <textarea
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                placeholder="Add a new comment or remark..."
+                                className="w-full min-h-[80px] p-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-slate-50 transition-all"
+                            />
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    onClick={() => addCommentMutation.mutate(commentText)}
+                                    disabled={!commentText.trim() || addCommentMutation.isPending}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-secondary/80 hover:bg-secondary rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    {addCommentMutation.isPending ? (
+                                        'Posting...'
+                                    ) : (
+                                        <>
+                                            <Plus size={14} /> Post Comment
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
 
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {booking.comments && booking.comments.length > 0 ? (

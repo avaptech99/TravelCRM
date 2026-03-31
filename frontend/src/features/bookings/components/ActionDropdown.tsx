@@ -1,4 +1,4 @@
-import { Edit, Users, Eye, UserMinus } from 'lucide-react';
+import { Edit, Users, Eye, UserMinus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Booking } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
@@ -7,24 +7,26 @@ interface ActionDropdownProps {
     booking: Booking;
     onEditClick: (booking: Booking) => void;
     onUnassignClick?: (booking: Booking) => void;
+    onDeleteClick?: (booking: Booking) => void;
 }
 
 export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     booking,
     onEditClick,
     onUnassignClick,
+    onDeleteClick,
 }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const isMarketer = user?.role === 'MARKETER';
-    const isAgent = user?.role === 'AGENT';
-    const isAssignedToMe = booking?.assignedToUserId === user?.id;
-    const isCreatedByMe = booking?.createdByUserId === user?.id;
-    
-    // Marketers can only edit if they created it AND it's unassigned.
-    // Agents can only edit if assigned to them or created by them.
-    const canEdit = user?.role === 'ADMIN' || (isMarketer && isCreatedByMe && !booking.assignedToUserId) || (isAgent && (isAssignedToMe || isCreatedByMe));
+    const canEdit = user?.role === 'ADMIN' || 
+                   (user?.role === 'AGENT' && (booking.assignedToUserId === user.id || booking.createdByUserId === user.id)) ||
+                   (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.assignedToUserId);
+
+    const canDelete = user?.role === 'ADMIN' ||
+                     (user?.role === 'AGENT' && booking.createdByUserId === user.id) ||
+                     (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.hasBeenAssigned);
+
     const isReadOnly = !canEdit;
 
     return (
@@ -47,7 +49,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                         <Edit size={16} />
                     </button>
 
-                    {booking.status === 'Booked' && !isMarketer && (
+                    {booking.status === 'Booked' && user?.role !== 'MARKETER' && (
                         <button
                             onClick={() => navigate(`/bookings/${booking.id}/travelers`)}
                             className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
@@ -57,13 +59,23 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                         </button>
                     )}
 
-                    {onUnassignClick && !isMarketer && (
+                    {onUnassignClick && user?.role !== 'MARKETER' && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onUnassignClick(booking); }}
                             className="p-2 text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors border border-transparent hover:border-rose-200"
                             title="Unassign Booking"
                         >
                             <UserMinus size={16} />
+                        </button>
+                    )}
+
+                    {canDelete && onDeleteClick && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDeleteClick(booking); }}
+                            className="p-2 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md transition-colors border border-transparent hover:border-red-200"
+                            title="Delete Booking"
+                        >
+                            <Trash2 size={16} />
                         </button>
                     )}
                 </>
