@@ -386,9 +386,9 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'MARKETER') {
         res.status(403);
-        throw new Error('Not authorized to delete this booking');
+        throw new Error('Marketers are not authorized to delete bookings');
     }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
         res.status(403);
@@ -490,7 +490,21 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'MARKETER') {
+        if (booking.assignedToUserId) {
+            res.status(403);
+            throw new Error('Not authorized to update an assigned booking');
+        }
+        // Marketers can ONLY update requirements
+        const allowedFields = ['requirements'];
+        const keys = Object.keys(req.body);
+        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
+        if (forbiddenKeys.length > 0) {
+            res.status(403);
+            throw new Error('Marketers are only authorized to update Detailed Requirements');
+        }
+    }
+    else if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -563,6 +577,10 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     if (!existingBooking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to update booking status');
     }
     if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
@@ -746,6 +764,10 @@ exports.addPassengers = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to add passengers');
+    }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add passengers to this booking');
@@ -779,6 +801,10 @@ exports.updatePassengers = (0, express_async_handler_1.default)(async (req, res)
         res.status(404);
         throw new Error('Booking not found');
     }
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to update passengers');
+    }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update passengers for this booking');
@@ -810,6 +836,10 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to add payments');
     }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
@@ -844,6 +874,10 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to delete payments');
     }
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);

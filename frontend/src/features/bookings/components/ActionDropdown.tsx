@@ -17,13 +17,14 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
     const isCreatedByMe = booking?.createdByUserId === user?.id;
     
-    // Marketers can only edit if they created it.
+    // Marketers can only edit if they created it AND it's unassigned.
     // Agents can only edit if assigned to them or created by them.
-    const canEdit = user?.role === 'ADMIN' || isCreatedByMe || (isAgent && isAssignedToMe);
+    const canEdit = user?.role === 'ADMIN' || (isMarketer && isCreatedByMe && !booking.assignedToUserId) || (isAgent && (isAssignedToMe || isCreatedByMe));
     const isReadOnly = !canEdit;
 
     return (
@@ -32,7 +33,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                 <button
                     onClick={() => navigate(`/bookings/${booking.id}`)}
                     className="p-2 text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md transition-colors border border-transparent hover:border-amber-200"
-                    title="View Details & Take Ownership"
+                    title="View Details"
                 >
                     <Eye size={16} />
                 </button>
@@ -46,7 +47,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                         <Edit size={16} />
                     </button>
 
-                    {booking.status === 'Booked' && (
+                    {booking.status === 'Booked' && !isMarketer && (
                         <button
                             onClick={() => navigate(`/bookings/${booking.id}/travelers`)}
                             className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
@@ -56,7 +57,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                         </button>
                     )}
 
-                    {onUnassignClick && (
+                    {onUnassignClick && !isMarketer && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onUnassignClick(booking); }}
                             className="p-2 text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors border border-transparent hover:border-rose-200"
@@ -69,4 +70,5 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
             )}
         </div>
     );
+
 };

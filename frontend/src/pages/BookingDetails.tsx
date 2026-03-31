@@ -29,9 +29,14 @@ export const BookingDetails: React.FC = () => {
 
     const queryClient = useQueryClient();
 
+    const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
     const isReadOnly = isAgent && !isAssignedToMe;
+    
+    // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
+    // Actually, user said: "marketer can edit Detailed Requirements but when assigned to some one then marketer can not to any edits"
+    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking.assignedToUserId));
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
@@ -138,7 +143,7 @@ export const BookingDetails: React.FC = () => {
                             <UserPlus size={16} /> {assignToMeMutation.isPending ? 'Assigning...' : 'Assign To Me to Edit'}
                         </button>
                     )}
-                    {!isReadOnly ? (
+                    {!isReadOnly && !isMarketer ? (
                         <select
                             value={booking.status}
                             onChange={(e) => {
@@ -170,7 +175,7 @@ export const BookingDetails: React.FC = () => {
                         </span>
                     )}
                     
-                    {!isReadOnly ? (
+                    {!isReadOnly && !isMarketer ? (
                         <select
                             value={booking.interested || 'No'}
                             onChange={(e) => updateInterestMutation.mutate(e.target.value)}
@@ -201,7 +206,7 @@ export const BookingDetails: React.FC = () => {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-slate-900">Detailed Requirements</h2>
-                            {!isEditingReqs && !isReadOnly && (
+                            {canEditReqs && (
                                 <button
                                     onClick={startEditingReqs}
                                     className="text-sm flex items-center gap-1 text-primary hover:opacity-80 font-medium px-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
@@ -252,7 +257,7 @@ export const BookingDetails: React.FC = () => {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 Travelers ({booking.travelers?.length || 0})
                             </h2>
-                            {!isReadOnly && (
+                            {!isReadOnly && !isMarketer && (
                                 <button
                                     onClick={() => navigate(`/bookings/${id}/travelers`)}
                                     className="text-sm flex items-center gap-1.5 text-white bg-brand-gradient hover:opacity-90 font-bold px-4 py-2 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
@@ -474,7 +479,7 @@ export const BookingDetails: React.FC = () => {
                                         );
                                     })()}
                                 </span>
-                                {!isReadOnly && (
+                                {!isReadOnly && !isMarketer && (
                                     <button
                                         onClick={() => setIsPaymentModalOpen(true)}
                                         className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
