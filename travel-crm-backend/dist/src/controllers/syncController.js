@@ -25,8 +25,13 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
     const statsQuery = {};
     const recentQuery = {};
     if (userRole === 'AGENT') {
-        statsQuery.assignedToUserId = new mongoose_1.default.Types.ObjectId(userId);
-        recentQuery.assignedToUserId = userId;
+        const objId = new mongoose_1.default.Types.ObjectId(userId);
+        statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
+        recentQuery.$or = [{ assignedToUserId: userId }, { createdByUserId: userId }];
+    }
+    else if (userRole === 'MARKETER') {
+        statsQuery.createdByUserId = new mongoose_1.default.Types.ObjectId(userId);
+        recentQuery.createdByUserId = userId;
     }
     // Run all queries in parallel
     const [statsResult, recentBookings, notifications, agentsData] = await Promise.all([

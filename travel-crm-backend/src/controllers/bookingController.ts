@@ -43,6 +43,8 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
     console.time('getBookingStats');
@@ -89,6 +91,8 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
     }
 
     const bookings = await Booking.find(query)
@@ -131,7 +135,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const query: any = {};
     const primaryContactQuery: any = {};
 
-    if (myBookings === 'true') {
+    if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
+    } else if (myBookings === 'true') {
         query.$or = [
             { assignedToUserId: req.user?.id },
             { createdByUserId: req.user?.id },
@@ -348,11 +354,15 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
-    console.timeEnd(`getBookingById_${id}`);
 
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+        res.status(403);
+        throw new Error('Not authorized to view this booking');
     }
 
     // Calculate outstanding for each payment context
@@ -389,9 +399,9 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role !== 'ADMIN') {
         res.status(403);
-        throw new Error('Not authorized to delete this booking');
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
 
     console.time(`deleteBooking_${req.params.id}`);
@@ -504,7 +514,21 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'MARKETER') {
+        if (booking.assignedToUserId) {
+            res.status(403);
+            throw new Error('Not authorized to update an assigned booking');
+        }
+        // Marketers can ONLY update requirements
+        const allowedFields = ['requirements'];
+        const keys = Object.keys(req.body);
+        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
+        
+        if (forbiddenKeys.length > 0) {
+            res.status(403);
+            throw new Error('Marketers are only authorized to update Detailed Requirements');
+        }
+    } else if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -579,6 +603,11 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         throw new Error('Booking not found');
     }
 
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to update booking status');
+    }
+
     if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
@@ -587,6 +616,18 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const { status } = result.data;
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
+    
+    // Notify Marketer if their lead status changed
+    if (existingBooking.createdByUserId && existingBooking.createdByUserId.toString() !== req.user?.id) {
+        const creator = await User.findById(existingBooking.createdByUserId);
+        if (creator?.role === 'MARKETER') {
+            await Notification.create({
+                userId: existingBooking.createdByUserId,
+                bookingId: id,
+                message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
+            });
+        }
+    }
 
     invalidateBookingCaches();
     res.json(updatedBooking);
@@ -657,6 +698,19 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
                 bookingId: id,
                 message: `Booking has been assigned to you.`,
             });
+
+            // Also notify the marketer who created the lead
+            if (booking.createdByUserId) {
+                const creator = await User.findById(booking.createdByUserId);
+                if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                    const agent = await User.findById(newAssignedUserId);
+                    await Notification.create({
+                        userId: booking.createdByUserId,
+                        bookingId: id,
+                        message: `Your lead has been assigned to ${agent?.name || 'an agent'}.`,
+                    });
+                }
+            }
         }
     }
 
@@ -721,6 +775,18 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
                     bookingId: booking._id,
                     message: `Booking has been assigned to you.`,
                 });
+
+                // Also notify the marketer who created the lead
+                if (booking.createdByUserId) {
+                    const creator = await User.findById(booking.createdByUserId);
+                    if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                        await Notification.create({
+                            userId: booking.createdByUserId,
+                            bookingId: booking._id,
+                            message: `Your lead has been assigned to ${newAgentName}.`,
+                        });
+                    }
+                }
             }
         }
     });
@@ -761,6 +827,16 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     });
 
     comment = await comment.populate('createdBy', 'name role');
+
+    // Notification Logic
+    if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
+        // Notify the assigned agent when marketer comments
+        await Notification.create({
+            userId: booking.assignedToUserId,
+            bookingId: id,
+            message: `Marketer ${req.user.name} added a remark on lead ${booking.destination || 'Unassigned'}.`,
+        });
+    }
 
     invalidateBookingCaches();
     res.status(201).json(comment);
@@ -808,6 +884,11 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to add passengers');
+    }
+
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add passengers to this booking');
@@ -851,6 +932,11 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
         throw new Error('Booking not found');
     }
 
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to update passengers');
+    }
+
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update passengers for this booking');
@@ -890,6 +976,11 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to add payments');
     }
 
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
@@ -935,6 +1026,11 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    if (req.user?.role === 'MARKETER') {
+        res.status(403);
+        throw new Error('Marketers are not authorized to delete payments');
     }
 
     if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {

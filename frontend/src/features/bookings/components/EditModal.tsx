@@ -12,6 +12,7 @@ import {
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -127,34 +128,42 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     if (!booking) return null;
 
+    const { user } = useAuth();
+    const isMarketer = user?.role === 'MARKETER';
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Edit Booking</DialogTitle>
                     <DialogDescription>
-                        Update status, assign an agent, and add remarks for {booking.contactPerson}.
+                        {isMarketer 
+                            ? "Add remarks or updates for this lead."
+                            : `Update status, assign an agent, and add remarks for ${booking.contactPerson}.`
+                        }
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-6 py-4">
                     {/* Status Update */}
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-slate-700">Status</label>
-                        <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                        >
-                            <option value="Pending">Pending</option>
-                            <option value="Working">Working</option>
-                            <option value="Sent">Sent To Customer</option>
-                            <option value="Booked">Converted to EDT/Booked</option>
-                        </select>
-                    </div>
+                    {!isMarketer && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-700">Status</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                            >
+                                <option value="Pending">Pending</option>
+                                <option value="Working">Working</option>
+                                <option value="Sent">Sent To Customer</option>
+                                <option value="Booked">Converted to EDT/Booked</option>
+                            </select>
+                        </div>
+                    )}
 
                     {/* Agent Assignment */}
-                    {canChangeAgent && (
+                    {canChangeAgent && !isMarketer && (
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-slate-700">Assigned Agent</label>
                             <select
@@ -171,17 +180,19 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     )}
 
                     {/* Interested Selection */}
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-slate-700">Interested</label>
-                        <select
-                            value={interested}
-                            onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
-                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                        >
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                        </select>
-                    </div>
+                    {!isMarketer && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-700">Interested</label>
+                            <select
+                                value={interested}
+                                onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                            >
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                    )}
 
                     {/* Add Comment */}
                     <div className="flex flex-col gap-2">
@@ -195,15 +206,17 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </div>
                 </div>
 
-                <DialogFooter className="sm:justify-between items-center">
-                    <button
-                        type="button"
-                        onClick={() => deleteMutation.mutate()}
-                        disabled={deleteMutation.isPending || updateMutation.isPending}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors disabled:opacity-50"
-                    >
-                        {deleteMutation.isPending ? 'Deleting...' : 'Delete Booking'}
-                    </button>
+                <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
+                    {user?.role === 'ADMIN' && (
+                        <button
+                            type="button"
+                            onClick={() => deleteMutation.mutate()}
+                            disabled={deleteMutation.isPending || updateMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors disabled:opacity-50"
+                        >
+                            {deleteMutation.isPending ? 'Deleting...' : 'Delete Booking'}
+                        </button>
+                    )}
                     <div className="flex justify-end gap-2">
                         <button
                             type="button"
@@ -223,6 +236,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         </button>
                     </div>
                 </DialogFooter>
+
             </DialogContent>
         </Dialog>
     );

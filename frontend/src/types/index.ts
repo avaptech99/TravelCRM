@@ -2,7 +2,7 @@ export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'ADMIN' | 'AGENT';
+    role: 'ADMIN' | 'AGENT' | 'MARKETER';
     isOnline?: boolean;
     lastSeen?: string;
 }
@@ -49,7 +49,10 @@ export interface Payment {
 export interface Booking {
     id: string;
     createdAt: string;
+<<<<<<< HEAD
     createdOn: string;
+=======
+>>>>>>> testing-branch
     contactPerson: string;
     contactNumber: string;
     contactEmail?: string;

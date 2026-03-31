@@ -10,7 +10,7 @@ exports.createUserSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(6),
-    role: zod_1.z.enum(['ADMIN', 'AGENT']),
+    role: zod_1.z.enum(['ADMIN', 'AGENT', 'MARKETER']),
 });
 exports.createBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().min(2, 'Contact Person must be at least 2 characters'),

@@ -9,6 +9,7 @@ import type { Booking } from '../types';
 import { toast } from 'sonner';
 import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText, List } from 'lucide-react';
 import { countryCodes } from '../utils/countryCodes';
+import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 
 const travelerBaseSchema = z.object({
@@ -97,6 +98,15 @@ export const BookingTravelers: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
+
+    // Marketers should not access this page
+    useEffect(() => {
+        if (user?.role === 'MARKETER') {
+            toast.error('Marketers are not authorized to manage travelers');
+            navigate('/dashboard');
+        }
+    }, [user, navigate]);
 
     const [lumpSumAmount, setLumpSumAmount] = useState<number>(0);
     const [finalQuotationAmount, setFinalQuotationAmount] = useState<string>('0');

@@ -23,7 +23,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState<'ADMIN' | 'AGENT'>('AGENT');
+    const [role, setRole] = useState<'ADMIN' | 'AGENT' | 'MARKETER'>('AGENT');
 
     useEffect(() => {
         if (user) {
@@ -109,10 +109,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                         <label className="text-sm font-medium text-slate-700">Role</label>
                         <select
                             value={role}
-                            onChange={(e) => setRole(e.target.value as 'ADMIN' | 'AGENT')}
+                            onChange={(e) => setRole(e.target.value as 'ADMIN' | 'AGENT' | 'MARKETER')}
                             className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                         >
                             <option value="AGENT">Agent</option>
+                            <option value="MARKETER">Marketer</option>
                             <option value="ADMIN">Admin</option>
                         </select>
                     </div>

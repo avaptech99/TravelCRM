@@ -9,9 +9,14 @@ export const BottomNav: React.FC = () => {
     const location = useLocation();
 
     const navItems = [
-        { label: 'Overview', path: '/', icon: <LayoutDashboard size={18} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={18} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
         { label: 'All Bookings', path: '/bookings', icon: <FileText size={18} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'My Bookings', path: '/my-bookings', icon: <UserSquare size={18} />, roles: ['ADMIN', 'AGENT'] },
+        { 
+            label: user?.role === 'MARKETER' ? 'My Leads' : 'My Bookings', 
+            path: '/my-bookings', 
+            icon: <UserSquare size={18} />, 
+            roles: ['ADMIN', 'AGENT', 'MARKETER'] 
+        },
         { label: 'Calendar', path: '/calendar', icon: <Calendar size={18} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={18} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={18} />, roles: ['ADMIN'] },

@@ -25,13 +25,19 @@ export const BookingDetails: React.FC = () => {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
+    const [commentText, setCommentText] = useState('');
     const { user } = useAuth();
 
     const queryClient = useQueryClient();
 
+    const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
     const isReadOnly = isAgent && !isAssignedToMe;
+    
+    // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
+    // Now we refine this to follow the user's requirement: edit only if unassigned.
+    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking?.assignedToUserId));
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
@@ -86,6 +92,20 @@ export const BookingDetails: React.FC = () => {
         }
     });
 
+    const addCommentMutation = useMutation({
+        mutationFn: async (text: string) => {
+            await api.post(`/bookings/${id}/comments`, { text });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            setCommentText('');
+            toast.success('Comment added successfully');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to add comment');
+        }
+    });
+
     if (isLoading) {
         return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
     }
@@ -119,7 +139,7 @@ export const BookingDetails: React.FC = () => {
                             Booking for {booking.contactPerson}
                         </h1>
                         <p className="text-slate-500 text-xs sm:text-sm mt-1">
-                            Created on {dayjs(booking.createdOn).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
+                            Created on {dayjs(booking.createdAt).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
                         </p>
                         {booking.finalQuotation && (
                             <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 shadow-sm uppercase tracking-wider">
@@ -138,7 +158,7 @@ export const BookingDetails: React.FC = () => {
                             <UserPlus size={16} /> {assignToMeMutation.isPending ? 'Assigning...' : 'Assign To Me to Edit'}
                         </button>
                     )}
-                    {!isReadOnly ? (
+                    {!isReadOnly && !isMarketer ? (
                         <select
                             value={booking.status}
                             onChange={(e) => {
@@ -170,7 +190,7 @@ export const BookingDetails: React.FC = () => {
                         </span>
                     )}
                     
-                    {!isReadOnly ? (
+                    {!isReadOnly && !isMarketer ? (
                         <select
                             value={booking.interested || 'No'}
                             onChange={(e) => updateInterestMutation.mutate(e.target.value)}
@@ -201,7 +221,7 @@ export const BookingDetails: React.FC = () => {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-slate-900">Detailed Requirements</h2>
-                            {!isEditingReqs && !isReadOnly && (
+                            {canEditReqs && (
                                 <button
                                     onClick={startEditingReqs}
                                     className="text-sm flex items-center gap-1 text-primary hover:opacity-80 font-medium px-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
@@ -252,7 +272,7 @@ export const BookingDetails: React.FC = () => {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 Travelers ({booking.travelers?.length || 0})
                             </h2>
-                            {!isReadOnly && (
+                            {!isReadOnly && !isMarketer && (
                                 <button
                                     onClick={() => navigate(`/bookings/${id}/travelers`)}
                                     className="text-sm flex items-center gap-1.5 text-white bg-brand-gradient hover:opacity-90 font-bold px-4 py-2 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
@@ -474,7 +494,7 @@ export const BookingDetails: React.FC = () => {
                                         );
                                     })()}
                                 </span>
-                                {!isReadOnly && (
+                                {!isReadOnly && !isMarketer && (
                                     <button
                                         onClick={() => setIsPaymentModalOpen(true)}
                                         className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium px-3 py-1.5 rounded-md transition-colors border border-emerald-200"
@@ -569,6 +589,30 @@ export const BookingDetails: React.FC = () => {
                             <MessageSquare size={16} className="mr-2" />
                             Comments & Remarks
                         </h2>
+
+                        <div className="mb-6">
+                            <textarea
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                placeholder="Add a new comment or remark..."
+                                className="w-full min-h-[80px] p-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-slate-50 transition-all"
+                            />
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    onClick={() => addCommentMutation.mutate(commentText)}
+                                    disabled={!commentText.trim() || addCommentMutation.isPending}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-secondary/80 hover:bg-secondary rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    {addCommentMutation.isPending ? (
+                                        'Posting...'
+                                    ) : (
+                                        <>
+                                            <Plus size={14} /> Post Comment
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
 
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {booking.comments && booking.comments.length > 0 ? (
