@@ -43,6 +43,8 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
     console.time('getBookingStats');
@@ -89,6 +91,8 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     const query: any = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
     }
 
     const bookings = await Booking.find(query)
@@ -389,9 +393,9 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role !== 'ADMIN') {
         res.status(403);
-        throw new Error('Not authorized to delete this booking');
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
 
     console.time(`deleteBooking_${req.params.id}`);
@@ -572,24 +576,36 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         throw new Error('Invalid status input');
     }
 
-    const existingBooking = await Booking.findById(id);
+    const booking = await Booking.findById(id);
 
-    if (!existingBooking) {
+    if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
 
     const { status } = result.data;
-    existingBooking.status = status;
-    const updatedBooking = await existingBooking.save();
+    booking.status = status;
+    booking.updatedAt = new Date();
+    await booking.save();
+
+    // Notify marketer
+    if (booking.createdByUserId && req.user?.id !== booking.createdByUserId.toString()) {
+        await Notification.create({
+            userId: booking.createdByUserId,
+            title: 'Lead Status Updated',
+            message: `Your lead for ${booking.destination || 'a travel booking'} is now: ${status}.`,
+            type: 'STATUS_UPDATE',
+            bookingId: booking._id
+        });
+    }
 
     invalidateBookingCaches();
-    res.json(updatedBooking);
+    res.json(booking);
 });
 
 // @desc    Assign an agent to a booking
@@ -624,8 +640,22 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     const newAssignedUserId = assignedToUserId || null;
 
     if (previousAssignedUserId !== newAssignedUserId) {
-        booking.assignedToUserId = newAssignedUserId as any;
+        booking.assignedToUserId = assignedToUserId ? new mongoose.Types.ObjectId(assignedToUserId) : undefined;
         await booking.save();
+
+        if (assignedToUserId && booking.createdByUserId) {
+            const marketerId = booking.createdByUserId.toString();
+            if (marketerId !== assignedToUserId) {
+                const agent = await User.findById(assignedToUserId);
+                await Notification.create({
+                    userId: booking.createdByUserId,
+                    title: 'Lead Assigned',
+                    message: `Your lead for ${booking.destination || 'a travel booking'} has been assigned to agent ${agent?.name || 'an agent'}.`,
+                    type: 'ASSIGNMENT',
+                    bookingId: booking._id
+                });
+            }
+        }
 
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {

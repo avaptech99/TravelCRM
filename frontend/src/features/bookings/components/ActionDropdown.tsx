@@ -17,6 +17,12 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    const canEdit = user?.role === 'ADMIN' || 
+                   (user?.role === 'AGENT' && (booking.assignedToUserId === user.id || booking.createdByUserId === user.id)) ||
+                   (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.assignedToUserId);
+
+    const canDelete = user?.role === 'ADMIN';
+
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
     const isReadOnly = isAgent && !isAssignedToMe;

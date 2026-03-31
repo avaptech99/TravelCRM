@@ -12,6 +12,7 @@ import {
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -23,11 +24,14 @@ interface EditModalProps {
 export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, onStatusChangeToBooked }) => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     const [status, setStatus] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
+
+    const isMarketer = user?.role === 'MARKETER';
 
     // Reset state when booking changes
     React.useEffect(() => {
@@ -195,15 +199,17 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </div>
                 </div>
 
-                <DialogFooter className="sm:justify-between items-center">
-                    <button
-                        type="button"
-                        onClick={() => deleteMutation.mutate()}
-                        disabled={deleteMutation.isPending || updateMutation.isPending}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors disabled:opacity-50"
-                    >
-                        {deleteMutation.isPending ? 'Deleting...' : 'Delete Booking'}
-                    </button>
+                <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
+                    {user?.role === 'ADMIN' && (
+                        <button
+                            type="button"
+                            onClick={() => deleteMutation.mutate()}
+                            disabled={deleteMutation.isPending || updateMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors disabled:opacity-50"
+                        >
+                            {deleteMutation.isPending ? 'Deleting...' : 'Delete Booking'}
+                        </button>
+                    )}
                     <div className="flex justify-end gap-2">
                         <button
                             type="button"

@@ -27,11 +27,16 @@ export const BookingDetails: React.FC = () => {
     const [editReqsText, setEditReqsText] = useState('');
     const { user } = useAuth();
 
-    const queryClient = useQueryClient();
+    const canEdit = user?.role === 'ADMIN' || 
+                   (user?.role === 'AGENT' && (booking?.assignedToUserId === user.id || booking?.createdByUserId === user.id)) ||
+                   (user?.role === 'MARKETER' && booking?.createdByUserId === user.id && !booking?.assignedToUserId);
 
+    const canDelete = user?.role === 'ADMIN';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
-    const isReadOnly = isAgent && !isAssignedToMe;
+    const isReadOnly = !canEdit;
+
+    const queryClient = useQueryClient();
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
@@ -129,7 +134,7 @@ export const BookingDetails: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center pl-8 sm:pl-0 w-full sm:w-auto">
-                    {isReadOnly && (
+                    {isReadOnly && user?.role === 'AGENT' && (
                         <button
                             onClick={() => assignToMeMutation.mutate()}
                             disabled={assignToMeMutation.isPending}
@@ -267,8 +272,6 @@ export const BookingDetails: React.FC = () => {
                                 {/* Travel Details — shown once from primary traveler */}
                                 {(() => {
                                     const traveler = booking.travelers[0];
-                                    // For WordPress leads: the traveler may not have tripType/flight set,
-                                    // but the booking-level fields DO have the correct values.
                                     const primary = {
                                         ...traveler,
                                         tripType: traveler.tripType || booking.tripType || 'one-way',
@@ -301,7 +304,6 @@ export const BookingDetails: React.FC = () => {
                                                 )}
                                                         {hasFlightInfo && (
                                                             <div className="space-y-4">
-                                                                {/* Primary/Departure Flight */}
                                                                 <div className="bg-white/80 p-3 rounded-md border border-secondary/20 shadow-sm transition-all hover:shadow-md">
                                                                     <div className="flex items-center justify-between mb-2">
                                                                         <div className="flex items-center gap-3">
@@ -329,16 +331,13 @@ export const BookingDetails: React.FC = () => {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Multi-City Segments (Leg 2+) */}
                                                                 {primary.tripType === 'multi-city' && booking.segments && booking.segments.length > 0 && (
                                                                     <div className="space-y-3 relative before:absolute before:left-3 before:top-0 before:bottom-0 before:w-0.5 before:bg-secondary/5 pt-1">
                                                                         {booking.segments.map((segment: { from: string; to: string; date: string | null }, idx: number) => {
-                                                                            // Skip leg 1 if it matches primary to avoid duplicate if captured that way
                                                                             if (idx === 0 && segment.from === primary.flightFrom && segment.to === primary.flightTo) return null;
                                                                             
                                                                             return (
                                                                                 <div key={idx} className="bg-white/60 p-3 rounded-md border border-secondary/10 ml-6 relative">
-                                                                                    {/* Connector dot */}
                                                                                     <div className="absolute -left-[27px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-secondary/20 border border-white"></div>
                                                                                     
                                                                                     <div className="flex items-center justify-between mb-2">
@@ -363,7 +362,6 @@ export const BookingDetails: React.FC = () => {
                                                                     </div>
                                                                 )}
 
-                                                                {/* Return Flight (Round Trip) */}
                                                                 {primary.tripType === 'round-trip' && (primary.returnDepartureTime || primary.returnArrivalTime || primary.returnDate) && (
                                                                     <div className="mt-4 pt-4 border-t border-secondary/20">
                                                                         <p className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5 mb-3">
