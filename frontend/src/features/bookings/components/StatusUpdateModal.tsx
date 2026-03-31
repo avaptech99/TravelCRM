@@ -26,18 +26,46 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
         mutationFn: async (newStatus: string) => {
             await api.patch(`/bookings/${booking?.id}/status`, { status: newStatus });
         },
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['bookings'] });
-            toast.success('Status updated successfully');
+        onMutate: async (newStatus) => {
+            // Close the modal immediately — the user sees the change instantly
             onClose();
 
+            // Cancel outgoing refetches
+            await queryClient.cancelQueries({ queryKey: ['bookings'] });
+            // Snapshot all bookings queries for rollback
+            const previousQueries = queryClient.getQueriesData({ queryKey: ['bookings'] });
+
+            // Optimistically update any bookings query cache that contains this booking
+            queryClient.setQueriesData({ queryKey: ['bookings'] }, (old: any) => {
+                if (!old?.data) return old;
+                return {
+                    ...old,
+                    data: old.data.map((b: any) =>
+                        b.id === booking?.id ? { ...b, status: newStatus } : b
+                    ),
+                };
+            });
+
+            return { previousQueries };
+        },
+        onSuccess: (_, variables) => {
+            toast.success('Status updated successfully');
             if (variables === 'Booked' && booking) {
                 onStatusChangeToBooked?.(booking);
             }
         },
-        onError: (err: any) => {
+        onError: (err: any, _variables, context) => {
+            // Roll back all bookings queries
+            if (context?.previousQueries) {
+                context.previousQueries.forEach(([queryKey, data]: any) => {
+                    queryClient.setQueryData(queryKey, data);
+                });
+            }
             const errorMessage = err.response?.data?.message || err.message || 'Failed to update status';
             toast.error(errorMessage);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
         },
     });
 

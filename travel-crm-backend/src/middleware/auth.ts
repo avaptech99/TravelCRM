@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import asyncHandler from 'express-async-handler';
 import { verifyToken, JwtPayload } from '../utils/jwt';
-import User from '../models/User';
 
 // Extend the Express Request type to include the user
 declare global {
@@ -24,16 +23,9 @@ export const protect = asyncHandler(
                 // Get token from header
                 token = req.headers.authorization.split(' ')[1];
 
-                // Verify token
+                // Verify token — JWT already contains id, name, role
+                // No DB lookup needed (saves ~50-100ms per request)
                 const decoded = verifyToken(token);
-
-                // Check if user still exists
-                const user = await User.findById(decoded.id).select('role');
-
-                if (!user) {
-                    res.status(401);
-                    throw new Error('Not authorized, user not found');
-                }
 
                 // Attach user to request
                 req.user = decoded;

@@ -25,10 +25,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 30, // 30 seconds
-      gcTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60,      // 60 seconds — data barely changes with 15 users
+      gcTime: 1000 * 60 * 10,    // 10 minutes — keep data in memory longer
     },
   },
 });

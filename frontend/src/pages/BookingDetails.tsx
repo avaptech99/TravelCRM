@@ -68,42 +68,98 @@ export const BookingDetails: React.FC = () => {
         mutationFn: async (status: string) => {
             await api.patch(`/bookings/${id}/status`, { status });
         },
+        onMutate: async (newStatus) => {
+            // Cancel outgoing refetches so they don't overwrite our optimistic update
+            await queryClient.cancelQueries({ queryKey: ['booking', id] });
+            const previousBooking = queryClient.getQueryData(['booking', id]);
+            // Optimistically update the booking status in the cache
+            queryClient.setQueryData(['booking', id], (old: any) =>
+                old ? { ...old, status: newStatus } : old
+            );
+            return { previousBooking };
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['booking', id] });
-            queryClient.invalidateQueries({ queryKey: ['bookings'] }); // Refresh table if needed
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
             toast.success('Booking status updated successfully');
         },
-        onError: (err: any) => {
+        onError: (err: any, _variables, context) => {
+            // Roll back to previous state on failure
+            if (context?.previousBooking) {
+                queryClient.setQueryData(['booking', id], context.previousBooking);
+            }
             toast.error(err.response?.data?.message || 'Failed to update status');
-        }
+        },
+        onSettled: () => {
+            // Always refetch to ensure server state is in sync
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+        },
     });
 
     const updateInterestMutation = useMutation({
         mutationFn: async (interested: string) => {
             await api.put(`/bookings/${id}`, { interested });
         },
+        onMutate: async (newInterest) => {
+            await queryClient.cancelQueries({ queryKey: ['booking', id] });
+            const previousBooking = queryClient.getQueryData(['booking', id]);
+            queryClient.setQueryData(['booking', id], (old: any) =>
+                old ? { ...old, interested: newInterest } : old
+            );
+            return { previousBooking };
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['booking', id] });
-            queryClient.invalidateQueries({ queryKey: ['bookings'] }); // Refresh table if needed
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
             toast.success('Interest updated successfully');
         },
-        onError: (err: any) => {
+        onError: (err: any, _variables, context) => {
+            if (context?.previousBooking) {
+                queryClient.setQueryData(['booking', id], context.previousBooking);
+            }
             toast.error(err.response?.data?.message || 'Failed to update interest');
-        }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+        },
     });
 
     const addCommentMutation = useMutation({
         mutationFn: async (text: string) => {
-            await api.post(`/bookings/${id}/comments`, { text });
+            const { data } = await api.post(`/bookings/${id}/comments`, { text });
+            return data;
+        },
+        onMutate: async (newText) => {
+            await queryClient.cancelQueries({ queryKey: ['booking', id] });
+            const previousBooking = queryClient.getQueryData(['booking', id]);
+            // Optimistically add the comment to the list
+            const optimisticComment = {
+                id: `temp-${Date.now()}`,
+                text: newText,
+                createdBy: { name: user?.name || 'You', role: user?.role },
+                createdAt: new Date().toISOString(),
+            };
+            queryClient.setQueryData(['booking', id], (old: any) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    comments: [optimisticComment, ...(old.comments || [])],
+                };
+            });
+            setCommentText('');
+            return { previousBooking };
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['booking', id] });
-            setCommentText('');
             toast.success('Comment added successfully');
         },
-        onError: (err: any) => {
+        onError: (err: any, _variables, context) => {
+            if (context?.previousBooking) {
+                queryClient.setQueryData(['booking', id], context.previousBooking);
+            }
             toast.error(err.response?.data?.message || 'Failed to add comment');
-        }
+        },
+        onSettled: () => {
+            // Refetch to replace optimistic comment with real server data (real ID, etc.)
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+        },
     });
 
     if (isLoading) {
