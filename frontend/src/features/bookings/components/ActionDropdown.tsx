@@ -17,7 +17,6 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
     const isAssignedToMe = booking?.assignedToUserId === user?.id;
     const isCreatedByMe = booking?.createdByUserId === user?.id;
