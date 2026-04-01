@@ -1,5 +1,6 @@
 import * as chrono from 'chrono-node';
 import nlp from 'compromise';
+import appCache from './cache';
 
 export function extractTravelInfo(text: string) {
     if (!text) {
@@ -8,6 +9,17 @@ export function extractTravelInfo(text: string) {
             travelDate: undefined,
             travellers: undefined,
         };
+    }
+
+    // Normalize text for cache key (lowercase, trimmed, max 200 chars to avoid huge keys)
+    const normalizedText = text.trim().toLowerCase().substring(0, 200);
+    const cacheKey = `nlp_${Buffer.from(normalizedText).toString('base64').substring(0, 32)}`;
+    
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] NLP Extraction: ${cacheKey}`);
+        // Important: Return a copy to avoid mutation of cache entries
+        return { ...cached };
     }
 
     const doc = nlp(text);
@@ -22,7 +34,6 @@ export function extractTravelInfo(text: string) {
         destinationCity = places[0];
     } else {
         // Fallback: Heuristic for "to [Place]" or "visit [Place]"
-        // Compromise might tag Bali as a Noun but not a Place
         const heuristic = doc.match('(to|visit|at|in) [#Noun+]').not('(to|visit|at|in)').first();
         if (heuristic.found) {
             destinationCity = heuristic.out('text').trim();
@@ -37,7 +48,6 @@ export function extractTravelInfo(text: string) {
 
     // Detect traveller count
     const numberMatch = text.match(/([\d]+)\s?(pax|persons|people|travelers|travellers|members|adults|kids|children|infants)/i);
-    // Alternatively, look for written numbers
     if (numberMatch) {
         travellers = parseInt(numberMatch[1], 10);
     } else {
@@ -52,9 +62,14 @@ export function extractTravelInfo(text: string) {
         }
     }
 
-    return {
+    const result = {
         destinationCity,
         travelDate,
         travellers,
     };
+
+    // Cache the result for 1 hour — NLP logic doesn't change
+    appCache.set(cacheKey, result, 3600);
+
+    return result;
 }
