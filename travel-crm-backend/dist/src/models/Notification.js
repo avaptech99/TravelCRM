@@ -56,5 +56,6 @@ const notificationSchema = new mongoose_1.Schema({
     timestamps: true,
 });
 notificationSchema.index({ userId: 1, read: 1 });
+notificationSchema.index({ userId: 1, createdAt: -1 }); // Covers sync dashboard query
 notificationSchema.index({ bookingId: 1 });
 exports.default = mongoose_1.default.model('Notification', notificationSchema);

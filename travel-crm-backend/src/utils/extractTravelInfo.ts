@@ -2,7 +2,13 @@ import * as chrono from 'chrono-node';
 import nlp from 'compromise';
 import appCache from './cache';
 
-export function extractTravelInfo(text: string) {
+interface TravelInfo {
+    destinationCity?: string;
+    travelDate?: Date;
+    travellers?: number;
+}
+
+export function extractTravelInfo(text: string): TravelInfo {
     if (!text) {
         return {
             destinationCity: undefined,
@@ -15,10 +21,9 @@ export function extractTravelInfo(text: string) {
     const normalizedText = text.trim().toLowerCase().substring(0, 200);
     const cacheKey = `nlp_${Buffer.from(normalizedText).toString('base64').substring(0, 32)}`;
     
-    const cached = appCache.get(cacheKey);
+    const cached = appCache.get(cacheKey) as TravelInfo | null;
     if (cached) {
         console.log(`[CACHE HIT] NLP Extraction: ${cacheKey}`);
-        // Important: Return a copy to avoid mutation of cache entries
         return { ...cached };
     }
 
@@ -62,7 +67,7 @@ export function extractTravelInfo(text: string) {
         }
     }
 
-    const result = {
+    const result: TravelInfo = {
         destinationCity,
         travelDate,
         travellers,

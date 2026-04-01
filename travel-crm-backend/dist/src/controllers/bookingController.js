@@ -71,6 +71,9 @@ exports.getBookingStats = (0, express_async_handler_1.default)(async (req, res) 
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
     }
+    else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
+    }
     console.time('getBookingStats');
     const stats = await Booking_1.default.aggregate([
         { $match: query },
@@ -110,6 +113,9 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
     const query = {};
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
+    }
+    else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
     }
     const bookings = await Booking_1.default.find(query)
         .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
@@ -386,19 +392,9 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'MARKETER') {
-        if (booking.createdByUserId?.toString() !== req.user.id) {
-            res.status(403);
-            throw new Error('Not authorized to delete this booking');
-        }
-        if (booking.hasBeenAssigned) {
-            res.status(403);
-            throw new Error('Marketers cannot delete a lead that has been assigned to an agent');
-        }
-    }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role !== 'ADMIN') {
         res.status(403);
-        throw new Error('Not authorized to delete this booking');
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
     console.time(`deleteBooking_${req.params.id}`);
     // Parallel deletion of all related records
@@ -595,6 +591,17 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     const { status } = result.data;
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
+    // Notify Marketer if their lead status changed
+    if (existingBooking.createdByUserId && existingBooking.createdByUserId.toString() !== req.user?.id) {
+        const creator = await User_1.default.findById(existingBooking.createdByUserId);
+        if (creator?.role === 'MARKETER') {
+            await Notification_1.default.create({
+                userId: existingBooking.createdByUserId,
+                bookingId: id,
+                message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
+            });
+        }
+    }
     invalidateBookingCaches();
     res.json(updatedBooking);
 });
@@ -625,9 +632,6 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
         booking.assignedToUserId = newAssignedUserId;
-        if (newAssignedUserId) {
-            booking.hasBeenAssigned = true;
-        }
         await booking.save();
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {
@@ -655,6 +659,18 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 bookingId: id,
                 message: `Booking has been assigned to you.`,
             });
+            // Also notify the marketer who created the lead
+            if (booking.createdByUserId) {
+                const creator = await User_1.default.findById(booking.createdByUserId);
+                if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                    const agent = await User_1.default.findById(newAssignedUserId);
+                    await Notification_1.default.create({
+                        userId: booking.createdByUserId,
+                        bookingId: id,
+                        message: `Your lead has been assigned to ${agent?.name || 'an agent'}.`,
+                    });
+                }
+            }
         }
     }
     const updatedBooking = await Booking_1.default.findById(id).populate('assignedToUser', 'name');
@@ -688,9 +704,6 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
         const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
         if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
             booking.assignedToUserId = newAgentId;
-            if (newAgentId) {
-                booking.hasBeenAssigned = true;
-            }
             await booking.save();
             let previousAgentName = 'Unassigned';
             if (previousAssignedUserId) {
@@ -709,6 +722,17 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
                     bookingId: booking._id,
                     message: `Booking has been assigned to you.`,
                 });
+                // Also notify the marketer who created the lead
+                if (booking.createdByUserId) {
+                    const creator = await User_1.default.findById(booking.createdByUserId);
+                    if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                        await Notification_1.default.create({
+                            userId: booking.createdByUserId,
+                            bookingId: booking._id,
+                            message: `Your lead has been assigned to ${newAgentName}.`,
+                        });
+                    }
+                }
             }
         }
     });
@@ -741,6 +765,15 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         createdById: req.user.id,
     });
     comment = await comment.populate('createdBy', 'name role');
+    // Notification Logic
+    if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
+        // Notify the assigned agent when marketer comments
+        await Notification_1.default.create({
+            userId: booking.assignedToUserId,
+            bookingId: id,
+            message: `Marketer ${req.user.name} added a remark on lead ${booking.destination || 'Unassigned'}.`,
+        });
+    }
     invalidateBookingCaches();
     res.status(201).json(comment);
 });
