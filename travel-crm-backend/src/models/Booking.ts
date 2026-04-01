@@ -62,7 +62,7 @@ bookingSchema.pre('save', async function (this: any) {
             const counter = await Counter.findByIdAndUpdate(
                 'bookingId',
                 { $inc: { seq: 1 } },
-                { new: true, upsert: true }
+                { returnDocument: 'after', upsert: true }
             );
             
             if (counter) {
