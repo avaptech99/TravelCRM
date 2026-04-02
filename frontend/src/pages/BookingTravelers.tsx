@@ -11,6 +11,7 @@ import { Plus, Trash2, Calendar, Plane, CreditCard, ArrowLeft, Users, FileText, 
 import { countryCodes } from '../utils/countryCodes';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
+import { useLocation } from 'react-router-dom';
 
 const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -126,7 +127,8 @@ export const BookingTravelers: React.FC = () => {
     const [additionalServicesDetails, setAdditionalServicesDetails] = useState<string>('');
 
     const isInitialized = useRef(false);
-    const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
+    const location = useLocation();
+    const todayString = new Date().toISOString().slice(0, 16);
 
     const { data: booking, isLoading } = useQuery({
         queryKey: ['booking', id],
@@ -262,8 +264,8 @@ export const BookingTravelers: React.FC = () => {
 
             if (booking.finalQuotation) {
                 setFinalQuotationAmount(booking.finalQuotation);
-            } else if (booking.uniqueCode) {
-                setFinalQuotationAmount(`${booking.uniqueCode}-A`);
+            } else {
+                setFinalQuotationAmount('');
             }
 
             if (booking.bookingType === 'B2B') {
@@ -442,7 +444,7 @@ export const BookingTravelers: React.FC = () => {
         <div className="max-w-5xl mx-auto pb-28 px-3 sm:px-6 lg:px-8 pt-4 sm:pt-0">
             {/* Header */}
             <div className="flex items-center space-x-4 mb-6 sm:mb-8">
-                <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <button onClick={() => navigate(location.state?.returnUrl ?? '/bookings')} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                     <ArrowLeft size={20} className="text-slate-600" />
                 </button>
                 <div>
@@ -1057,7 +1059,7 @@ export const BookingTravelers: React.FC = () => {
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-4 pb-8">
                     <button
                         type="button"
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate(location.state?.returnUrl ?? '/bookings')}
                         className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all text-center"
                     >
                         Cancel

@@ -14,7 +14,7 @@ import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 
@@ -32,6 +32,7 @@ interface BookingsTableProps {
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
@@ -260,7 +261,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                     className="hover:bg-slate-50 transition-colors cursor-pointer"
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
-                                        navigate(`/bookings/${row.original.id}`);
+                                        navigate(`/bookings/${row.original.id}`, { state: { returnUrl: location.pathname + location.search } });
                                     }}
                                 >
                                     {row.getVisibleCells().map((cell) => (
@@ -303,7 +304,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         key={row.id} 
                                         onClick={() => {
                                             if (window.getSelection()?.toString().length) return;
-                                            navigate(`/bookings/${booking.id}`);
+                                            navigate(`/bookings/${booking.id}`, { state: { returnUrl: location.pathname + location.search } });
                                         }}
                                         className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
                                     >
