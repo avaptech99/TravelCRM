@@ -231,7 +231,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <tr 
                                     key={row.id} 
                                     className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/bookings/${row.original.id}`)}
+                                    onClick={() => {
+                                        if (window.getSelection()?.toString().length) return;
+                                        navigate(`/bookings/${row.original.id}`);
+                                    }}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <td
@@ -271,7 +274,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 return (
                                     <div 
                                         key={row.id} 
-                                        onClick={() => navigate(`/bookings/${booking.id}`)}
+                                        onClick={() => {
+                                            if (window.getSelection()?.toString().length) return;
+                                            navigate(`/bookings/${booking.id}`);
+                                        }}
                                         className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
                                     >
                                         <div className="flex justify-between items-start">

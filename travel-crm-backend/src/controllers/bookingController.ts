@@ -99,7 +99,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
         .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
 
@@ -112,6 +112,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: (b as any).passengers,
+        assignedToUser: b.assignedToUserId,
     }));
     appCache.set(cacheKey, mapped, 60);
     res.json(mapped);
@@ -277,12 +278,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
-            .populate('assignedToUser', 'name')
-            .populate('createdByUser', 'name')
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
             .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
             .populate('passengers', 'name')
             .lean(),
@@ -302,6 +303,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: (b as any).passengers,
+        createdByUser: b.createdByUserId,
+        assignedToUser: b.assignedToUserId,
     }));
 
     const result = {
@@ -340,8 +343,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking.findById(id)
-        .populate('assignedToUser', 'name email')
-        .populate('createdByUser', 'name')
+        .populate('assignedToUserId', 'name email')
+        .populate('createdByUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate({
             path: 'comments',
@@ -380,6 +383,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         destinationCity: booking.destination,
         travellers: booking.travellers,
         travelers: (booking as any).passengers,
+        createdByUser: booking.createdByUserId,
+        assignedToUser: booking.assignedToUserId,
     };
     appCache.set(cacheKey, result, 60);
     res.json(result);
@@ -470,6 +475,8 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
 
     // Populate for response
     const populatedBooking = await Booking.findById(booking._id)
+        .populate('createdByUserId', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .lean();
 
@@ -485,6 +492,8 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         destinationCity: populatedBooking!.destination,
         travellers: populatedBooking!.travellers,
         travelers: (populatedBooking as any).passengers,
+        createdByUser: populatedBooking!.createdByUserId,
+        assignedToUser: populatedBooking!.assignedToUserId,
     };
 
     invalidateBookingCaches();
@@ -559,7 +568,8 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const updatedBooking = await Booking.findById(id)
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
+        .populate('createdByUserId', 'name')
         .lean();
 
     const resultBooking = {
@@ -573,6 +583,8 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         destinationCity: updatedBooking!.destination,
         travellers: updatedBooking!.travellers,
         travelers: (updatedBooking as any).passengers,
+        createdByUser: updatedBooking!.createdByUserId,
+        assignedToUser: updatedBooking!.assignedToUserId,
     };
 
     invalidateBookingCaches();

@@ -255,6 +255,8 @@ export const BookingTravelers: React.FC = () => {
 
             if (booking.finalQuotation) {
                 setFinalQuotationAmount(booking.finalQuotation);
+            } else if (booking.uniqueCode) {
+                setFinalQuotationAmount(`${booking.uniqueCode}-A`);
             }
 
             if (booking.bookingType === 'B2B') {
@@ -418,6 +420,15 @@ export const BookingTravelers: React.FC = () => {
         );
     }
 
+    const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const currentOptionIndex = quotationSuffixes.findIndex(suffix => 
+        finalQuotationAmount === (booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix)
+    );
+    const maxOptionIndex = Math.min(Math.max(0, currentOptionIndex + 1), quotationSuffixes.length - 1);
+    const availableOptions = quotationSuffixes.slice(0, maxOptionIndex + 1).map(suffix => 
+        booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix
+    );
+
     return (
         <div className="max-w-5xl mx-auto pb-28 px-3 sm:px-6 lg:px-8 pt-4 sm:pt-0">
             {/* Header */}
@@ -451,13 +462,19 @@ export const BookingTravelers: React.FC = () => {
                                 </div>
                             </div>
                             <div className="relative min-w-[240px]">
-                                <input
-                                    type="text"
+                                <select
                                     value={finalQuotationAmount}
                                     onChange={(e) => setFinalQuotationAmount(e.target.value)}
-                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner"
-                                    placeholder="Enter final quotation..."
-                                />
+                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner cursor-pointer appearance-none"
+                                >
+                                    <option value="" disabled>Select quotation...</option>
+                                    {availableOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
                             </div>
                         </div>
                     </div>
