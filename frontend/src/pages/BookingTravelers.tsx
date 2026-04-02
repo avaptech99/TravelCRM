@@ -1038,12 +1038,12 @@ export const BookingTravelers: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4 mt-4">
                                         <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 p-4 flex flex-col items-center">
                                             <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Total Paid</span>
-                                            <span className="text-xl font-bold text-emerald-700">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-xl font-bold text-emerald-700">{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="bg-orange-50/50 rounded-xl border border-orange-100 p-4 flex flex-col items-center">
                                             <span className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Final Balance</span>
                                             <span className={`text-xl font-bold ${currentOutstanding > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>
-                                                ${currentOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                {currentOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     </div>

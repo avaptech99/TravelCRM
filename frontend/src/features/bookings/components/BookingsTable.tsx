@@ -14,7 +14,7 @@ import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 
@@ -32,17 +32,43 @@ interface BookingsTableProps {
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
 
+    const initialPage = isInlineView ? 1 : parseInt(searchParams.get('page') || '1', 10);
+
     const [pagination, setPagination] = useState({
-        pageIndex: 0,
+        pageIndex: initialPage > 0 ? initialPage - 1 : 0,
         pageSize: 15,
     });
 
+    const [jumpPage, setJumpPage] = useState((pagination.pageIndex + 1).toString());
+
+    // Update URL when pagination changes
+    React.useEffect(() => {
+        if (!isInlineView) {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                if (pagination.pageIndex > 0) {
+                    next.set('page', (pagination.pageIndex + 1).toString());
+                } else {
+                    next.delete('page');
+                }
+                return next;
+            }, { replace: true });
+        }
+        setJumpPage((pagination.pageIndex + 1).toString());
+    }, [pagination.pageIndex, isInlineView, setSearchParams]);
+
+    const isFirstRun = React.useRef(true);
     // Reset pagination when filters change
     React.useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter]);
 
@@ -192,6 +218,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         onPaginationChange: setPagination,
         getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
+        autoResetPageIndex: false,
     });
 
     const totalCount = data?.meta?.total || 0;
@@ -386,8 +413,35 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             >
                                 <ChevronLeft size={16} className="sm:mr-1" /> <span className="hidden md:inline">Previous</span>
                             </button>
-                            <span className="px-2 sm:px-3 py-1.5 text-sm text-slate-600 font-bold whitespace-nowrap">
-                                <span className="hidden sm:inline">Page </span>{table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+                            <span className="px-2 py-1.5 text-sm text-slate-600 font-bold whitespace-nowrap flex items-center gap-1">
+                                <span className="hidden sm:inline">Page </span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={table.getPageCount() > 0 ? table.getPageCount() : 1}
+                                    value={jumpPage}
+                                    onChange={(e) => setJumpPage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const parsed = parseInt(jumpPage, 10);
+                                            if (!isNaN(parsed) && parsed >= 1 && parsed <= table.getPageCount()) {
+                                                table.setPageIndex(parsed - 1);
+                                            } else {
+                                                setJumpPage((table.getState().pagination.pageIndex + 1).toString());
+                                            }
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        const parsed = parseInt(jumpPage, 10);
+                                        if (!isNaN(parsed) && parsed >= 1 && parsed <= table.getPageCount()) {
+                                            table.setPageIndex(parsed - 1);
+                                        } else {
+                                            setJumpPage((table.getState().pagination.pageIndex + 1).toString());
+                                        }
+                                    }}
+                                    className="w-12 h-7 text-center border border-slate-300 rounded font-bold text-slate-700 bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+                                />
+                                / {table.getPageCount() > 0 ? table.getPageCount() : 1}
                             </span>
                             <button
                                 onClick={() => table.nextPage()}
