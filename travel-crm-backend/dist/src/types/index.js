@@ -16,11 +16,11 @@ exports.createBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().min(2, 'Contact Person must be at least 2 characters'),
     contactNumber: zod_1.z.string().min(10, 'Contact Number must be a valid phone number'),
     bookingType: zod_1.z.enum(['B2B', 'B2C']),
-    destination: zod_1.z.string().optional(),
+    destination: zod_1.z.string().optional().nullable(),
     travelDate: zod_1.z.string().optional().nullable(),
-    requirements: zod_1.z.string().optional(),
-    flightFrom: zod_1.z.string().optional(),
-    flightTo: zod_1.z.string().optional(),
+    requirements: zod_1.z.string().optional().nullable(),
+    flightFrom: zod_1.z.string().optional().nullable(),
+    flightTo: zod_1.z.string().optional().nullable(),
     tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
     segments: zod_1.z.array(zod_1.z.object({
         from: zod_1.z.string().optional(),
@@ -29,12 +29,16 @@ exports.createBookingSchema = zod_1.z.object({
     })).optional(),
     amount: zod_1.z.number().nonnegative().optional(),
     travellers: zod_1.z.number().int().positive().optional(),
+    pricePerTicket: zod_1.z.number().nonnegative().optional(),
+    includesFlight: zod_1.z.boolean().optional(),
+    includesAdditionalServices: zod_1.z.boolean().optional(),
+    additionalServicesDetails: zod_1.z.string().optional().nullable(),
 });
 exports.updateBookingSchema = zod_1.z.object({
-    destination: zod_1.z.string().optional(),
+    destination: zod_1.z.string().optional().nullable(),
     travelDate: zod_1.z.string().optional().nullable(),
-    flightFrom: zod_1.z.string().optional(),
-    flightTo: zod_1.z.string().optional(),
+    flightFrom: zod_1.z.string().optional().nullable(),
+    flightTo: zod_1.z.string().optional().nullable(),
     tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
     segments: zod_1.z.array(zod_1.z.object({
         from: zod_1.z.string().optional(),
@@ -48,6 +52,10 @@ exports.updateBookingSchema = zod_1.z.object({
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
     bookingType: zod_1.z.enum(['B2B', 'B2C']).optional(),
     travellers: zod_1.z.number().int().positive().optional(),
+    pricePerTicket: zod_1.z.number().nonnegative().optional(),
+    includesFlight: zod_1.z.boolean().optional(),
+    includesAdditionalServices: zod_1.z.boolean().optional(),
+    additionalServicesDetails: zod_1.z.string().optional().nullable(),
 });
 exports.updateBookingStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked']),

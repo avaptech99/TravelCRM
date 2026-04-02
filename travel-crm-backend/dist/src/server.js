@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
+const compression_1 = __importDefault(require("compression"));
 const morgan_1 = __importDefault(require("morgan"));
 const mongoose_1 = __importDefault(require("mongoose"));
 // Load env vars
@@ -26,6 +27,8 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
+// Gzip compression — ~70% smaller API responses
+app.use((0, compression_1.default)());
 // Body parser
 app.use(express_1.default.json());
 // Enable CORS
@@ -48,13 +51,8 @@ if (process.env.NODE_ENV !== 'production') {
 else {
     app.use((0, morgan_1.default)('tiny')); // Show minimal logs in production
 }
-// Prevent aggressive caching from CDNs/browsers
-app.use((req, res, next) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
-});
+// Note: Anti-cache headers removed — React Query handles cache invalidation on the frontend.
+// Letting browsers cache GET responses reduces redundant network requests.
 // Mount routers
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/bookings', bookingRoutes_1.default);

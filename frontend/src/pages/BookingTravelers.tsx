@@ -12,6 +12,8 @@ import { countryCodes } from '../utils/countryCodes';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 
+const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F'];
+
 const travelerBaseSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     countryCode: z.string(),
@@ -117,6 +119,12 @@ export const BookingTravelers: React.FC = () => {
     const [paymentRemarks, setPaymentRemarks] = useState<string>('');
     const [keepSameContact, setKeepSameContact] = useState<boolean>(true);
     const [segments, setSegments] = useState<{ from: string; to: string; date: string }[]>([]);
+    
+    // New feature flags
+    const [includesFlight, setIncludesFlight] = useState<boolean>(true);
+    const [includesAdditionalServices, setIncludesAdditionalServices] = useState<boolean>(false);
+    const [additionalServicesDetails, setAdditionalServicesDetails] = useState<string>('');
+    const [maxQuotationIndexReached, setMaxQuotationIndexReached] = useState<number>(0);
 
     const isInitialized = useRef(false);
     const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
@@ -255,6 +263,13 @@ export const BookingTravelers: React.FC = () => {
 
             if (booking.finalQuotation) {
                 setFinalQuotationAmount(booking.finalQuotation);
+                const qIndex = quotationSuffixes.findIndex(suffix => 
+                    booking.finalQuotation === (booking.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix)
+                );
+                setMaxQuotationIndexReached(Math.max(0, qIndex));
+            } else if (booking.uniqueCode) {
+                setFinalQuotationAmount(`${booking.uniqueCode}-A`);
+                setMaxQuotationIndexReached(0);
             }
 
             if (booking.bookingType === 'B2B') {
@@ -271,6 +286,10 @@ export const BookingTravelers: React.FC = () => {
             } else {
                 setSegments([{ from: '', to: '', date: '' }]);
             }
+
+            if (booking.includesFlight !== undefined) setIncludesFlight(booking.includesFlight);
+            if (booking.includesAdditionalServices !== undefined) setIncludesAdditionalServices(booking.includesAdditionalServices);
+            if (booking.additionalServicesDetails) setAdditionalServicesDetails(booking.additionalServicesDetails);
 
             isInitialized.current = true;
         }
@@ -379,6 +398,9 @@ export const BookingTravelers: React.FC = () => {
                 flightTo: primaryTraveler?.flightTo || null,
                 tripType: primaryTraveler?.tripType || 'one-way',
                 segments: segments.filter(s => s.from || s.to),
+                includesFlight: includesFlight,
+                includesAdditionalServices: includesAdditionalServices,
+                additionalServicesDetails: includesAdditionalServices ? additionalServicesDetails : null,
             }));
 
             // 3. Auto-update status to Booked if payment exists
@@ -418,6 +440,10 @@ export const BookingTravelers: React.FC = () => {
         );
     }
 
+    const availableOptions = quotationSuffixes.slice(0, Math.min(maxQuotationIndexReached + 2, quotationSuffixes.length)).map(suffix => 
+        booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix
+    );
+
     return (
         <div className="max-w-5xl mx-auto pb-28 px-3 sm:px-6 lg:px-8 pt-4 sm:pt-0">
             {/* Header */}
@@ -451,13 +477,28 @@ export const BookingTravelers: React.FC = () => {
                                 </div>
                             </div>
                             <div className="relative min-w-[240px]">
-                                <input
-                                    type="text"
+                                <select
                                     value={finalQuotationAmount}
-                                    onChange={(e) => setFinalQuotationAmount(e.target.value)}
-                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner"
-                                    placeholder="Enter final quotation..."
-                                />
+                                    onChange={(e) => {
+                                        const newVal = e.target.value;
+                                        setFinalQuotationAmount(newVal);
+                                        const newIdx = quotationSuffixes.findIndex(suffix => 
+                                            newVal === (booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix)
+                                        );
+                                        if (newIdx > maxQuotationIndexReached) {
+                                            setMaxQuotationIndexReached(newIdx);
+                                        }
+                                    }}
+                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner cursor-pointer appearance-none"
+                                >
+                                    <option value="" disabled>Select quotation...</option>
+                                    {availableOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -584,182 +625,224 @@ export const BookingTravelers: React.FC = () => {
 
                                     {index === 0 && (
                                         <div className="md:col-span-2 mt-4 p-4 bg-secondary/5 rounded-lg border border-secondary/10">
-                                            <h5 className="text-sm font-bold text-secondary mb-4 flex items-center gap-2">
-                                                <Plane size={16} className="text-secondary" /> Primary Flight Details
-                                            </h5>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Destination Country</label>
-                                                    <input
-                                                        {...register(`travelers.${index}.country` as const)}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
-                                                        placeholder="e.g. France"
+                                            
+                                            <div className="flex flex-col sm:flex-row gap-4 mb-6 pb-4 border-b border-secondary/20">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={includesFlight} 
+                                                        onChange={(e) => setIncludesFlight(e.target.checked)}
+                                                        className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
                                                     />
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From <span className="text-red-500">*</span></label>
-                                                        <input
-                                                            {...register(`travelers.${index}.flightFrom` as const, {
-                                                                onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
-                                                            })}
-                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
-                                                            placeholder="JFK"
-                                                        />
-                                                        {errors.travelers?.[index]?.flightFrom && (
-                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightFrom?.message}</p>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight To <span className="text-red-500">*</span></label>
-                                                        <input
-                                                            {...register(`travelers.${index}.flightTo` as const, {
-                                                                onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
-                                                            })}
-                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
-                                                            placeholder="LHR"
-                                                        />
-                                                        {errors.travelers?.[index]?.flightTo && (
-                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightTo?.message}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    <div>
-                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                            <Plane size={13} className="text-secondary" /> Departure Date
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            min={todayString.split('T')[0]}
-                                                            {...register(`travelers.${index}.departureTime` as const)}
-                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
-                                                        />
-                                                        {errors.travelers?.[index]?.departureTime && (
-                                                            <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.departureTime?.message}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Trip Type</label>
-                                                    <select
-                                                        {...register(`travelers.${index}.tripType` as const)}
-                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer"
-                                                    >
-                                                        <option value="one-way">One Way</option>
-                                                        <option value="round-trip">Round Trip</option>
-                                                        <option value="multi-city">Multi City</option>
-                                                    </select>
-                                                </div>
+                                                    <span className="text-sm font-bold text-slate-700">Flight Services</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={includesAdditionalServices} 
+                                                        onChange={(e) => setIncludesAdditionalServices(e.target.checked)}
+                                                        className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                                                    />
+                                                    <span className="text-sm font-bold text-slate-700">Additional Services</span>
+                                                </label>
+                                            </div>
 
-                                                 {watch(`travelers.${index}.tripType`) === 'round-trip' && (
-                                                     <div className="md:col-span-1 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60">
-                                                         <div className="border-b border-amber-200/50 pb-2 mb-3">
-                                                             <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Return Flight</p>
-                                                         </div>
+                                            {includesFlight && (
+                                                <div className="mb-6">
+                                                    <h5 className="text-sm font-bold text-secondary mb-4 flex items-center gap-2">
+                                                        <Plane size={16} className="text-secondary" /> Flight Details
+                                                    </h5>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         <div>
-                                                            <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                                                                <Plane size={13} className="text-amber-500 rotate-180" /> Return Date
-                                                            </label>
+                                                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Destination Country</label>
                                                             <input
-                                                                type="date"
-                                                                min={todayString.split('T')[0]}
-                                                                {...register(`travelers.${index}.returnDepartureTime` as const)}
-                                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
+                                                                {...register(`travelers.${index}.country` as const)}
+                                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
+                                                                placeholder="e.g. France"
                                                             />
-                                                            {errors.travelers?.[index]?.returnDepartureTime && (
-                                                                <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.returnDepartureTime?.message}</p>
-                                                            )}
                                                         </div>
-                                                        <div className="hidden md:block"></div>
-                                                    </div>
-                                                )}
-                                                 {watch(`travelers.${index}.tripType`) === 'multi-city' && (
-                                                     <div className="md:col-span-2 mt-4 space-y-4">
-                                                         <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                                                            <h5 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                                                <List size={14} className="text-secondary" /> Multi-City segments (Next Legs)
-                                                            </h5>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setSegments([...segments, { from: '', to: '', date: '' }])}
-                                                                className="text-[10px] bg-secondary/10 text-secondary px-2 py-1 rounded font-bold hover:bg-secondary/20 transition-colors uppercase tracking-wider"
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight From <span className="text-red-500">*</span></label>
+                                                                <input
+                                                                    {...register(`travelers.${index}.flightFrom` as const, {
+                                                                        onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
+                                                                    })}
+                                                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
+                                                                    placeholder="JFK"
+                                                                />
+                                                                {errors.travelers?.[index]?.flightFrom && (
+                                                                    <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightFrom?.message}</p>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Flight To <span className="text-red-500">*</span></label>
+                                                                <input
+                                                                    {...register(`travelers.${index}.flightTo` as const, {
+                                                                        onChange: (e) => (e.target.value = e.target.value.toUpperCase()),
+                                                                    })}
+                                                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase shadow-sm"
+                                                                    placeholder="LHR"
+                                                                />
+                                                                {errors.travelers?.[index]?.flightTo && (
+                                                                    <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.flightTo?.message}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                                                    <Plane size={13} className="text-secondary" /> Departure Date
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    min={todayString.split('T')[0]}
+                                                                    {...register(`travelers.${index}.departureTime` as const)}
+                                                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm cursor-pointer hover:border-indigo-300"
+                                                                />
+                                                                {errors.travelers?.[index]?.departureTime && (
+                                                                    <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.departureTime?.message}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Trip Type</label>
+                                                            <select
+                                                                {...register(`travelers.${index}.tripType` as const)}
+                                                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm shadow-sm cursor-pointer"
                                                             >
-                                                                + Add Segment
-                                                            </button>
-                                                         </div>
-                                                         
-                                                         <div className="space-y-3">
-                                                            {segments.map((segment, sIdx) => (
-                                                                <div key={sIdx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative group">
-                                                                    <div className="md:col-span-3">
-                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From</label>
-                                                                        <input 
-                                                                            type="text"
-                                                                            value={segment.from}
-                                                                            onChange={(e) => {
-                                                                                const newSegments = [...segments];
-                                                                                newSegments[sIdx].from = e.target.value.toUpperCase();
-                                                                                setSegments(newSegments);
-                                                                            }}
-                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
-                                                                            placeholder="Leg From"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="md:col-span-3">
-                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">To</label>
-                                                                        <input 
-                                                                            type="text"
-                                                                            value={segment.to}
-                                                                            onChange={(e) => {
-                                                                                const newSegments = [...segments];
-                                                                                newSegments[sIdx].to = e.target.value.toUpperCase();
-                                                                                setSegments(newSegments);
-                                                                            }}
-                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
-                                                                            placeholder="Leg To"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="md:col-span-4">
-                                                                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label>
-                                                                        <input 
-                                                                            type="date"
-                                                                            value={segment.date || ''}
-                                                                            min={sIdx === 0 ? watch(`travelers.${index}.departureTime`) : segments[sIdx - 1].date}
-                                                                            onChange={(e) => {
-                                                                                const newSegments = [...segments];
-                                                                                newSegments[sIdx].date = e.target.value;
-                                                                                setSegments(newSegments);
-                                                                            }}
-                                                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="md:col-span-2">
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => setSegments(segments.filter((_, i) => i !== sIdx))}
-                                                                            className="w-full py-1.5 border border-red-200 text-red-500 rounded hover:bg-red-50 transition-colors flex items-center justify-center"
-                                                                            title="Remove segment"
-                                                                        >
-                                                                            <Trash2 size={14} />
-                                                                        </button>
-                                                                    </div>
+                                                                <option value="one-way">One Way</option>
+                                                                <option value="round-trip">Round Trip</option>
+                                                                <option value="multi-city">Multi City</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {watch(`travelers.${index}.tripType`) === 'round-trip' && (
+                                                            <div className="md:col-span-1 mt-2 p-3 bg-amber-50/50 rounded-lg border border-amber-200/60">
+                                                                <div className="border-b border-amber-200/50 pb-2 mb-3">
+                                                                    <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Return Flight</p>
                                                                 </div>
-                                                            ))}
-                                                            {segments.length === 0 && (
-                                                                <p className="text-xs text-slate-400 italic text-center py-2">No additional segments added yet.</p>
-                                                            )}
-                                                         </div>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         </div>
-                                     )}
+                                                                <div>
+                                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                                                        <Plane size={13} className="text-amber-500 rotate-180" /> Return Date
+                                                                    </label>
+                                                                    <input
+                                                                        type="date"
+                                                                        min={todayString.split('T')[0]}
+                                                                        {...register(`travelers.${index}.returnDepartureTime` as const)}
+                                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm shadow-sm cursor-pointer hover:border-amber-300"
+                                                                    />
+                                                                    {errors.travelers?.[index]?.returnDepartureTime && (
+                                                                        <p className="text-red-500 text-xs mt-1 font-medium">{errors.travelers[index]?.returnDepartureTime?.message}</p>
+                                                                    )}
+                                                                </div>
+                                                                <div className="hidden md:block"></div>
+                                                            </div>
+                                                        )}
+
+                                                        {watch(`travelers.${index}.tripType`) === 'multi-city' && (
+                                                            <div className="md:col-span-2 mt-4 space-y-4">
+                                                                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                                                                    <h5 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                                                        <List size={14} className="text-secondary" /> Multi-City segments (Next Legs)
+                                                                    </h5>
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={() => setSegments([...segments, { from: '', to: '', date: '' }])}
+                                                                        className="text-[10px] bg-secondary/10 text-secondary px-2 py-1 rounded font-bold hover:bg-secondary/20 transition-colors uppercase tracking-wider"
+                                                                    >
+                                                                        + Add Segment
+                                                                    </button>
+                                                                </div>
+                                                                
+                                                                <div className="space-y-3">
+                                                                    {segments.map((segment, sIdx) => (
+                                                                        <div key={sIdx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative group">
+                                                                            <div className="md:col-span-3">
+                                                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From</label>
+                                                                                <input 
+                                                                                    type="text"
+                                                                                    value={segment.from}
+                                                                                    onChange={(e) => {
+                                                                                        const newSegments = [...segments];
+                                                                                        newSegments[sIdx].from = e.target.value.toUpperCase();
+                                                                                        setSegments(newSegments);
+                                                                                    }}
+                                                                                    className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
+                                                                                    placeholder="Leg From"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="md:col-span-3">
+                                                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">To</label>
+                                                                                <input 
+                                                                                    type="text"
+                                                                                    value={segment.to}
+                                                                                    onChange={(e) => {
+                                                                                        const newSegments = [...segments];
+                                                                                        newSegments[sIdx].to = e.target.value.toUpperCase();
+                                                                                        setSegments(newSegments);
+                                                                                    }}
+                                                                                    className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary uppercase"
+                                                                                    placeholder="Leg To"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="md:col-span-4">
+                                                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label>
+                                                                                <input 
+                                                                                    type="date"
+                                                                                    value={segment.date || ''}
+                                                                                    min={sIdx === 0 ? watch(`travelers.${index}.departureTime`) : segments[sIdx - 1].date}
+                                                                                    onChange={(e) => {
+                                                                                        const newSegments = [...segments];
+                                                                                        newSegments[sIdx].date = e.target.value;
+                                                                                        setSegments(newSegments);
+                                                                                    }}
+                                                                                    className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-secondary"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="md:col-span-2">
+                                                                                <button 
+                                                                                    type="button"
+                                                                                    onClick={() => setSegments(segments.filter((_, i) => i !== sIdx))}
+                                                                                    className="w-full py-1.5 border border-red-200 text-red-500 rounded hover:bg-red-50 transition-colors flex items-center justify-center"
+                                                                                    title="Remove segment"
+                                                                                >
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {segments.length === 0 && (
+                                                                        <p className="text-xs text-slate-400 italic text-center py-2">No additional segments added yet.</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {includesAdditionalServices && (
+                                                <div className="mt-4 pt-4 border-t border-secondary/20">
+                                                    <h5 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                                        <List size={16} className="text-primary" /> Additional Services
+                                                    </h5>
+                                                    <textarea
+                                                        value={additionalServicesDetails}
+                                                        onChange={(e) => setAdditionalServicesDetails(e.target.value)}
+                                                        rows={4}
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm shadow-sm"
+                                                        placeholder="Enter details for visa, hotel booking, travel packages, etc."
+                                                    ></textarea>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        </React.Fragment>
-                    ))}
+                                </div>
+                            </React.Fragment>
+                        ))}
 
                         <button
                             type="button"

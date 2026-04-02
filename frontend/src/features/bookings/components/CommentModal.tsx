@@ -31,24 +31,46 @@ export const CommentModal: React.FC<CommentModalProps> = ({ booking, isOpen, onC
     });
 
     const mutation = useMutation({
-        mutationFn: async () => {
-            const { data } = await api.post(`/bookings/${booking?.id}/comments`, { text: newComment });
+        mutationFn: async (text: string) => {
+            const { data } = await api.post(`/bookings/${booking?.id}/comments`, { text });
             return data;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['comments', booking?.id] });
+        onMutate: async (newText: string) => {
+            await queryClient.cancelQueries({ queryKey: ['comments', booking?.id] });
+            const previousComments = queryClient.getQueryData(['comments', booking?.id]);
+
+            // Optimistically add the comment to the top of the list
+            const optimisticComment = {
+                id: `temp-${Date.now()}`,
+                text: newText,
+                createdBy: { name: 'You', role: '' },
+                createdAt: new Date().toISOString(),
+            };
+            queryClient.setQueryData(['comments', booking?.id], (old: any) =>
+                old ? [optimisticComment, ...old] : [optimisticComment]
+            );
             setNewComment('');
+            return { previousComments };
+        },
+        onSuccess: () => {
             toast.success('Comment added');
         },
-        onError: () => {
+        onError: (_err: any, _variables: string, context: any) => {
+            if (context?.previousComments) {
+                queryClient.setQueryData(['comments', booking?.id], context.previousComments);
+            }
             toast.error('Failed to add comment');
+        },
+        onSettled: () => {
+            // Refetch to get real server data (proper ID, user info)
+            queryClient.invalidateQueries({ queryKey: ['comments', booking?.id] });
         },
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim()) return;
-        mutation.mutate();
+        mutation.mutate(newComment);
     };
 
     return (

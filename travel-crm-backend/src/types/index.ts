@@ -16,11 +16,11 @@ export const createBookingSchema = z.object({
     contactPerson: z.string().min(2, 'Contact Person must be at least 2 characters'),
     contactNumber: z.string().min(10, 'Contact Number must be a valid phone number'),
     bookingType: z.enum(['B2B', 'B2C']),
-    destination: z.string().optional(),
+    destination: z.string().optional().nullable(),
     travelDate: z.string().optional().nullable(),
-    requirements: z.string().optional(),
-    flightFrom: z.string().optional(),
-    flightTo: z.string().optional(),
+    requirements: z.string().optional().nullable(),
+    flightFrom: z.string().optional().nullable(),
+    flightTo: z.string().optional().nullable(),
     tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
     segments: z.array(z.object({
         from: z.string().optional(),
@@ -29,13 +29,17 @@ export const createBookingSchema = z.object({
     })).optional(),
     amount: z.number().nonnegative().optional(),
     travellers: z.number().int().positive().optional(),
+    pricePerTicket: z.number().nonnegative().optional(),
+    includesFlight: z.boolean().optional(),
+    includesAdditionalServices: z.boolean().optional(),
+    additionalServicesDetails: z.string().optional().nullable(),
 });
 
 export const updateBookingSchema = z.object({
-    destination: z.string().optional(),
+    destination: z.string().optional().nullable(),
     travelDate: z.string().optional().nullable(),
-    flightFrom: z.string().optional(),
-    flightTo: z.string().optional(),
+    flightFrom: z.string().optional().nullable(),
+    flightTo: z.string().optional().nullable(),
     tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
     segments: z.array(z.object({
         from: z.string().optional(),
@@ -49,6 +53,10 @@ export const updateBookingSchema = z.object({
     interested: z.enum(['Yes', 'No']).optional(),
     bookingType: z.enum(['B2B', 'B2C']).optional(),
     travellers: z.number().int().positive().optional(),
+    pricePerTicket: z.number().nonnegative().optional(),
+    includesFlight: z.boolean().optional(),
+    includesAdditionalServices: z.boolean().optional(),
+    additionalServicesDetails: z.string().optional().nullable(),
 });
 
 export const updateBookingStatusSchema = z.object({

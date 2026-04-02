@@ -57,9 +57,12 @@ const bookingSchema = new mongoose_1.Schema({
     finalQuotation: { type: String, default: null },
     travellers: { type: Number, default: null },
     status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
+    includesFlight: { type: Boolean, default: true },
+    includesAdditionalServices: { type: Boolean, default: false },
+    additionalServicesDetails: { type: String, default: null },
+    pricePerTicket: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
-    hasBeenAssigned: { type: Boolean, default: false },
 }, {
     timestamps: true,
     toJSON: { virtuals: true },
@@ -68,7 +71,7 @@ const bookingSchema = new mongoose_1.Schema({
 bookingSchema.pre('save', async function () {
     if (!this.uniqueCode) {
         try {
-            const counter = await Counter_1.default.findByIdAndUpdate('bookingId', { $inc: { seq: 1 } }, { new: true, upsert: true });
+            const counter = await Counter_1.default.findByIdAndUpdate('bookingId', { $inc: { seq: 1 } }, { returnDocument: 'after', upsert: true });
             if (counter) {
                 const seqStr = counter.seq.toString().padStart(4, '0');
                 this.uniqueCode = `TW${seqStr}`;

@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractTravelInfo = extractTravelInfo;
 const chrono = __importStar(require("chrono-node"));
 const compromise_1 = __importDefault(require("compromise"));
+const cache_1 = __importDefault(require("./cache"));
 function extractTravelInfo(text) {
     if (!text) {
         return {
@@ -46,6 +47,14 @@ function extractTravelInfo(text) {
             travelDate: undefined,
             travellers: undefined,
         };
+    }
+    // Normalize text for cache key (lowercase, trimmed, max 200 chars to avoid huge keys)
+    const normalizedText = text.trim().toLowerCase().substring(0, 200);
+    const cacheKey = `nlp_${Buffer.from(normalizedText).toString('base64').substring(0, 32)}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] NLP Extraction: ${cacheKey}`);
+        return { ...cached };
     }
     const doc = (0, compromise_1.default)(text);
     let destinationCity = undefined;
@@ -58,7 +67,6 @@ function extractTravelInfo(text) {
     }
     else {
         // Fallback: Heuristic for "to [Place]" or "visit [Place]"
-        // Compromise might tag Bali as a Noun but not a Place
         const heuristic = doc.match('(to|visit|at|in) [#Noun+]').not('(to|visit|at|in)').first();
         if (heuristic.found) {
             destinationCity = heuristic.out('text').trim();
@@ -71,7 +79,6 @@ function extractTravelInfo(text) {
     }
     // Detect traveller count
     const numberMatch = text.match(/([\d]+)\s?(pax|persons|people|travelers|travellers|members|adults|kids|children|infants)/i);
-    // Alternatively, look for written numbers
     if (numberMatch) {
         travellers = parseInt(numberMatch[1], 10);
     }
@@ -86,9 +93,12 @@ function extractTravelInfo(text) {
             travellers = wordToNumber[textNumberMatch[1].toLowerCase()];
         }
     }
-    return {
+    const result = {
         destinationCity,
         travelDate,
         travellers,
     };
+    // Cache the result for 1 hour — NLP logic doesn't change
+    cache_1.default.set(cacheKey, result, 3600);
+    return result;
 }

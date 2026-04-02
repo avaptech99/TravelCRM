@@ -81,6 +81,9 @@ export interface Booking {
     travelDate?: string;
     returnDate?: string;
     travellers?: number;
+    includesFlight?: boolean;
+    includesAdditionalServices?: boolean;
+    additionalServicesDetails?: string | null;
     duration?: string;
 }
 

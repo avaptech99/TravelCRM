@@ -16,8 +16,10 @@ const connectDB = async () => {
             return;
         }
         const conn = await mongoose_1.default.connect(mongoURI, {
-            maxPoolSize: 20,
-            minPoolSize: 5,
+            maxPoolSize: 5, // Right-sized for free tier (0.1 CPU, 15 users)
+            minPoolSize: 2,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     }

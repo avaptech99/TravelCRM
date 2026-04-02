@@ -81,8 +81,9 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             const { data } = await api.get(`/bookings?${params.toString()}`);
             return data;
         },
-        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-        gcTime: 1000 * 60 * 10,  // Keep in garbage collection for 10 minutes
+        staleTime: 15000,         // Consider data fresh for 15s
+        gcTime: 1000 * 60 * 10,   // Keep in memory for 10 minutes
+        refetchInterval: 20000,    // Auto-refresh every 20s — live feel without WebSockets
     });
 
     const columnHelper = createColumnHelper<Booking>();
@@ -230,7 +231,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <tr 
                                     key={row.id} 
                                     className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/bookings/${row.original.id}`)}
+                                    onClick={() => {
+                                        if (window.getSelection()?.toString().length) return;
+                                        navigate(`/bookings/${row.original.id}`);
+                                    }}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <td
@@ -270,7 +274,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 return (
                                     <div 
                                         key={row.id} 
-                                        onClick={() => navigate(`/bookings/${booking.id}`)}
+                                        onClick={() => {
+                                            if (window.getSelection()?.toString().length) return;
+                                            navigate(`/bookings/${booking.id}`);
+                                        }}
                                         className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
                                     >
                                         <div className="flex justify-between items-start">

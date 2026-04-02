@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import compression from 'compression';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
 
@@ -26,6 +27,9 @@ const app: Express = express();
 // Connect to MongoDB
 connectDB();
 
+// Gzip compression — ~70% smaller API responses
+app.use(compression());
+
 // Body parser
 app.use(express.json());
 
@@ -49,13 +53,8 @@ if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('tiny')); // Show minimal logs in production
 }
 
-// Prevent aggressive caching from CDNs/browsers
-app.use((req, res, next) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
-});
+// Note: Anti-cache headers removed — React Query handles cache invalidation on the frontend.
+// Letting browsers cache GET responses reduces redundant network requests.
 
 // Mount routers
 app.use('/api/auth', authRoutes);

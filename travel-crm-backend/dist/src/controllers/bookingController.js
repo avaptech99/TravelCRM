@@ -71,6 +71,9 @@ exports.getBookingStats = (0, express_async_handler_1.default)(async (req, res) 
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
     }
+    else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
+    }
     console.time('getBookingStats');
     const stats = await Booking_1.default.aggregate([
         { $match: query },
@@ -111,11 +114,14 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
     if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
     }
+    else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = req.user.id;
+    }
     const bookings = await Booking_1.default.find(query)
         .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
     const mapped = bookings.map(b => ({
@@ -128,6 +134,7 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: b.passengers,
+        assignedToUser: b.assignedToUserId,
     }));
     cache_1.default.set(cacheKey, mapped, 60);
     res.json(mapped);
@@ -282,12 +289,12 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
-            .populate('assignedToUser', 'name')
-            .populate('createdByUser', 'name')
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
             .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
             .populate('passengers', 'name')
             .lean(),
@@ -307,6 +314,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: b.passengers,
+        createdByUser: b.createdByUserId,
+        assignedToUser: b.assignedToUserId,
     }));
     const result = {
         data: mappedBookings,
@@ -339,8 +348,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking_1.default.findById(id)
-        .populate('assignedToUser', 'name email')
-        .populate('createdByUser', 'name')
+        .populate('assignedToUserId', 'name email')
+        .populate('createdByUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate({
         path: 'comments',
@@ -376,6 +385,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         destinationCity: booking.destination,
         travellers: booking.travellers,
         travelers: booking.passengers,
+        createdByUser: booking.createdByUserId,
+        assignedToUser: booking.assignedToUserId,
     };
     cache_1.default.set(cacheKey, result, 60);
     res.json(result);
@@ -389,19 +400,9 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'MARKETER') {
-        if (booking.createdByUserId?.toString() !== req.user.id) {
-            res.status(403);
-            throw new Error('Not authorized to delete this booking');
-        }
-        if (booking.hasBeenAssigned) {
-            res.status(403);
-            throw new Error('Marketers cannot delete a lead that has been assigned to an agent');
-        }
-    }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    if (req.user?.role !== 'ADMIN') {
         res.status(403);
-        throw new Error('Not authorized to delete this booking');
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
     console.time(`deleteBooking_${req.params.id}`);
     // Parallel deletion of all related records
@@ -460,12 +461,18 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
+        includesFlight: result.data.includesFlight ?? true,
+        includesAdditionalServices: result.data.includesAdditionalServices ?? false,
+        additionalServicesDetails: result.data.additionalServicesDetails || null,
+        pricePerTicket: result.data.pricePerTicket || 0,
     });
     const dbTime = Date.now() - dbStart;
     const totalTime = Date.now() - startTime;
     console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
     // Populate for response
     const populatedBooking = await Booking_1.default.findById(booking._id)
+        .populate('createdByUserId', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .lean();
     const resultBooking = {
@@ -481,6 +488,8 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         destinationCity: populatedBooking.destination,
         travellers: populatedBooking.travellers,
         travelers: populatedBooking.passengers,
+        createdByUser: populatedBooking.createdByUserId,
+        assignedToUser: populatedBooking.assignedToUserId,
     };
     invalidateBookingCaches();
     res.status(201).json(resultBooking);
@@ -537,6 +546,14 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined)
         booking.travellers = result.data.travellers || null;
+    if (result.data.pricePerTicket !== undefined)
+        booking.pricePerTicket = result.data.pricePerTicket;
+    if (result.data.includesFlight !== undefined)
+        booking.includesFlight = result.data.includesFlight;
+    if (result.data.includesAdditionalServices !== undefined)
+        booking.includesAdditionalServices = result.data.includesAdditionalServices;
+    if (result.data.additionalServicesDetails !== undefined)
+        booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
     if (result.data.segments !== undefined) {
         booking.segments = (result.data.segments || []).map(s => ({
             from: s.from || '',
@@ -556,7 +573,8 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
     }
     const updatedBooking = await Booking_1.default.findById(id)
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
+        .populate('createdByUserId', 'name')
         .lean();
     const resultBooking = {
         ...updatedBooking,
@@ -570,6 +588,8 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         destinationCity: updatedBooking.destination,
         travellers: updatedBooking.travellers,
         travelers: updatedBooking.passengers,
+        createdByUser: updatedBooking.createdByUserId,
+        assignedToUser: updatedBooking.assignedToUserId,
     };
     invalidateBookingCaches();
     res.json(resultBooking);
@@ -600,6 +620,17 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     const { status } = result.data;
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
+    // Notify Marketer if their lead status changed
+    if (existingBooking.createdByUserId && existingBooking.createdByUserId.toString() !== req.user?.id) {
+        const creator = await User_1.default.findById(existingBooking.createdByUserId);
+        if (creator?.role === 'MARKETER') {
+            await Notification_1.default.create({
+                userId: existingBooking.createdByUserId,
+                bookingId: id,
+                message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
+            });
+        }
+    }
     invalidateBookingCaches();
     res.json(updatedBooking);
 });
@@ -630,9 +661,6 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
         booking.assignedToUserId = newAssignedUserId;
-        if (newAssignedUserId) {
-            booking.hasBeenAssigned = true;
-        }
         await booking.save();
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {
@@ -660,6 +688,18 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 bookingId: id,
                 message: `Booking has been assigned to you.`,
             });
+            // Also notify the marketer who created the lead
+            if (booking.createdByUserId) {
+                const creator = await User_1.default.findById(booking.createdByUserId);
+                if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                    const agent = await User_1.default.findById(newAssignedUserId);
+                    await Notification_1.default.create({
+                        userId: booking.createdByUserId,
+                        bookingId: id,
+                        message: `Your lead has been assigned to ${agent?.name || 'an agent'}.`,
+                    });
+                }
+            }
         }
     }
     const updatedBooking = await Booking_1.default.findById(id).populate('assignedToUser', 'name');
@@ -693,9 +733,6 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
         const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
         if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
             booking.assignedToUserId = newAgentId;
-            if (newAgentId) {
-                booking.hasBeenAssigned = true;
-            }
             await booking.save();
             let previousAgentName = 'Unassigned';
             if (previousAssignedUserId) {
@@ -714,6 +751,17 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
                     bookingId: booking._id,
                     message: `Booking has been assigned to you.`,
                 });
+                // Also notify the marketer who created the lead
+                if (booking.createdByUserId) {
+                    const creator = await User_1.default.findById(booking.createdByUserId);
+                    if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                        await Notification_1.default.create({
+                            userId: booking.createdByUserId,
+                            bookingId: booking._id,
+                            message: `Your lead has been assigned to ${newAgentName}.`,
+                        });
+                    }
+                }
             }
         }
     });
@@ -746,6 +794,15 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         createdById: req.user.id,
     });
     comment = await comment.populate('createdBy', 'name role');
+    // Notification Logic
+    if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
+        // Notify the assigned agent when marketer comments
+        await Notification_1.default.create({
+            userId: booking.assignedToUserId,
+            bookingId: id,
+            message: `Marketer ${req.user.name} added a remark on lead ${booking.destination || 'Unassigned'}.`,
+        });
+    }
     invalidateBookingCaches();
     res.status(201).json(comment);
 });

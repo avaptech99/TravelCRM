@@ -24,7 +24,7 @@ export const Topbar: React.FC = () => {
             return data;
         },
         enabled: !!user?.id,
-        refetchInterval: 30000, // Check every 30s
+        refetchInterval: 20000, // Aligned with bookings polling
     });
 
     const markAsReadMutation = useMutation({
