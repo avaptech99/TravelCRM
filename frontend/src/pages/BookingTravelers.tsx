@@ -12,7 +12,7 @@ import { countryCodes } from '../utils/countryCodes';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 
-const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F'];
+const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 const travelerBaseSchema = z.object({
     name: z.string().min(1, 'Name is required'),
@@ -124,7 +124,6 @@ export const BookingTravelers: React.FC = () => {
     const [includesFlight, setIncludesFlight] = useState<boolean>(true);
     const [includesAdditionalServices, setIncludesAdditionalServices] = useState<boolean>(false);
     const [additionalServicesDetails, setAdditionalServicesDetails] = useState<string>('');
-    const [maxQuotationIndexReached, setMaxQuotationIndexReached] = useState<number>(0);
 
     const isInitialized = useRef(false);
     const todayString = new Date().toISOString().slice(0, 16); // format: YYYY-MM-DDTHH:mm
@@ -263,13 +262,8 @@ export const BookingTravelers: React.FC = () => {
 
             if (booking.finalQuotation) {
                 setFinalQuotationAmount(booking.finalQuotation);
-                const qIndex = quotationSuffixes.findIndex(suffix => 
-                    booking.finalQuotation === (booking.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix)
-                );
-                setMaxQuotationIndexReached(Math.max(0, qIndex));
             } else if (booking.uniqueCode) {
                 setFinalQuotationAmount(`${booking.uniqueCode}-A`);
-                setMaxQuotationIndexReached(0);
             }
 
             if (booking.bookingType === 'B2B') {
@@ -440,7 +434,7 @@ export const BookingTravelers: React.FC = () => {
         );
     }
 
-    const availableOptions = quotationSuffixes.slice(0, Math.min(maxQuotationIndexReached + 2, quotationSuffixes.length)).map(suffix => 
+    const availableOptions = quotationSuffixes.map(suffix => 
         booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix
     );
 
@@ -479,16 +473,7 @@ export const BookingTravelers: React.FC = () => {
                             <div className="relative min-w-[240px]">
                                 <select
                                     value={finalQuotationAmount}
-                                    onChange={(e) => {
-                                        const newVal = e.target.value;
-                                        setFinalQuotationAmount(newVal);
-                                        const newIdx = quotationSuffixes.findIndex(suffix => 
-                                            newVal === (booking?.uniqueCode ? `${booking.uniqueCode}-${suffix}` : suffix)
-                                        );
-                                        if (newIdx > maxQuotationIndexReached) {
-                                            setMaxQuotationIndexReached(newIdx);
-                                        }
-                                    }}
+                                    onChange={(e) => setFinalQuotationAmount(e.target.value)}
                                     className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner cursor-pointer appearance-none"
                                 >
                                     <option value="" disabled>Select quotation...</option>
@@ -1018,7 +1003,7 @@ export const BookingTravelers: React.FC = () => {
                                         <div key={payment.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 text-xs shadow-sm hover:border-slate-200 transition-all group">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-700">${payment.amount.toFixed(2)}</span>
+                                                    <span className="font-bold text-slate-700">{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                     <span className="text-slate-500 text-[10px]">{new Date(payment.date).toLocaleDateString()}</span>
                                                 </div>
                                                 <div className="h-6 w-px bg-slate-200"></div>
