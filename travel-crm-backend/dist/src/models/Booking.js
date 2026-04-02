@@ -60,6 +60,7 @@ const bookingSchema = new mongoose_1.Schema({
     includesFlight: { type: Boolean, default: true },
     includesAdditionalServices: { type: Boolean, default: false },
     additionalServicesDetails: { type: String, default: null },
+    pricePerTicket: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
 }, {

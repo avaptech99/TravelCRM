@@ -461,6 +461,7 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         includesFlight: result.data.includesFlight ?? true,
         includesAdditionalServices: result.data.includesAdditionalServices ?? false,
         additionalServicesDetails: result.data.additionalServicesDetails || null,
+        pricePerTicket: result.data.pricePerTicket || 0,
     });
     const dbTime = Date.now() - dbStart;
     const totalTime = Date.now() - startTime;
@@ -541,6 +542,8 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined)
         booking.travellers = result.data.travellers || null;
+    if (result.data.pricePerTicket !== undefined)
+        booking.pricePerTicket = result.data.pricePerTicket;
     if (result.data.includesFlight !== undefined)
         booking.includesFlight = result.data.includesFlight;
     if (result.data.includesAdditionalServices !== undefined)
