@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
@@ -24,7 +24,6 @@ export const BookingDetails: React.FC = () => {
     const [isEditingReqs, setIsEditingReqs] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const navigate = useNavigate();
-    const location = useLocation();
     const [editReqsText, setEditReqsText] = useState('');
     const [commentText, setCommentText] = useState('');
     const { user } = useAuth();
@@ -188,7 +187,7 @@ export const BookingDetails: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3 max-w-full">
-                    <Link to={location.state?.returnUrl ?? "/bookings"} className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0 mt-1 sm:mt-0 -ml-2 sm:ml-0">
+                    <Link to={sessionStorage.getItem('bookingsReturnUrl') || "/bookings"} className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0 mt-1 sm:mt-0 -ml-2 sm:ml-0">
                         <ArrowLeft size={20} className="text-slate-600" />
                     </Link>
                     <div className="min-w-0">

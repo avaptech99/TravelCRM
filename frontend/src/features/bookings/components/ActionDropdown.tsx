@@ -1,5 +1,5 @@
 import { Edit, Users, Eye, UserMinus, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { Booking } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -17,6 +17,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     onDeleteClick,
 }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
 
     const canEdit = user?.role === 'ADMIN' || 
@@ -31,7 +32,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
         <div className="flex items-center gap-1">
             {isReadOnly ? (
                 <button
-                    onClick={() => navigate(`/bookings/${booking.id}`)}
+                    onClick={() => { sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search); navigate(`/bookings/${booking.id}`); }}
                     className="p-2 text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md transition-colors border border-transparent hover:border-amber-200"
                     title="View Details"
                 >
@@ -49,7 +50,7 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
                     {booking.status === 'Booked' && user?.role !== 'MARKETER' && (
                         <button
-                            onClick={() => navigate(`/bookings/${booking.id}/travelers`)}
+                            onClick={() => { sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search); navigate(`/bookings/${booking.id}/travelers`); }}
                             className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors border border-transparent hover:border-emerald-200"
                             title="Update Travelers"
                         >

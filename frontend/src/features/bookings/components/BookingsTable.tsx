@@ -261,7 +261,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                     className="hover:bg-slate-50 transition-colors cursor-pointer"
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
-                                        navigate(`/bookings/${row.original.id}`, { state: { returnUrl: location.pathname + location.search } });
+                                        sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
+                                        navigate(`/bookings/${row.original.id}`);
                                     }}
                                 >
                                     {row.getVisibleCells().map((cell) => (
@@ -304,7 +305,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         key={row.id} 
                                         onClick={() => {
                                             if (window.getSelection()?.toString().length) return;
-                                            navigate(`/bookings/${booking.id}`, { state: { returnUrl: location.pathname + location.search } });
+                                            sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
+                                            navigate(`/bookings/${booking.id}`);
                                         }}
                                         className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
                                     >
