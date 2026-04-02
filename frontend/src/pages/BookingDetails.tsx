@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { useAuth } from '../context/AuthContext';
@@ -354,6 +354,7 @@ export const BookingDetails: React.FC = () => {
                                     const hasFlightInfo = primary.flightFrom || primary.flightTo;
                                     const hasTripInfo = primary.tripType || primary.country;
 
+                                    if (!booking.includesFlight) return null;
                                     if (!hasFlightInfo && !hasTripInfo) return null;
 
                                     return (
@@ -480,6 +481,18 @@ export const BookingDetails: React.FC = () => {
                                         </div>
                                     );
                                 })()}
+
+                                {/* Additional Services Details */}
+                                {booking.includesAdditionalServices && booking.additionalServicesDetails && (
+                                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 mt-4">
+                                        <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-1.5">
+                                            <List size={15} className="text-primary" /> Additional Services
+                                        </h3>
+                                        <div className="prose prose-sm text-slate-700 whitespace-pre-wrap">
+                                            {booking.additionalServicesDetails}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Passenger Details */}
                                 <div>

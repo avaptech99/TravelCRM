@@ -20,6 +20,10 @@ export interface IBooking extends Document {
     finalQuotation: string | null;
     travellers: number | null;
     status: 'Pending' | 'Working' | 'Sent' | 'Booked';
+    includesFlight: boolean;
+    includesAdditionalServices: boolean;
+    additionalServicesDetails: string | null;
+    pricePerTicket: number | null;
     createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
     createdAt: Date;
@@ -46,6 +50,10 @@ const bookingSchema = new Schema<IBooking>(
         finalQuotation: { type: String, default: null },
         travellers: { type: Number, default: null },
         status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
+        includesFlight: { type: Boolean, default: true },
+        includesAdditionalServices: { type: Boolean, default: false },
+        additionalServicesDetails: { type: String, default: null },
+        pricePerTicket: { type: Number, default: 0 },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     },

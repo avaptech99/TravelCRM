@@ -29,6 +29,9 @@ exports.createBookingSchema = zod_1.z.object({
     })).optional(),
     amount: zod_1.z.number().nonnegative().optional(),
     travellers: zod_1.z.number().int().positive().optional(),
+    includesFlight: zod_1.z.boolean().optional(),
+    includesAdditionalServices: zod_1.z.boolean().optional(),
+    additionalServicesDetails: zod_1.z.string().optional().nullable(),
 });
 exports.updateBookingSchema = zod_1.z.object({
     destination: zod_1.z.string().optional(),
@@ -48,6 +51,9 @@ exports.updateBookingSchema = zod_1.z.object({
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
     bookingType: zod_1.z.enum(['B2B', 'B2C']).optional(),
     travellers: zod_1.z.number().int().positive().optional(),
+    includesFlight: zod_1.z.boolean().optional(),
+    includesAdditionalServices: zod_1.z.boolean().optional(),
+    additionalServicesDetails: zod_1.z.string().optional().nullable(),
 });
 exports.updateBookingStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked']),

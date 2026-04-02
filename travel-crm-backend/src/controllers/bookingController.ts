@@ -467,6 +467,10 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
+        includesFlight: result.data.includesFlight ?? true,
+        includesAdditionalServices: result.data.includesAdditionalServices ?? false,
+        additionalServicesDetails: result.data.additionalServicesDetails || null,
+        pricePerTicket: result.data.pricePerTicket || 0,
     });
     const dbTime = Date.now() - dbStart;
 
@@ -548,6 +552,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.totalAmount !== undefined) booking.totalAmount = result.data.totalAmount;
     if (result.data.finalQuotation !== undefined) booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined) booking.travellers = result.data.travellers || null;
+    if (result.data.pricePerTicket !== undefined) booking.pricePerTicket = result.data.pricePerTicket;
+    if (result.data.includesFlight !== undefined) booking.includesFlight = result.data.includesFlight;
+    if (result.data.includesAdditionalServices !== undefined) booking.includesAdditionalServices = result.data.includesAdditionalServices;
+    if (result.data.additionalServicesDetails !== undefined) booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
     if (result.data.segments !== undefined) {
         booking.segments = (result.data.segments || []).map(s => ({
             from: s.from || '',

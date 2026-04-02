@@ -121,7 +121,7 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
     const mapped = bookings.map(b => ({
@@ -133,6 +133,7 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: b.passengers,
+        assignedToUser: b.assignedToUserId,
     }));
     cache_1.default.set(cacheKey, mapped, 60);
     res.json(mapped);
@@ -287,12 +288,12 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId primaryContactId createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
-            .populate('assignedToUser', 'name')
-            .populate('createdByUser', 'name')
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
             .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
             .populate('passengers', 'name')
             .lean(),
@@ -311,6 +312,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         destinationCity: b.destination,
         travellers: b.travellers,
         travelers: b.passengers,
+        createdByUser: b.createdByUserId,
+        assignedToUser: b.assignedToUserId,
     }));
     const result = {
         data: mappedBookings,
@@ -343,8 +346,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking_1.default.findById(id)
-        .populate('assignedToUser', 'name email')
-        .populate('createdByUser', 'name')
+        .populate('assignedToUserId', 'name email')
+        .populate('createdByUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .populate({
         path: 'comments',
@@ -379,6 +382,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         destinationCity: booking.destination,
         travellers: booking.travellers,
         travelers: booking.passengers,
+        createdByUser: booking.createdByUserId,
+        assignedToUser: booking.assignedToUserId,
     };
     cache_1.default.set(cacheKey, result, 60);
     res.json(result);
@@ -453,12 +458,17 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
+        includesFlight: result.data.includesFlight ?? true,
+        includesAdditionalServices: result.data.includesAdditionalServices ?? false,
+        additionalServicesDetails: result.data.additionalServicesDetails || null,
     });
     const dbTime = Date.now() - dbStart;
     const totalTime = Date.now() - startTime;
     console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
     // Populate for response
     const populatedBooking = await Booking_1.default.findById(booking._id)
+        .populate('createdByUserId', 'name')
+        .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
         .lean();
     const resultBooking = {
@@ -473,6 +483,8 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         destinationCity: populatedBooking.destination,
         travellers: populatedBooking.travellers,
         travelers: populatedBooking.passengers,
+        createdByUser: populatedBooking.createdByUserId,
+        assignedToUser: populatedBooking.assignedToUserId,
     };
     invalidateBookingCaches();
     res.status(201).json(resultBooking);
@@ -529,6 +541,12 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined)
         booking.travellers = result.data.travellers || null;
+    if (result.data.includesFlight !== undefined)
+        booking.includesFlight = result.data.includesFlight;
+    if (result.data.includesAdditionalServices !== undefined)
+        booking.includesAdditionalServices = result.data.includesAdditionalServices;
+    if (result.data.additionalServicesDetails !== undefined)
+        booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
     if (result.data.segments !== undefined) {
         booking.segments = (result.data.segments || []).map(s => ({
             from: s.from || '',
@@ -548,7 +566,8 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
     }
     const updatedBooking = await Booking_1.default.findById(id)
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
-        .populate('assignedToUser', 'name')
+        .populate('assignedToUserId', 'name')
+        .populate('createdByUserId', 'name')
         .lean();
     const resultBooking = {
         ...updatedBooking,
@@ -561,6 +580,8 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         destinationCity: updatedBooking.destination,
         travellers: updatedBooking.travellers,
         travelers: updatedBooking.passengers,
+        createdByUser: updatedBooking.createdByUserId,
+        assignedToUser: updatedBooking.assignedToUserId,
     };
     invalidateBookingCaches();
     res.json(resultBooking);
