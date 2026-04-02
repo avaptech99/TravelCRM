@@ -12,7 +12,7 @@ export const Sidebar: React.FC = () => {
     const navItems = [
         { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
         { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
+        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['AGENT', 'MARKETER'] },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },

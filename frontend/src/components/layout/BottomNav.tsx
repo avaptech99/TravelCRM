@@ -15,7 +15,7 @@ export const BottomNav: React.FC = () => {
             label: user?.role === 'MARKETER' ? 'My Leads' : 'My Bookings', 
             path: '/my-bookings', 
             icon: <UserSquare size={18} />, 
-            roles: ['ADMIN', 'AGENT', 'MARKETER'] 
+            roles: ['AGENT', 'MARKETER'] 
         },
         { label: 'Calendar', path: '/calendar', icon: <Calendar size={18} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={18} />, roles: ['ADMIN'] },
