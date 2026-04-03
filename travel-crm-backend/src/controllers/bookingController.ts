@@ -31,6 +31,13 @@ const invalidateBookingCaches = () => {
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
 // @access  Private
+
+// Helper to safely get string ID from potentially populated ObjectId field
+const getObjectIdString = (field: any): string | null => {
+    if (!field) return null;
+    return (field as any)._id?.toString() || field.toString();
+};
+
 export const getBookingStats = asyncHandler(async (req: Request, res: Response) => {
     const cacheKey = `stats_${req.user?.id || 'all'}`;
     const cached = appCache.get(cacheKey);
@@ -555,7 +562,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
             res.status(403);
             throw new Error('Marketers are only authorized to update Detailed Requirements');
         }
-    } else if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    } else if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -642,7 +649,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         throw new Error('Marketers are not authorized to update booking status');
     }
 
-    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(existingBooking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -652,7 +659,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const updatedBooking = await existingBooking.save();
     
     // Notify Marketer if their lead status changed
-    if (existingBooking.createdByUserId && existingBooking.createdByUserId.toString() !== req.user?.id) {
+    if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
         const creator = await User.findById(existingBooking.createdByUserId);
         if (creator?.role === 'MARKETER') {
             await Notification.create({
@@ -695,7 +702,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
-    const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+    const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
     const newAssignedUserId = assignedToUserId || null;
 
     if (previousAssignedUserId !== newAssignedUserId) {
@@ -736,7 +743,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             // Also notify the marketer who created the lead
             if (booking.createdByUserId) {
                 const creator = await User.findById(booking.createdByUserId);
-                if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
                     const agent = await User.findById(newAssignedUserId);
                     await Notification.create({
                         userId: booking.createdByUserId,
@@ -783,7 +790,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     // We'll use a for...of loop or map with Promise.all
     // For each booking, check if assignment changed, then update and create comment
     const updatePromises = bookings.map(async (booking) => {
-        const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+        const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
         
         if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
             booking.assignedToUserId = newAgentId as any;
@@ -813,7 +820,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
                 // Also notify the marketer who created the lead
                 if (booking.createdByUserId) {
                     const creator = await User.findById(booking.createdByUserId);
-                    if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                    if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
                         await Notification.create({
                             userId: booking.createdByUserId,
                             bookingId: booking._id,
@@ -849,7 +856,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to comment on this booking');
     }
@@ -923,7 +930,7 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Marketers are not authorized to add passengers');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add passengers to this booking');
     }
@@ -971,7 +978,7 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
         throw new Error('Marketers are not authorized to update passengers');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update passengers for this booking');
     }
@@ -1017,7 +1024,7 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Marketers are not authorized to add payments');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add payment to this booking');
     }
@@ -1067,7 +1074,7 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Marketers are not authorized to delete payments');
     }
 
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to delete payment from this booking');
     }
