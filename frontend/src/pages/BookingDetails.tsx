@@ -12,13 +12,14 @@ import { toast } from 'sonner';
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
 
-    const { data: booking, isLoading } = useQuery({
+    const { data: booking, isLoading, error } = useQuery<any, any>({
         queryKey: ['booking', id],
         queryFn: async () => {
             const { data } = await api.get(`/bookings/${id}`);
             return data;
         },
         enabled: !!id,
+        retry: false, // Don't retry on 403
     });
 
     const [isEditingReqs, setIsEditingReqs] = useState(false);
@@ -38,7 +39,7 @@ export const BookingDetails: React.FC = () => {
     
     // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
     // Now we refine this to follow the user's requirement: edit only if unassigned.
-    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !booking?.assignedToUserId));
+    const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !assignedId));
 
     const assignToMeMutation = useMutation({
         mutationFn: async () => {
@@ -167,12 +168,26 @@ export const BookingDetails: React.FC = () => {
         return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
     }
 
-    if (!booking) {
+    if (error) {
+        const is403 = error.response?.status === 403;
         return (
             <div className="p-8 text-center text-slate-500">
-                <p>Booking not found.</p>
-                <Link to="/bookings" className="mt-4 inline-block text-primary hover:opacity-80">
-                    &larr; Back to Bookings
+                <p className="font-bold text-lg mb-2 text-slate-900">{is403 ? 'Access Denied' : 'Error'}</p>
+                <p>{is403 ? 'You do not have permission to view this booking.' : (error.response?.data?.message || 'Something went wrong while fetching the booking.')}</p>
+                <Link to="/bookings" className="mt-6 inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    <ArrowLeft size={16} /> Back to Bookings
+                </Link>
+            </div>
+        );
+    }
+
+    if (!booking && !isLoading) {
+        return (
+            <div className="p-8 text-center text-slate-500">
+                <p className="font-bold text-lg mb-2 text-slate-900">Booking not found.</p>
+                <p>We couldn't find the booking you're looking for.</p>
+                <Link to="/bookings" className="mt-6 inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    <ArrowLeft size={16} /> Back to Bookings
                 </Link>
             </div>
         );

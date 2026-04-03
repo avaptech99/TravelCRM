@@ -336,9 +336,10 @@ export const BookingTravelers: React.FC = () => {
                 throw new Error('Please enter a valid payment amount');
             }
 
-            if (payAmt > currentOutstanding + 0.01) { // Allowing small float margin
-                throw new Error(`Payment cannot exceed outstanding amount ($${currentOutstanding.toFixed(2)})`);
-            }
+            // Removed strict validation to allow entering payments before finalizing lump sum
+            // if (payAmt > currentOutstanding + 0.01) { 
+            //     throw new Error(`Payment cannot exceed outstanding amount (${currentOutstanding.toFixed(2)})`);
+            // }
 
             await api.post(`/bookings/${id}/payments`, {
                 amount: payAmt,
@@ -397,10 +398,22 @@ export const BookingTravelers: React.FC = () => {
                 additionalServicesDetails: includesAdditionalServices ? additionalServicesDetails : null,
             }));
 
-            // 3. Auto-update status to Booked if payment exists
-            if (totalPaid > 0) {
-                promises.push(api.patch(`/bookings/${id}/status`, { status: 'Booked' }));
+            // 3. Optional: Record Pending Payment if filled but not "clicked"
+            const payAmt = parseFloat(paymentAmount);
+            if (!isNaN(payAmt) && payAmt > 0) {
+                promises.push(api.post(`/bookings/${id}/payments`, {
+                    amount: payAmt,
+                    paymentMethod,
+                    transactionId: paymentTransactionId || undefined,
+                    date: new Date(paymentDate).toISOString(),
+                    remarks: paymentRemarks || undefined
+                }));
             }
+
+            // Removed auto-update status to Booked as per user feedback
+            // if (totalPaid > 0 || (!isNaN(payAmt) && payAmt > 0)) {
+            //     promises.push(api.patch(`/bookings/${id}/status`, { status: 'Booked' }));
+            // }
 
             await Promise.all(promises);
         },
@@ -442,7 +455,7 @@ export const BookingTravelers: React.FC = () => {
         <div className="max-w-5xl mx-auto pb-28 px-3 sm:px-6 lg:px-8 pt-4 sm:pt-0">
             {/* Header */}
             <div className="flex items-center space-x-4 mb-6 sm:mb-8">
-                <button onClick={() => navigate(sessionStorage.getItem('bookingsReturnUrl') || '/bookings')} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <button onClick={() => navigate(`/bookings/${id}`)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                     <ArrowLeft size={20} className="text-slate-600" />
                 </button>
                 <div>
@@ -907,7 +920,6 @@ export const BookingTravelers: React.FC = () => {
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        max={currentOutstanding > 0 ? currentOutstanding : 0}
                                         value={paymentAmount}
                                         onChange={(e) => {
                                             const val = e.target.value;
@@ -917,9 +929,7 @@ export const BookingTravelers: React.FC = () => {
                                             }
                                             const num = parseFloat(val);
                                             if (!isNaN(num)) {
-                                                // Clamp to currentOutstanding
-                                                const clamped = Math.min(num, Math.max(0, currentOutstanding));
-                                                setPaymentAmount(clamped.toString());
+                                                setPaymentAmount(num.toString());
                                             }
                                         }}
                                         className="bg-white border border-slate-200 text-sm font-bold text-slate-900 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 block w-full pl-6 p-2.5 shadow-sm transition-all"
@@ -1057,7 +1067,7 @@ export const BookingTravelers: React.FC = () => {
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-4 pb-8">
                     <button
                         type="button"
-                        onClick={() => navigate(sessionStorage.getItem('bookingsReturnUrl') || '/bookings')}
+                        onClick={() => navigate(`/bookings/${id}`)}
                         className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all text-center"
                     >
                         Cancel

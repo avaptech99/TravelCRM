@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff } from 'lucide-react';
+import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useGlobalSync } from '../hooks/useGlobalSync';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../api/client';
+import { toast } from 'sonner';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
     const content = (
@@ -31,6 +39,40 @@ const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
+    const queryClient = useQueryClient();
+    const navigate = useNavigate();
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+    const deleteNotificationMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await api.delete(`/notifications/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            toast.success('Notification deleted');
+        },
+        onError: () => {
+            toast.error('Failed to delete notification');
+        }
+    });
+
+    const deleteAllNotificationsMutation = useMutation({
+        mutationFn: async () => {
+            // Delete all notifications one by one (or we can add a backend route)
+            // For now, use the dismiss-all then the sync will show empty
+            const ids = notifications?.map((n: any) => n.id || n._id) || [];
+            await Promise.all(ids.map((id: string) => api.delete(`/notifications/${id}`)));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            toast.success('All notifications cleared');
+        },
+        onError: () => {
+            toast.error('Failed to clear notifications');
+        }
+    });
 
     // Single combined call for stats + recent bookings + notifications
     const { data: syncData, isLoading: isStatsLoading, isError, error, refetch } = useGlobalSync();
@@ -131,21 +173,58 @@ export const Dashboard: React.FC = () => {
                             </h2>
                             <p className="text-slate-500 text-xs mt-1">System updates and important alerts.</p>
                         </div>
+                        {notifications && notifications.length > 0 && !showClearConfirm && (
+                            <button
+                                onClick={() => setShowClearConfirm(true)}
+                                className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
+                            >
+                                Clear All
+                            </button>
+                        )}
                     </div>
+                    {/* Clear All Confirmation */}
+                    {showClearConfirm && (
+                        <div className="px-6 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+                            <span className="text-xs font-medium text-red-700">Permanently delete all notifications?</span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowClearConfirm(false)}
+                                    className="text-[10px] font-bold text-slate-600 hover:bg-slate-100 px-2.5 py-1 rounded-md transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => { deleteAllNotificationsMutation.mutate(); setShowClearConfirm(false); }}
+                                    disabled={deleteAllNotificationsMutation.isPending}
+                                    className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-md transition-colors"
+                                >
+                                    {deleteAllNotificationsMutation.isPending ? 'Clearing...' : 'Yes, Delete All'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-1">
                         {notifications && notifications.length > 0 ? (
                             <div className="divide-y divide-slate-50">
                                 {notifications.slice(0, 10).map((note: any) => (
-                                    <div key={note.id || note._id} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 ${!note.read ? 'bg-blue-50/30' : ''}`}>
+                                    <div key={note.id || note._id} onClick={() => note.bookingId && navigate(`/bookings/${note.bookingId}`)} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 group ${note.bookingId ? 'cursor-pointer' : ''} ${!note.read ? 'bg-blue-50/30' : ''}`}>
                                         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!note.read ? 'bg-blue-500' : 'bg-slate-200'}`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm leading-relaxed ${!note.read ? 'font-bold text-slate-900' : 'text-slate-600 font-medium'}`}>
                                                 {note.message}
                                             </p>
                                             <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-wider flex items-center gap-1">
-                                                <Clock size={10} /> {new Date(note.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(note.createdAt).toLocaleDateString()}
+                                                <Clock size={10} /> {dayjs(note.createdAt).fromNow()}
                                             </p>
                                         </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); deleteNotificationMutation.mutate(note.id || note._id); }}
+                                            disabled={deleteNotificationMutation.isPending}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all self-center flex-shrink-0"
+                                            title="Delete permanently"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>

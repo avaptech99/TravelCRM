@@ -5,6 +5,7 @@ export interface INotification extends Document {
     bookingId?: mongoose.Types.ObjectId;
     message: string;
     read: boolean;
+    isDismissed: boolean;
     createdAt: Date;
 }
 
@@ -24,6 +25,10 @@ const notificationSchema: Schema = new Schema(
             required: true,
         },
         read: {
+            type: Boolean,
+            default: false,
+        },
+        isDismissed: {
             type: Boolean,
             default: false,
         },
