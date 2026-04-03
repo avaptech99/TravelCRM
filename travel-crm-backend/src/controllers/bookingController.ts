@@ -336,7 +336,21 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
     const cacheKey = `booking_${id}`;
     const cached = appCache.get(cacheKey);
+    
+    // Auth Check Function (internal)
+    const checkAuth = (b: any) => {
+        const creatorId = (b.createdByUserId as any)?._id?.toString() || b.createdByUserId?.toString();
+        if (req.user?.role === 'MARKETER' && creatorId !== String(req.user.id)) {
+            return false;
+        }
+        return true;
+    };
+
     if (cached) {
+        if (!checkAuth(cached)) {
+            res.status(403);
+            throw new Error('Not authorized to view this booking');
+        }
         console.log(`[CACHE HIT] ${cacheKey}`);
         res.json(cached);
         return;
@@ -363,7 +377,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+    if (!checkAuth(booking)) {
         res.status(403);
         throw new Error('Not authorized to view this booking');
     }
