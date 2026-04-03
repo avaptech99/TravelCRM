@@ -8,6 +8,10 @@ import { useGlobalSync } from '../hooks/useGlobalSync';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { toast } from 'sonner';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
     const content = (
@@ -37,6 +41,7 @@ export const Dashboard: React.FC = () => {
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     const deleteNotificationMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -168,16 +173,36 @@ export const Dashboard: React.FC = () => {
                             </h2>
                             <p className="text-slate-500 text-xs mt-1">System updates and important alerts.</p>
                         </div>
-                        {notifications && notifications.length > 0 && (
+                        {notifications && notifications.length > 0 && !showClearConfirm && (
                             <button
-                                onClick={() => deleteAllNotificationsMutation.mutate()}
-                                disabled={deleteAllNotificationsMutation.isPending}
+                                onClick={() => setShowClearConfirm(true)}
                                 className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
                             >
-                                {deleteAllNotificationsMutation.isPending ? 'Clearing...' : 'Clear All'}
+                                Clear All
                             </button>
                         )}
                     </div>
+                    {/* Clear All Confirmation */}
+                    {showClearConfirm && (
+                        <div className="px-6 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+                            <span className="text-xs font-medium text-red-700">Permanently delete all notifications?</span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowClearConfirm(false)}
+                                    className="text-[10px] font-bold text-slate-600 hover:bg-slate-100 px-2.5 py-1 rounded-md transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => { deleteAllNotificationsMutation.mutate(); setShowClearConfirm(false); }}
+                                    disabled={deleteAllNotificationsMutation.isPending}
+                                    className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-md transition-colors"
+                                >
+                                    {deleteAllNotificationsMutation.isPending ? 'Clearing...' : 'Yes, Delete All'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-1">
                         {notifications && notifications.length > 0 ? (
                             <div className="divide-y divide-slate-50">
@@ -189,7 +214,7 @@ export const Dashboard: React.FC = () => {
                                                 {note.message}
                                             </p>
                                             <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-wider flex items-center gap-1">
-                                                <Clock size={10} /> {new Date(note.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(note.createdAt).toLocaleDateString()}
+                                                <Clock size={10} /> {dayjs(note.createdAt).fromNow()}
                                             </p>
                                         </div>
                                         <button

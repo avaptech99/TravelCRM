@@ -54,6 +54,20 @@ export const markNotificationAsRead = asyncHandler(async (req: Request, res: Res
     res.json(notification);
 });
 
+// @desc    Mark all notifications as read
+// @route   PUT /api/notifications/read-all
+// @access  Private
+export const markAllAsRead = asyncHandler(async (req: Request, res: Response) => {
+    await Notification.updateMany(
+        { userId: req.user?.id, read: false },
+        { $set: { read: true } }
+    );
+
+    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
+    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    res.json({ message: 'All notifications marked as read' });
+});
+
 // @desc    Dismiss a notification (hide from bell icon, keep in dashboard logs)
 // @route   PUT /api/notifications/:id/dismiss
 // @access  Private
