@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff } from 'lucide-react';
+import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
 import { Loader2 } from 'lucide-react';
 import { useGlobalSync } from '../hooks/useGlobalSync';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../api/client';
+import { toast } from 'sonner';
 
 const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
     const content = (
@@ -31,6 +34,21 @@ const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
+    const queryClient = useQueryClient();
+
+    const deleteNotificationMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await api.delete(`/notifications/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            toast.success('Notification deleted');
+        },
+        onError: () => {
+            toast.error('Failed to delete notification');
+        }
+    });
 
     // Single combined call for stats + recent bookings + notifications
     const { data: syncData, isLoading: isStatsLoading, isError, error, refetch } = useGlobalSync();
@@ -136,7 +154,7 @@ export const Dashboard: React.FC = () => {
                         {notifications && notifications.length > 0 ? (
                             <div className="divide-y divide-slate-50">
                                 {notifications.slice(0, 10).map((note: any) => (
-                                    <div key={note.id || note._id} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 ${!note.read ? 'bg-blue-50/30' : ''}`}>
+                                    <div key={note.id || note._id} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 group ${!note.read ? 'bg-blue-50/30' : ''}`}>
                                         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!note.read ? 'bg-blue-500' : 'bg-slate-200'}`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm leading-relaxed ${!note.read ? 'font-bold text-slate-900' : 'text-slate-600 font-medium'}`}>
@@ -146,6 +164,14 @@ export const Dashboard: React.FC = () => {
                                                 <Clock size={10} /> {new Date(note.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(note.createdAt).toLocaleDateString()}
                                             </p>
                                         </div>
+                                        <button
+                                            onClick={() => deleteNotificationMutation.mutate(note.id || note._id)}
+                                            disabled={deleteNotificationMutation.isPending}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all self-center flex-shrink-0"
+                                            title="Delete permanently"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>

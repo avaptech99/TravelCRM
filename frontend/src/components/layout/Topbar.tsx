@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, Bell, Settings } from 'lucide-react';
+import { LogOut, Bell, Settings, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
@@ -33,6 +33,28 @@ export const Topbar: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+        }
+    });
+
+    const dismissNotificationMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await api.put(`/notifications/${id}/dismiss`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+        }
+    });
+
+    const dismissAllNotificationsMutation = useMutation({
+        mutationFn: async () => {
+            await api.put('/notifications/dismiss-all');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+            toast.success('All notifications cleared');
         }
     });
 
@@ -57,7 +79,9 @@ export const Topbar: React.FC = () => {
         toggleStatusMutation.mutate(!isOnline);
     };
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    // Filter out dismissed notifications for bell icon
+    const visibleNotifications = notifications.filter((n: any) => !n.isDismissed);
+    const unreadCount = visibleNotifications.filter(n => !n.read).length;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -80,6 +104,11 @@ export const Topbar: React.FC = () => {
         if (notification.bookingId) {
             navigate(`/bookings/${notification.bookingId}`);
         }
+    };
+
+    const handleDismiss = (e: React.MouseEvent, notificationId: string) => {
+        e.stopPropagation();
+        dismissNotificationMutation.mutate(notificationId);
     };
 
     const handleLogout = async () => {
@@ -133,24 +162,35 @@ export const Topbar: React.FC = () => {
                         <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
                             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                                 <h3 className="font-semibold text-slate-800 text-sm">Notifications</h3>
-                                {unreadCount > 0 && (
-                                    <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">
-                                        {unreadCount} new
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {unreadCount > 0 && (
+                                        <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">
+                                            {unreadCount} new
+                                        </span>
+                                    )}
+                                    {visibleNotifications.length > 0 && (
+                                        <button
+                                            onClick={() => dismissAllNotificationsMutation.mutate()}
+                                            disabled={dismissAllNotificationsMutation.isPending}
+                                            className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                                        >
+                                            Clear All
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div className="max-h-[360px] overflow-y-auto">
-                                {notifications.length === 0 ? (
+                                {visibleNotifications.length === 0 ? (
                                     <div className="px-4 py-8 text-center text-sm text-slate-500">
                                         No notifications yet
                                     </div>
                                 ) : (
                                     <div className="divide-y divide-slate-100">
-                                        {notifications.map((notification) => (
+                                        {visibleNotifications.map((notification) => (
                                             <div 
                                                 key={notification._id} 
                                                 onClick={() => handleNotificationClick(notification)}
-                                                className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors flex gap-3 ${!notification.read ? 'bg-secondary/5' : ''}`}
+                                                className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors flex gap-3 group ${!notification.read ? 'bg-secondary/5' : ''}`}
                                             >
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm ${!notification.read ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>
@@ -160,11 +200,18 @@ export const Topbar: React.FC = () => {
                                                         {dayjs(notification.createdAt).format('MMM DD, h:mm A')}
                                                     </p>
                                                 </div>
-                                                {!notification.read && (
-                                                    <div className="flex-shrink-0 mt-1.5">
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    {!notification.read && (
                                                         <div className="w-2 h-2 rounded-full bg-secondary"></div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => handleDismiss(e, notification._id)}
+                                                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                        title="Dismiss"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
