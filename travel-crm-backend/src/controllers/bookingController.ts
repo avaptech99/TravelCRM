@@ -696,7 +696,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         }
     }
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).populate('primaryContact', 'contactName');
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -737,7 +737,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             await Notification.create({
                 userId: newAssignedUserId,
                 bookingId: id,
-                message: `Booking has been assigned to you.`,
+                message: `Lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
             });
 
             // Also notify the marketer who created the lead
@@ -785,7 +785,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Process in bulk
-    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    const bookings = await Booking.find({ _id: { $in: bookingIds } }).populate('primaryContact', 'contactName');
     
     // We'll use a for...of loop or map with Promise.all
     // For each booking, check if assignment changed, then update and create comment
@@ -814,7 +814,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
                 await Notification.create({
                     userId: newAgentId,
                     bookingId: booking._id,
-                    message: `Booking has been assigned to you.`,
+                    message: `Lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
                 });
 
                 // Also notify the marketer who created the lead
