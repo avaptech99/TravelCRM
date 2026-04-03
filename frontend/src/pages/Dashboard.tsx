@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useGlobalSync } from '../hooks/useGlobalSync';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +36,7 @@ export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const deleteNotificationMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -47,6 +49,23 @@ export const Dashboard: React.FC = () => {
         },
         onError: () => {
             toast.error('Failed to delete notification');
+        }
+    });
+
+    const deleteAllNotificationsMutation = useMutation({
+        mutationFn: async () => {
+            // Delete all notifications one by one (or we can add a backend route)
+            // For now, use the dismiss-all then the sync will show empty
+            const ids = notifications?.map((n: any) => n.id || n._id) || [];
+            await Promise.all(ids.map((id: string) => api.delete(`/notifications/${id}`)));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['global-sync', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+            toast.success('All notifications cleared');
+        },
+        onError: () => {
+            toast.error('Failed to clear notifications');
         }
     });
 
@@ -149,12 +168,21 @@ export const Dashboard: React.FC = () => {
                             </h2>
                             <p className="text-slate-500 text-xs mt-1">System updates and important alerts.</p>
                         </div>
+                        {notifications && notifications.length > 0 && (
+                            <button
+                                onClick={() => deleteAllNotificationsMutation.mutate()}
+                                disabled={deleteAllNotificationsMutation.isPending}
+                                className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
+                            >
+                                {deleteAllNotificationsMutation.isPending ? 'Clearing...' : 'Clear All'}
+                            </button>
+                        )}
                     </div>
                     <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-1">
                         {notifications && notifications.length > 0 ? (
                             <div className="divide-y divide-slate-50">
                                 {notifications.slice(0, 10).map((note: any) => (
-                                    <div key={note.id || note._id} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 group ${!note.read ? 'bg-blue-50/30' : ''}`}>
+                                    <div key={note.id || note._id} onClick={() => note.bookingId && navigate(`/bookings/${note.bookingId}`)} className={`p-4 hover:bg-slate-50 transition-all flex gap-3 group ${note.bookingId ? 'cursor-pointer' : ''} ${!note.read ? 'bg-blue-50/30' : ''}`}>
                                         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!note.read ? 'bg-blue-500' : 'bg-slate-200'}`} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm leading-relaxed ${!note.read ? 'font-bold text-slate-900' : 'text-slate-600 font-medium'}`}>
@@ -165,7 +193,7 @@ export const Dashboard: React.FC = () => {
                                             </p>
                                         </div>
                                         <button
-                                            onClick={() => deleteNotificationMutation.mutate(note.id || note._id)}
+                                            onClick={(e) => { e.stopPropagation(); deleteNotificationMutation.mutate(note.id || note._id); }}
                                             disabled={deleteNotificationMutation.isPending}
                                             className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all self-center flex-shrink-0"
                                             title="Delete permanently"
