@@ -410,10 +410,10 @@ export const BookingTravelers: React.FC = () => {
                 }));
             }
 
-            // 4. Auto-update status to Booked if any payment exists (pre-existing or new)
-            if (totalPaid > 0 || (!isNaN(payAmt) && payAmt > 0)) {
-                promises.push(api.patch(`/bookings/${id}/status`, { status: 'Booked' }));
-            }
+            // Removed auto-update status to Booked as per user feedback
+            // if (totalPaid > 0 || (!isNaN(payAmt) && payAmt > 0)) {
+            //     promises.push(api.patch(`/bookings/${id}/status`, { status: 'Booked' }));
+            // }
 
             await Promise.all(promises);
         },
