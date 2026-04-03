@@ -20,9 +20,11 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     const location = useLocation();
     const { user } = useAuth();
 
+    const assignedId = (booking.assignedToUserId as any)?._id || booking.assignedToUserId;
+    const createdById = (booking.createdByUserId as any)?._id || booking.createdByUserId;
     const canEdit = user?.role === 'ADMIN' || 
-                   (user?.role === 'AGENT' && (booking.assignedToUserId === user.id || booking.createdByUserId === user.id)) ||
-                   (user?.role === 'MARKETER' && booking.createdByUserId === user.id && !booking.assignedToUserId);
+                   (user?.role === 'AGENT' && (String(assignedId) === user.id || String(createdById) === user.id)) ||
+                   (user?.role === 'MARKETER' && String(createdById) === user.id && !booking.assignedToUserId);
 
     const canDelete = user?.role === 'ADMIN';
 

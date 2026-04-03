@@ -32,7 +32,8 @@ export const BookingDetails: React.FC = () => {
 
     const isMarketer = user?.role === 'MARKETER';
     const isAgent = user?.role === 'AGENT';
-    const isAssignedToMe = booking?.assignedToUserId === user?.id;
+    const assignedId = booking?.assignedToUserId?._id || booking?.assignedToUserId;
+    const isAssignedToMe = !!assignedId && String(assignedId) === user?.id;
     const isReadOnly = isAgent && !isAssignedToMe;
     
     // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
