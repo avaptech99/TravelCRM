@@ -849,7 +849,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Invalid comment input');
     }
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).populate('primaryContact', 'contactName');
 
     if (!booking) {
         res.status(404);
@@ -875,7 +875,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         await Notification.create({
             userId: booking.assignedToUserId,
             bookingId: id,
-            message: `Marketer ${req.user.name} added a remark on lead ${booking.destination || 'Unassigned'}.`,
+            message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
         });
     }
 
