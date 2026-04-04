@@ -261,3 +261,15 @@ const mutation = useMutation({
 - [ ] Set up monitoring (UptimeRobot or similar for health endpoint)
 - [ ] Remove duplicate routes in `userRoutes.ts`
 - [ ] Document any custom changes made after this handoff
+
+---
+
+### 10. Mongoose Populated ObjectIDs and Authorization Checks
+When objects are populated (e.g., `booking.assignedToUserId`), the field holds a full Mongoose Document object rather than a simple `ObjectId`. Using direct `.toString()` comparison might return `[object Object]` or throw an error, causing authorization logic to fail and return `403 Forbidden` incorrectly. 
+Always ensure you safely extract the ID using an overarching helper like `getObjectIdString` when writing auth conditionals:
+```typescript
+const getObjectIdString = (field: any): string | null => {
+    if (!field) return null;
+    return (field as any)._id?.toString() || field.toString();
+};
+```

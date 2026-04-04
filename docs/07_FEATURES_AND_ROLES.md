@@ -112,7 +112,8 @@ When a booking is created with "Requirements" text, the system automatically:
 - "Website Lead" system account is hidden from UI
 
 ### 11. 🔔 Notification System
-Automatic notifications are created for:
+Automatic notifications are created for workflows without being generic:
+*Dynamic generation pulls the Lead's Contact Person strictly instead of just defaulting to "booking" or "unassigned."*
 | Trigger | Recipients |
 |---|---|
 | Booking assigned to agent | The assigned agent |
