@@ -31,17 +31,24 @@ export const handleMissedCallWebhook = asyncHandler(async (req: Request, res: Re
         throw new Error('Phone number is required');
     }
 
-    // 1. Normalize number for lookup
+    // 1. Prepare system data
     const normalizedNumber = number.replace(/[\s\-\(\)\+]/g, '');
     const phoneLeadUser = await getPhoneLeadUser();
 
-    // 2. Clean Name: Simplify "Unknown Caller (+91...)" to just "Unknown"
+    // 2. Check CRM for existing contact
+    let contact = await PrimaryContact.findOne({ 
+        contactPhoneNo: { $regex: new RegExp(normalizedNumber + '$') } 
+    });
+
+    // 3. Determine Name: Prioritize CRM name, then incoming name, fallback to "Unknown"
     let finalName = 'Unknown';
-    if (name && typeof name === 'string' && !name.toLowerCase().includes('unknown caller')) {
+    if (contact && contact.contactName) {
+        finalName = contact.contactName; 
+    } else if (name && typeof name === 'string' && !name.toLowerCase().includes('unknown caller')) {
         finalName = name;
     }
 
-    // 3. Format Date: 2026-04-04 13:58 -> 13:58 4/4/2026
+    // 4. Format Date: 2026-04-04 13:58 -> 13:58 4/4/2026
     const formatDateTime = (raw: string) => {
         if (!raw || typeof raw !== 'string' || !raw.includes(' ')) return raw || new Date().toLocaleString();
         try {
@@ -56,11 +63,7 @@ export const handleMissedCallWebhook = asyncHandler(async (req: Request, res: Re
     const displayTime = formatDateTime(receivedAt);
     const commentText = `Miss Call from ${finalName} , ${displayTime}`;
 
-    // 4. Check for existing contact
-    let contact = await PrimaryContact.findOne({ 
-        contactPhoneNo: { $regex: new RegExp(normalizedNumber + '$') } 
-    });
-
+    // 5. Handle existing contact: Add comment and Notify agent
     if (contact) {
         const latestBooking = await Booking.findOne({ primaryContactId: contact._id }).sort({ createdAt: -1 });
         if (latestBooking) {
@@ -69,15 +72,13 @@ export const handleMissedCallWebhook = asyncHandler(async (req: Request, res: Re
                 createdById: phoneLeadUser._id,
                 text: commentText,
             });
-
-            // Notify the assigned agent if one exists
+            
             if (latestBooking.assignedToUserId) {
                 await Notification.create({
                     userId: latestBooking.assignedToUserId,
                     bookingId: latestBooking._id,
                     message: `Missed call from ${finalName} (${contact.contactPhoneNo}) for your assigned lead ${latestBooking.uniqueCode}.`,
                 });
-                // Invalidate the agent's notification cache
                 appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
             }
             
@@ -87,7 +88,7 @@ export const handleMissedCallWebhook = asyncHandler(async (req: Request, res: Re
         }
     }
 
-    // 5. Create new Lead if contact/booking not found
+    // 6. Create new Lead if contact/booking not found
     if (!contact) {
         contact = await PrimaryContact.create({
             contactName: finalName,
