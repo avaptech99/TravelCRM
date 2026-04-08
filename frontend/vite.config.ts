@@ -11,6 +11,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
+      useCredentials: true,
       includeAssets: ['icons/pwa-192x192.png', 'icons/pwa-512x512.png'],
       manifest: {
         name: 'Travel CRM Pro',
