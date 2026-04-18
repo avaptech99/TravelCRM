@@ -303,6 +303,27 @@ All queries run in **parallel** via `Promise.all`. Result cached for 30 seconds.
 - `getMyNotifications` — Returns user's latest 20 notifications (cached 30s)
 - `markNotificationAsRead` — Marks single notification as read, invalidates cache
 
+### `webhookController.ts`
+
+Handles incoming **GDMS (Grandstream PBX)** CDR webhooks:
+
+| Function | Route | What It Does |
+|---|---|---|
+| `receiveMissedCall` | POST /missed-call | Receives CDR payload from GDMS PBX, filters for missed calls, integrates into CRM |
+
+**Flow:**
+1. Validates HTTP Basic Auth credentials (`GDMS_WEBHOOK_USER` / `GDMS_WEBHOOK_PASS` env vars)
+2. Parses flexible CDR payload (supports `cdr_root` array, flat array, single object)
+3. Filters: Only processes calls with `disposition !== 'ANSWERED'` (missed/busy/failed)
+4. Deduplicates by `uniqueId` — skips already-processed CDRs
+5. For each missed call:
+   - **Existing contact** → Adds comment to latest booking (e.g., `Miss Call from Anmoldeep , 14:15 18/4/2026`) + notifies the assigned agent
+   - **New number** → Creates a new `PrimaryContact` + `Booking` (status: `Pending`, created by system user `Phone Lead`)
+6. Saves record in `MissedCall` collection as audit log with `isProcessed: true`
+
+**System User — "Phone Lead":**
+A dedicated system account (`phone-lead@system.internal`) is auto-created on first use. It acts as the `createdByUserId` for all automated leads. It has no real password and cannot log in.
+
 ---
 
 ## 6. Routes
@@ -316,6 +337,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/sync', syncRoutes);         // Dashboard polling
 app.use('/api/external', externalRoutes); // WordPress intake
+app.use('/api/webhook', webhookRoutes);   // GDMS PBX missed call webhook
 ```
 
 ### Important Route Order in `bookingRoutes.ts`:

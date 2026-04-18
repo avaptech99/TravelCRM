@@ -210,6 +210,30 @@
 // Indexes: { userId, read }, { userId, createdAt }, bookingId
 ```
 
+### `missedcalls`
+```javascript
+{
+  _id: ObjectId,
+  callerNumber: "9876543210",        // Required — caller's phone number
+  callerName: "Customer Name",       // From PBX caller ID or empty
+  calledNumber: "1004",              // Extension/number that was called
+  callTime: ISODate,                 // When the call started (Required)
+  endTime: ISODate,                  // When the call ended (nullable)
+  duration: 15,                      // Total ring duration in seconds
+  billsec: 0,                        // Billed seconds (0 = not answered)
+  disposition: "NO ANSWER",          // "NO ANSWER", "BUSY", "FAILED", etc.
+  uniqueId: "1713427200.42",         // PBX unique call ID (Required, unique)
+  channel: "PJSIP/1004",            // PBX channel info
+  userfield: "Internal",             // PBX user field
+  rawPayload: { /* full CDR */ },    // Original CDR data for debugging
+  isReviewed: false,                 // Manual review flag
+  isProcessed: true,                 // Whether CRM integration was done
+  createdAt: ISODate,
+  updatedAt: ISODate
+}
+// Indexes: callTime, callerNumber, isReviewed, disposition
+```
+
 ### `counters`
 ```javascript
 {

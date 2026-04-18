@@ -14,7 +14,8 @@
 6. [Environment Variables Reference](#6-environment-variables-reference)
 7. [Database Setup (MongoDB Atlas)](#7-database-setup-mongodb-atlas)
 8. [WordPress Integration Setup](#8-wordpress-integration-setup)
-9. [Troubleshooting Deployment](#9-troubleshooting-deployment)
+9. [GDMS PBX Integration Setup](#9-gdms-pbx-integration-setup-grandstream)
+10. [Troubleshooting Deployment](#10-troubleshooting-deployment)
 
 ---
 
@@ -67,6 +68,8 @@ MONGODB_URI="mongodb+srv://your-user:your-pass@your-cluster.mongodb.net/travel-c
 JWT_SECRET="your-random-secret-key-minimum-32-chars"
 BASE_URL="http://localhost:5000"
 EXTERNAL_API_KEY="crm-wp-integration-2026"
+GDMS_WEBHOOK_USER="your-gdms-username"
+GDMS_WEBHOOK_PASS="your-gdms-password"
 ```
 
 ### Step 4: Seed the Database (First Time Only)
@@ -141,6 +144,8 @@ In Render's dashboard, add these environment variables:
 | `JWT_SECRET` | `your-random-secret-key` |
 | `BASE_URL` | `https://your-service-name.onrender.com` |
 | `EXTERNAL_API_KEY` | `crm-wp-integration-2026` |
+| `GDMS_WEBHOOK_USER` | `your-gdms-username` |
+| `GDMS_WEBHOOK_PASS` | `your-gdms-password` |
 | `NODE_ENV` | `production` |
 
 ### Step 4: Deploy
@@ -198,6 +203,8 @@ Vercel auto-deploys on push. The `vercel.json` handles:
 | `JWT_SECRET` | **Yes** | `fallback-secret-for-dev` | Secret for JWT signing |
 | `BASE_URL` | No | — | Full URL of the backend (enables self-ping) |
 | `EXTERNAL_API_KEY` | No | — | API key for WordPress integration |
+| `GDMS_WEBHOOK_USER` | No | — | Username for GDMS PBX Basic Auth |
+| `GDMS_WEBHOOK_PASS` | No | — | Password for GDMS PBX Basic Auth |
 | `NODE_ENV` | No | `development` | Set to `production` for prod |
 
 ### Frontend Environment
@@ -252,7 +259,49 @@ Mongoose creates collections and indexes automatically when the app first runs.
 
 ---
 
-## 9. Troubleshooting Deployment
+## 9. GDMS PBX Integration Setup (Grandstream)
+
+### On the PBX Side (Grandstream UCM Web GUI)
+
+1. Log in to your Grandstream UCM admin panel
+2. Navigate to **CDR** → **CDR Real-Time Output** (or **Settings** → **CDR** depending on firmware)
+3. Enable **CDR Real-Time Output**
+4. Set the **Server URL** to:
+   ```
+   https://your-backend.onrender.com/api/webhook/missed-call
+   ```
+5. Set **Authentication** to **Basic Auth**
+6. Enter the username and password matching your `GDMS_WEBHOOK_USER` and `GDMS_WEBHOOK_PASS` env vars
+7. Set **Format** to **JSON** (if available)
+8. Save and apply changes
+
+### On the CRM Side
+
+1. Set `GDMS_WEBHOOK_USER` and `GDMS_WEBHOOK_PASS` in your backend `.env`
+2. Deploy the backend
+3. Make a test missed call to your PBX
+4. Check the CRM dashboard — a new lead should appear (if unknown number) or a comment should be added (if known number)
+
+### How It Works
+```
+Phone rings & is missed
+    │
+    ▼
+Grandstream PBX generates CDR
+    │
+    ▼
+HTTP POST to /api/webhook/missed-call (with Basic Auth)
+    │
+    ▼
+Backend checks if caller number exists in PrimaryContact
+    │
+    ├── Known number → Adds comment to latest booking + notifies agent
+    └── Unknown number → Creates new PrimaryContact + Booking (Pending)
+```
+
+---
+
+## 10. Troubleshooting Deployment
 
 ### Build Fails on Vercel
 - Check that **Root Directory** is set to `frontend`

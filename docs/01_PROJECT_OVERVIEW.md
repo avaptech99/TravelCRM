@@ -42,35 +42,36 @@ This is a **full-stack CRM (Customer Relationship Management) system** built for
 ## Architecture Diagram
 
 ```
-┌─────────────────────────┐      ┌─────────────────────────┐
-│    FRONTEND (Vercel)    │      │   WordPress Website     │
-│    React + Vite + TS    │      │   (Ninja Forms)         │
-│    Port: 5173 (dev)     │      │                         │
-└──────────┬──────────────┘      └──────────┬──────────────┘
-           │                                │
-           │ Axios HTTP                     │ PHP cURL
-           │ (Bearer JWT Token)             │ (X-API-KEY Header)
-           ▼                                ▼
-┌─────────────────────────────────────────────────────────┐
-│              BACKEND (Render)                           │
-│              Node.js + Express + TypeScript              │
-│              Port: 5000                                  │
-│                                                         │
-│  /api/auth       → Login, Seed                          │
-│  /api/bookings   → CRUD, Passengers, Payments, Calendar │
-│  /api/users      → User Management                      │
-│  /api/analytics  → Reports & Charts                     │
-│  /api/sync       → Dashboard polling (single endpoint)  │
-│  /api/notifications → User notifications                │
-│  /api/external   → WordPress lead intake                │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-                       │ Mongoose ODM
-                       ▼
-              ┌──────────────────┐
-              │  MongoDB Atlas   │
-              │  (Free Tier)     │
-              └──────────────────┘
+┌─────────────────────────┐      ┌─────────────────────────┐      ┌─────────────────────────┐
+│    FRONTEND (Vercel)    │      │   WordPress Website     │      │   Grandstream PBX       │
+│    React + Vite + TS    │      │   (Ninja Forms)         │      │   (GDMS/UCM)            │
+│    Port: 5173 (dev)     │      │                         │      │   CDR Real-Time Output  │
+└──────────┬──────────────┘      └──────────┬──────────────┘      └──────────┬──────────────┘
+           │                                │                                │
+           │ Axios HTTP                     │ PHP cURL                      │ HTTP POST
+           │ (Bearer JWT Token)             │ (X-API-KEY Header)            │ (Basic Auth)
+           ▼                                ▼                                ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│              BACKEND (Render)                                                               │
+│              Node.js + Express + TypeScript                                                  │
+│              Port: 5000                                                                      │
+│                                                                                             │
+│  /api/auth       → Login, Seed                                                              │
+│  /api/bookings   → CRUD, Passengers, Payments, Calendar                                     │
+│  /api/users      → User Management                                                          │
+│  /api/analytics  → Reports & Charts                                                         │
+│  /api/sync       → Dashboard polling (single endpoint)                                      │
+│  /api/notifications → User notifications                                                    │
+│  /api/external   → WordPress lead intake                                                    │
+│  /api/webhook    → GDMS PBX missed call intake                                              │
+└──────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                               │
+                               │ Mongoose ODM
+                               ▼
+                      ┌──────────────────┐
+                      │  MongoDB Atlas   │
+                      │  (Free Tier)     │
+                      └──────────────────┘
 ```
 
 ---
@@ -81,7 +82,8 @@ This is a **full-stack CRM (Customer Relationship Management) system** built for
 2. **Dashboard loads** → Frontend polls `/api/sync` every 20 seconds → Returns stats, recent bookings, and notifications in one call (saves API requests).
 3. **New booking created** → Frontend sends form data to `POST /api/bookings` → Backend creates a `PrimaryContact` + `Booking` → NLP extracts travel info from requirements text.
 4. **WordPress form submitted** → PHP script sends all form fields to `POST /api/external/lead` with API key → Backend parses fields, creates PrimaryContact + Booking automatically.
-5. **Agent works on booking** → Updates status, adds passengers/travelers, records payments → Each action invalidates the in-memory cache.
+5. **PBX missed call** → Grandstream PBX sends CDR to `POST /api/webhook/missed-call` with Basic Auth → Backend checks if caller exists in CRM → Adds comment to existing lead OR creates a new `Pending` lead → Notifies assigned agent.
+6. **Agent works on booking** → Updates status, adds passengers/travelers, records payments → Each action invalidates the in-memory cache.
 
 ---
 
@@ -122,6 +124,8 @@ MONGODB_URI="mongodb+srv://..."
 JWT_SECRET="your-secret-key"
 BASE_URL="https://your-backend.onrender.com"
 EXTERNAL_API_KEY="crm-wp-integration-2026"
+GDMS_WEBHOOK_USER="your-gdms-username"
+GDMS_WEBHOOK_PASS="your-gdms-password"
 ```
 
 **Frontend** (set in Vercel dashboard or `.env` in `frontend/`):

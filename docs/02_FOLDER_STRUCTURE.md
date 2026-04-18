@@ -70,6 +70,7 @@ travel-crm-backend/
     │   ├── User.ts             # User accounts (Admin, Agent, Marketer)
     │   ├── Notification.ts     # In-app notifications (assignment alerts, status changes)
     │   ├── Activity.ts         # Activity/audit log entries per booking
+    │   ├── MissedCall.ts       # GDMS PBX missed call audit log (CDR records)
     │   └── Counter.ts          # Auto-increment counter for sequential booking codes (TW0001, TW0002...)
     │
     ├── controllers/            # 🧠 Business logic handlers
@@ -79,7 +80,8 @@ travel-crm-backend/
     │   ├── analyticsController.ts   # Aggregation queries for reports (bookings, payments, revenue, agents)
     │   ├── syncController.ts        # Single consolidated endpoint for dashboard data
     │   ├── notificationController.ts# Notification fetch + mark-as-read
-    │   └── externalController.ts    # WordPress lead intake (raw field parsing, multi-city handling)
+    │   ├── externalController.ts    # WordPress lead intake (raw field parsing, multi-city handling)
+    │   └── webhookController.ts     # GDMS PBX missed call webhook (CDR → CRM integration)
     │
     ├── routes/                 # 🛣️ Express route definitions
     │   ├── authRoutes.ts       # POST /login + GET /seed (temporary)
@@ -88,7 +90,8 @@ travel-crm-backend/
     │   ├── analyticsRoutes.ts  # GET /api/analytics/* (admin-only)
     │   ├── syncRoutes.ts       # GET /api/sync (dashboard polling)
     │   ├── notificationRoutes.ts  # GET/PUT /api/notifications/*
-    │   └── externalRoutes.ts   # POST /api/external/lead (WordPress intake)
+    │   ├── externalRoutes.ts   # POST /api/external/lead (WordPress intake)
+    │   └── webhookRoutes.ts    # POST /api/webhook/missed-call (GDMS PBX)
     │
     ├── utils/                  # 🔧 Helper utilities
     │   ├── cache.ts            # In-memory TTL cache (Map-based, no Redis)
