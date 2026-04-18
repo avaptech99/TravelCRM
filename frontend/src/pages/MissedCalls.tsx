@@ -24,6 +24,8 @@ export const MissedCalls: React.FC = () => {
             return res.data;
         },
         refetchInterval: 30000, // Auto-refresh every 30 seconds
+        refetchIntervalInBackground: true, // Keep polling even when tab is not focused
+        staleTime: 0, // Always treat data as stale so refetchInterval fires a real request
     });
 
     const toggleReviewMutation = useMutation({
