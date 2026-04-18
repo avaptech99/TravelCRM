@@ -14,6 +14,7 @@ export interface IMissedCall extends Document {
     userfield: string;
     rawPayload: any;
     isReviewed: boolean;
+    isProcessed: boolean;
     createdAt: Date;
 }
 
@@ -69,6 +70,10 @@ const missedCallSchema: Schema = new Schema(
             default: {},
         },
         isReviewed: {
+            type: Boolean,
+            default: false,
+        },
+        isProcessed: {
             type: Boolean,
             default: false,
         },

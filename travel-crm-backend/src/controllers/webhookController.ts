@@ -178,9 +178,9 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             continue;
         }
 
-        // Deduplicate: skip if we already processed this CDR
+        // Deduplicate: skip only if we already processed this CDR into the CRM
         const existing = await MissedCall.findOne({ uniqueId });
-        if (existing) {
+        if (existing && existing.isProcessed) {
             skippedCount++;
             continue;
         }
@@ -200,29 +200,30 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             const result = await processMissedCallIntoCRM(callerNumber, callerName, callTime);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber}`);
 
-            // 2. Save to MissedCall log for audit trail
-            await MissedCall.create({
-                callerNumber,
-                callerName,
-                calledNumber: cdr.dst || '',
-                callTime,
-                endTime,
-                duration: parseInt(cdr.duration || '0', 10),
-                billsec,
-                disposition: cdr.disposition || 'UNKNOWN',
-                uniqueId,
-                channel: cdr.channel || '',
-                userfield: cdr.userfield || '',
-                rawPayload: cdr,
-            });
+            // 2. Save/update MissedCall log and mark as processed
+            await MissedCall.findOneAndUpdate(
+                { uniqueId },
+                {
+                    callerNumber,
+                    callerName,
+                    calledNumber: cdr.dst || '',
+                    callTime,
+                    endTime,
+                    duration: parseInt(cdr.duration || '0', 10),
+                    billsec,
+                    disposition: cdr.disposition || 'UNKNOWN',
+                    uniqueId,
+                    channel: cdr.channel || '',
+                    userfield: cdr.userfield || '',
+                    rawPayload: cdr,
+                    isProcessed: true,
+                },
+                { upsert: true, new: true }
+            );
 
             processedCount++;
         } catch (err: any) {
-            if (err.code === 11000) {
-                skippedCount++;
-            } else {
-                console.error(`[GDMS Webhook] Error processing CDR ${uniqueId}:`, err.message);
-            }
+            console.error(`[GDMS Webhook] Error processing CDR ${uniqueId}:`, err.message);
         }
     }
 
