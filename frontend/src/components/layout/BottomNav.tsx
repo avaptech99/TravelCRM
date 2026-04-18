@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, UserSquare, Calendar, Users, BarChart3, PhoneMissed } from 'lucide-react';
+import { LayoutDashboard, FileText, UserSquare, Calendar, Users, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 
@@ -20,7 +20,6 @@ export const BottomNav: React.FC = () => {
         { label: 'Calendar', path: '/calendar', icon: <Calendar size={18} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={18} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={18} />, roles: ['ADMIN'] },
-        { label: 'Missed Calls', path: '/missed-calls', icon: <PhoneMissed size={18} />, roles: ['ADMIN', 'AGENT'] },
     ];
 
     const visibleItems = navItems.filter(item => item.roles.includes(user?.role || ''));

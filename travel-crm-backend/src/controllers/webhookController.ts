@@ -1,6 +1,111 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
+import Booking from '../models/Booking';
+import PrimaryContact from '../models/PrimaryContact';
+import User from '../models/User';
+import Comment from '../models/Comment';
+import Notification from '../models/Notification';
 import MissedCall from '../models/MissedCall';
+import appCache from '../utils/cache';
+
+// Helper: Find or create a system user named "Phone Lead"
+const getPhoneLeadUser = async () => {
+    let user = await User.findOne({ email: 'phone-lead@system.internal' });
+    if (!user) {
+        user = await User.create({
+            name: 'Phone Lead',
+            email: 'phone-lead@system.internal',
+            passwordHash: 'PHONE_LEAD_SYSTEM_NO_LOGIN',
+            role: 'AGENT',
+        });
+    }
+    return user;
+};
+
+// Helper: Format date for comment text — "14:15 4/4/2026"
+const formatCallTime = (date: Date): string => {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    return `${hours}:${minutes} ${day}/${month}/${year}`;
+};
+
+// Core: Process a single missed call into the CRM
+const processMissedCallIntoCRM = async (callerNumber: string, callerName: string, callTime: Date) => {
+    const phoneLeadUser = await getPhoneLeadUser();
+
+    // Normalize number for lookup (strip spaces, dashes, + etc.)
+    const normalizedNumber = callerNumber.replace(/[\s\-\(\)\+]/g, '');
+
+    // Check CRM for existing contact
+    let contact = await PrimaryContact.findOne({
+        contactPhoneNo: { $regex: new RegExp(normalizedNumber + '$') },
+    });
+
+    // Determine name: Prioritize CRM name > caller name from PBX > "Unknown"
+    let finalName = 'Unknown';
+    if (contact && contact.contactName) {
+        finalName = contact.contactName;
+    } else if (callerName && callerName !== callerNumber) {
+        finalName = callerName;
+    }
+
+    const displayTime = formatCallTime(callTime);
+    const commentText = `Miss Call from ${finalName} , ${displayTime}`;
+
+    // Existing contact — add comment to latest booking + notify agent
+    if (contact) {
+        const latestBooking = await Booking.findOne({ primaryContactId: contact._id }).sort({ createdAt: -1 });
+        if (latestBooking) {
+            await Comment.create({
+                bookingId: latestBooking._id,
+                createdById: phoneLeadUser._id,
+                text: commentText,
+            });
+
+            // Notify assigned agent
+            if (latestBooking.assignedToUserId) {
+                await Notification.create({
+                    userId: latestBooking.assignedToUserId,
+                    bookingId: latestBooking._id,
+                    message: `Missed call from ${finalName} (${contact.contactPhoneNo}) on your lead ${latestBooking.uniqueCode}.`,
+                });
+                appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
+            }
+
+            appCache.invalidateByPrefix('bookings_');
+            return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
+        }
+    }
+
+    // New contact — create lead
+    if (!contact) {
+        contact = await PrimaryContact.create({
+            contactName: finalName,
+            contactPhoneNo: callerNumber,
+            bookingType: 'Direct (B2C)',
+            requirements: commentText,
+        });
+    }
+
+    const booking = await Booking.create({
+        primaryContactId: contact._id,
+        createdByUserId: phoneLeadUser._id,
+        status: 'Pending',
+        destination: null,
+        flightFrom: null,
+        flightTo: null,
+        segments: [],
+    });
+
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.invalidateByPrefix('recent_');
+
+    return { action: 'lead_created', contactId: contact._id, bookingId: booking._id };
+};
 
 // @desc    Receive CDR webhook from GDMS/UCM
 // @route   POST /api/webhook/missed-call
@@ -31,16 +136,12 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
     let cdrRoot: any[] = [];
 
     if (req.body.cdr_root && Array.isArray(req.body.cdr_root)) {
-        // Format 1: { cdr_root: [ {...}, {...} ] }
         cdrRoot = req.body.cdr_root;
     } else if (Array.isArray(req.body)) {
-        // Format 2: [ {...}, {...} ]
         cdrRoot = req.body;
     } else if (req.body.src || req.body.uniqueid) {
-        // Format 3: Single CDR object { src: "...", dst: "...", ... }
         cdrRoot = [req.body];
     } else {
-        // Format 4: Try to find any array inside the payload
         const arrayKey = Object.keys(req.body).find(key => Array.isArray(req.body[key]));
         if (arrayKey) {
             cdrRoot = req.body[arrayKey];
@@ -49,22 +150,20 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
     }
 
     if (cdrRoot.length === 0) {
-        // Still save the raw payload for debugging even if we can't parse it
         console.error('[GDMS Webhook] Could not parse CDR data. Raw body keys:', Object.keys(req.body));
-        console.error('[GDMS Webhook] Raw body:', JSON.stringify(req.body));
         res.status(200).json({
             success: true,
-            message: 'Payload received but no CDR records found. Raw payload logged for debugging.',
+            message: 'Payload received but no CDR records found. Raw payload logged.',
             rawKeys: Object.keys(req.body),
         });
         return;
     }
 
-    let savedCount = 0;
+    let processedCount = 0;
     let skippedCount = 0;
 
     for (const cdr of cdrRoot) {
-        // Filter: Only store missed calls (not answered)
+        // Filter: Only process missed calls (not answered)
         const disposition = (cdr.disposition || '').toUpperCase();
         const billsec = parseInt(cdr.billsec || '0', 10);
 
@@ -79,98 +178,60 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             continue;
         }
 
-        // Parse dates from GDMS format (e.g. "2019-11-27 07:17:08")
+        // Deduplicate: skip if we already processed this CDR
+        const existing = await MissedCall.findOne({ uniqueId });
+        if (existing) {
+            skippedCount++;
+            continue;
+        }
+
+        const callerNumber = cdr.src || '';
+        const callerName = cdr.caller_name || cdr.src || '';
         const callTime = cdr.start ? new Date(cdr.start) : new Date();
         const endTime = cdr.end ? new Date(cdr.end) : null;
 
+        if (!callerNumber) {
+            skippedCount++;
+            continue;
+        }
+
         try {
-            await MissedCall.findOneAndUpdate(
-                { uniqueId },
-                {
-                    callerNumber: cdr.src || '',
-                    callerName: cdr.caller_name || cdr.src || '',
-                    calledNumber: cdr.dst || '',
-                    callTime,
-                    endTime,
-                    duration: parseInt(cdr.duration || '0', 10),
-                    billsec,
-                    disposition: cdr.disposition || 'UNKNOWN',
-                    uniqueId,
-                    channel: cdr.channel || '',
-                    userfield: cdr.userfield || '',
-                    rawPayload: cdr,
-                },
-                { upsert: true, new: true }
-            );
-            savedCount++;
+            // 1. Process into CRM (add comment or create lead)
+            const result = await processMissedCallIntoCRM(callerNumber, callerName, callTime);
+            console.log(`[GDMS Webhook] ${result.action} for ${callerNumber}`);
+
+            // 2. Save to MissedCall log for audit trail
+            await MissedCall.create({
+                callerNumber,
+                callerName,
+                calledNumber: cdr.dst || '',
+                callTime,
+                endTime,
+                duration: parseInt(cdr.duration || '0', 10),
+                billsec,
+                disposition: cdr.disposition || 'UNKNOWN',
+                uniqueId,
+                channel: cdr.channel || '',
+                userfield: cdr.userfield || '',
+                rawPayload: cdr,
+            });
+
+            processedCount++;
         } catch (err: any) {
-            // Duplicate key errors are fine (deduplication working)
             if (err.code === 11000) {
                 skippedCount++;
             } else {
-                console.error(`[GDMS Webhook] Error saving CDR ${uniqueId}:`, err.message);
+                console.error(`[GDMS Webhook] Error processing CDR ${uniqueId}:`, err.message);
             }
         }
     }
 
-    console.log(`[GDMS Webhook] Processed ${cdrRoot.length} CDRs: ${savedCount} saved, ${skippedCount} skipped`);
+    console.log(`[GDMS Webhook] Processed ${cdrRoot.length} CDRs: ${processedCount} integrated, ${skippedCount} skipped`);
 
     res.status(200).json({
         success: true,
         message: `Processed ${cdrRoot.length} CDR records`,
-        saved: savedCount,
+        integrated: processedCount,
         skipped: skippedCount,
     });
-});
-
-// @desc    Get all missed calls (paginated)
-// @route   GET /api/webhook/missed-calls
-// @access  Protected (JWT)
-export const getMissedCalls = asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const search = (req.query.search as string) || '';
-
-    const filter: any = {};
-    if (search) {
-        filter.$or = [
-            { callerNumber: { $regex: search, $options: 'i' } },
-            { callerName: { $regex: search, $options: 'i' } },
-            { calledNumber: { $regex: search, $options: 'i' } },
-        ];
-    }
-
-    const total = await MissedCall.countDocuments(filter);
-    const missedCalls = await MissedCall.find(filter)
-        .sort({ callTime: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean();
-
-    res.json({
-        missedCalls,
-        pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-        },
-    });
-});
-
-// @desc    Toggle reviewed status
-// @route   PATCH /api/webhook/missed-calls/:id/review
-// @access  Protected (JWT)
-export const toggleReviewed = asyncHandler(async (req: Request, res: Response) => {
-    const call = await MissedCall.findById(req.params.id);
-
-    if (!call) {
-        res.status(404);
-        throw new Error('Missed call not found');
-    }
-
-    call.isReviewed = !call.isReviewed;
-    await call.save();
-
-    res.json({ success: true, isReviewed: call.isReviewed });
 });

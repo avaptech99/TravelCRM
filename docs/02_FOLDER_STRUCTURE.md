@@ -27,6 +27,9 @@ CRM/
 │   ├── 08_DEPLOYMENT_GUIDE.md
 │   └── 09_COMMON_BUGS_AND_GOTCHAS.md
 │
+├── .planning/                          # 📝 Planning & Architecture Docs
+│   └── codebase/                       # Recent codebase analysis & roadmap
+│
 ├── frontend/                           # React frontend app
 └── travel-crm-backend/                 # Express backend API
 ```
@@ -120,7 +123,9 @@ frontend/
 ├── replace_color.cjs           # Build script for color replacement (theme tooling)
 ├── dist/                       # Production build output
 ├── public/                     # Static assets
-│
+│   ├── icons/                  # PWA icons (192, 512)
+│   ├── manifest.webmanifest    # PWA manifest file
+│   └── robots.txt              # SEO rules
 ├── scripts/                    # Build/dev helper scripts
 │
 └── src/

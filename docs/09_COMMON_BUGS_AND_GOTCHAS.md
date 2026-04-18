@@ -128,6 +128,26 @@ There's a `GET /api/auth/seed` route that **wipes all users and re-creates demo 
 
 ---
 
+## 🔒 Security Audit Summary (April 2026)
+
+A recent audit (see `security_test_report.md`) identified the following vulnerabilities that need to be addressed:
+
+1. **Missing Rate Limiting**: The API is currently open to brute-force and DoS attacks. Need to implement `express-rate-limit`.
+2. **Missing Input Sanitization**: No protection against Cross-Site Scripting (XSS) in booking requirements or comments. Need to add `dompurify` or `xss` sanitization.
+3. **Loose Schema Validation**: Many Zod schemas lack `.strict()`, allowing unknown fields to be sent to the database.
+4. **CORS Configuration**: As noted in Gotcha #8, the current configuration is overly permissive and should be restricted to known origins.
+
+---
+
+## 📊 Backend Telemetry Issues
+
+### 1. Duplicate `console.time` Labels
+The logs frequently show `Warning: Label 'getBookingById_...' already exists for console.time()`.
+- **Cause**: Concurrent async requests for the same Resource ID trigger a new timer before the previous one has called `console.timeEnd()`.
+- **Impact**: Non-critical. Only affects the accuracy of performance logs in the console; does not impact app data or user experience.
+
+---
+
 ## 🔧 Known Technical Debt
 
 ### 1. BookingTravelers.tsx is Too Large (66 KB)
@@ -154,11 +174,14 @@ There are no unit tests, integration tests, or E2E tests. Consider adding:
 - Playwright / Cypress for E2E testing
 
 ### 5. No Input Rate Limiting
-The API has no rate limiting. Any user can spam requests. Consider adding:
-- `express-rate-limit` middleware
-- Stricter rate limits on auth routes (prevent brute force)
+The API has no rate limiting. Any user can spam requests. 
+- **Urgent**: Implement `express-rate-limit` on all auth and write routes (`POST`, `PUT`, `PATCH`).
 
-### 6. Socket.io is Set Up But Not Used
+### 6. Missing XSS Protection
+User inputs like "Requirements" and "Comments" are rendered directly in the frontend without sanitization.
+- **Urgent**: Implement backend-side sanitization for all string inputs.
+
+### 7. Socket.io is Set Up But Not Used
 `socket.ts` initializes Socket.io but it's never actually connected to the HTTP server in `server.ts`. If you want real-time updates:
 1. Import `initSocket` in `server.ts`
 2. Replace `app.listen` with an HTTP server

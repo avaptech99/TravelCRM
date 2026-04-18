@@ -16,8 +16,9 @@
 8. [Pages Explained](#8-pages-explained)
 9. [Feature Components](#9-feature-components)
 10. [Styling System](#10-styling-system)
-11. [How To Add a New Page](#11-how-to-add-a-new-page)
-12. [How To Add a New Modal/Feature Component](#12-how-to-add-a-new-modalfeature-component)
+11. [PWA Implementation](#11-pwa-implementation)
+12. [How To Add a New Page](#12-how-to-add-a-new-page)
+13. [How To Add a New Modal/Feature Component](#13-how-to-add-a-new-modalfeature-component)
 
 ---
 
@@ -59,6 +60,7 @@ main.tsx                    ← ReactDOM render
 | **Lucide React** | Icons | All icons throughout the app |
 | **Sonner** | Toast notifications | Success/error messages |
 | **Radix UI** | Primitives | Dialog, Dropdown Menu components |
+| **Vite PWA** | Mobile Support | Progressive Web App integration |
 
 ---
 
@@ -413,7 +415,25 @@ Global CSS in `index.css` defines custom properties used throughout:
 
 ---
 
-## 11. How To Add a New Page
+## 11. PWA Implementation
+
+The application is a **Progressive Web App (PWA)**, making it installable on iOS, Android, and Desktop.
+
+### Configuration (`vite.config.ts`)
+We use `vite-plugin-pwa` with the following settings:
+- **Register Type**: `prompt` — The app stays on the current version until the user refreshes.
+- **Manifest**: Defines app name ("Travel CRM Pro"), theme colors, and icons.
+- **Icons**: Located in `public/icons/` (192px and 512px).
+- **Workbox**: Configured with `clientsClaim` and `skipWaiting` to ensure rapid activation once the user accepts an update.
+
+### Features
+- **Standalone Mode**: The app runs without browser address bars when installed.
+- **Theme Color**: Integrated with the system UI (`blue-600`).
+- **Offline Support**: While the CRM requires an internet connection for data, the PWA shell is cached for faster initial loads.
+
+---
+
+## 12. How To Add a New Page
 
 1. **Create the page component** in `src/pages/MyNewPage.tsx`:
 ```tsx

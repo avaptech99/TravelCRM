@@ -34,6 +34,7 @@ This is a **full-stack CRM (Customer Relationship Management) system** built for
 | **Database** | MongoDB (Atlas) | Mongoose v9 |
 | **NLP** | chrono-node + compromise | — |
 | **Auth** | JWT (jsonwebtoken) + bcrypt | — |
+| **Mobile** | PWA (vite-plugin-pwa) | — |
 | **Deployment** | Frontend: Vercel, Backend: Render | Free Tier |
 
 ---
@@ -97,6 +98,10 @@ This is a **full-stack CRM (Customer Relationship Management) system** built for
 5. **Sequential Booking Codes**: Each booking gets a unique code like `TW0001`, `TW0002`, etc. via a `Counter` model that auto-increments.
 
 6. **Role-Based Access**: Permissions are enforced at both the frontend (UI hiding) and backend (middleware guards). The `protect` middleware validates JWT on every request. The `adminGuard` middleware checks for ADMIN role.
+
+7. **PWA (Progressive Web App)**: The application is installable on mobile and desktop using `vite-plugin-pwa`. It includes a custom manifest, notification icons, and a "Prompt for Update" strategy to ensure users always have the latest version.
+
+8. **External Integration**: The system successfully processes leads from an external WordPress site (Travel Window) via the `/api/external/lead` endpoint, as confirmed by production logs.
 
 ---
 
