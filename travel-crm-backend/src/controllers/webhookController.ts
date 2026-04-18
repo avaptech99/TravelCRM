@@ -25,12 +25,39 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         throw new Error('Unauthorized: Invalid credentials');
     }
 
-    // ---- Parse CDR payload ----
-    const cdrRoot: any[] = req.body.cdr_root;
+    // ---- Parse CDR payload (flexible format detection) ----
+    console.log('[GDMS Webhook] Raw payload received:', JSON.stringify(req.body, null, 2));
 
-    if (!cdrRoot || !Array.isArray(cdrRoot) || cdrRoot.length === 0) {
-        res.status(400);
-        throw new Error('Invalid payload: cdr_root array is required');
+    let cdrRoot: any[] = [];
+
+    if (req.body.cdr_root && Array.isArray(req.body.cdr_root)) {
+        // Format 1: { cdr_root: [ {...}, {...} ] }
+        cdrRoot = req.body.cdr_root;
+    } else if (Array.isArray(req.body)) {
+        // Format 2: [ {...}, {...} ]
+        cdrRoot = req.body;
+    } else if (req.body.src || req.body.uniqueid) {
+        // Format 3: Single CDR object { src: "...", dst: "...", ... }
+        cdrRoot = [req.body];
+    } else {
+        // Format 4: Try to find any array inside the payload
+        const arrayKey = Object.keys(req.body).find(key => Array.isArray(req.body[key]));
+        if (arrayKey) {
+            cdrRoot = req.body[arrayKey];
+            console.log(`[GDMS Webhook] Found CDR data under key: "${arrayKey}"`);
+        }
+    }
+
+    if (cdrRoot.length === 0) {
+        // Still save the raw payload for debugging even if we can't parse it
+        console.error('[GDMS Webhook] Could not parse CDR data. Raw body keys:', Object.keys(req.body));
+        console.error('[GDMS Webhook] Raw body:', JSON.stringify(req.body));
+        res.status(200).json({
+            success: true,
+            message: 'Payload received but no CDR records found. Raw payload logged for debugging.',
+            rawKeys: Object.keys(req.body),
+        });
+        return;
     }
 
     let savedCount = 0;
