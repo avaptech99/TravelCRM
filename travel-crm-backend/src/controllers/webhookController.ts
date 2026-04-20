@@ -22,14 +22,16 @@ const getPhoneLeadUser = async () => {
     return user;
 };
 
-// Helper: Format date for comment text — "14:15 4/4/2026"
-const formatCallTime = (date: Date): string => {
+// Helper: Format date only — "4/4/2026"
+const formatDate = (date: Date): string => {
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+};
+
+// Helper: Format time only — "14:15"
+const formatTime = (date: Date): string => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
-    return `${hours}:${minutes} ${day}/${month}/${year}`;
+    return `${hours}:${minutes}`;
 };
 
 // Core: Process a single call into the CRM
@@ -64,11 +66,12 @@ const processCallIntoCRM = async (
     const callType = (disposition === 'ANSWERED' && billsec > 0) ? 'Answered Call' : 'Missed Call';
 
     // Format times
-    const startStr = formatCallTime(callTime);
-    const endStr = endTime ? formatCallTime(endTime) : 'N/A';
+    const dateStr = formatDate(callTime);
+    const startStr = formatTime(callTime);
+    const endStr = endTime ? formatTime(endTime) : 'N/A';
 
     // Build detailed comment text
-    const commentText = `${callType} from ${finalName} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
+    const commentText = `${callType} from ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
 
     // Existing contact — add comment to latest booking + notify agent
     if (contact) {
