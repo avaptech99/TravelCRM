@@ -32,8 +32,16 @@ const formatCallTime = (date: Date): string => {
     return `${hours}:${minutes} ${day}/${month}/${year}`;
 };
 
-// Core: Process a single missed call into the CRM
-const processMissedCallIntoCRM = async (callerNumber: string, callerName: string, callTime: Date) => {
+// Core: Process a single call into the CRM
+const processCallIntoCRM = async (
+    callerNumber: string,
+    callerName: string,
+    callTime: Date,
+    endTime: Date | null,
+    duration: number,
+    billsec: number,
+    disposition: string
+) => {
     const phoneLeadUser = await getPhoneLeadUser();
 
     // Normalize number for lookup (strip spaces, dashes, + etc.)
@@ -52,8 +60,15 @@ const processMissedCallIntoCRM = async (callerNumber: string, callerName: string
         finalName = callerName;
     }
 
-    const displayTime = formatCallTime(callTime);
-    const commentText = `Miss Call from ${finalName} , ${displayTime}`;
+    // Build call type label
+    const callType = (disposition === 'ANSWERED' && billsec > 0) ? 'Answered Call' : 'Missed Call';
+
+    // Format times
+    const startStr = formatCallTime(callTime);
+    const endStr = endTime ? formatCallTime(endTime) : 'N/A';
+
+    // Build detailed comment text
+    const commentText = `${callType} from ${finalName} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
 
     // Existing contact — add comment to latest booking + notify agent
     if (contact) {
@@ -163,14 +178,9 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
     let skippedCount = 0;
 
     for (const cdr of cdrRoot) {
-        // Filter: Only process missed calls (not answered)
+        // Parse call metadata
         const disposition = (cdr.disposition || '').toUpperCase();
         const billsec = parseInt(cdr.billsec || '0', 10);
-
-        if (disposition === 'ANSWERED' && billsec > 0) {
-            skippedCount++;
-            continue;
-        }
 
         const uniqueId = cdr.uniqueid || cdr.uniqueId;
         if (!uniqueId) {
@@ -189,6 +199,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         const callerName = cdr.caller_name || cdr.src || '';
         const callTime = cdr.start ? new Date(cdr.start) : new Date();
         const endTime = cdr.end ? new Date(cdr.end) : null;
+        const duration = parseInt(cdr.duration || '0', 10);
 
         if (!callerNumber) {
             skippedCount++;
@@ -197,8 +208,8 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
 
         try {
             // 1. Process into CRM (add comment or create lead)
-            const result = await processMissedCallIntoCRM(callerNumber, callerName, callTime);
-            console.log(`[GDMS Webhook] ${result.action} for ${callerNumber}`);
+            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition);
+            console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
 
             // 2. Save/update MissedCall log and mark as processed
             await MissedCall.findOneAndUpdate(
