@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight, Phone } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -145,9 +145,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <div className="flex items-center gap-1.5">
                         <span className="whitespace-nowrap">{name}</span>
                         {isPhoneLead && (
-                            <Phone 
-                                size={12} 
-                                className={booking.callDisposition === 'ANSWERED' ? 'text-green-600 fill-green-600/10' : 'text-red-500 fill-red-500/10'} 
+                            <img 
+                                src={booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : '/icons/missed-call.png'}
+                                alt={booking.callDisposition === 'ANSWERED' ? 'Answered' : 'Missed'}
+                                className="w-4 h-4"
                             />
                         )}
                     </div>
@@ -357,9 +358,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 <div className="flex items-center gap-1.5">
                                                     <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                     {booking.createdByUser?.name === 'Phone Lead' && (
-                                                        <Phone 
-                                                            size={11} 
-                                                            className={booking.callDisposition === 'ANSWERED' ? 'text-green-600 fill-green-600/10' : 'text-red-500 fill-red-500/10'} 
+                                                        <img 
+                                                            src={booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : '/icons/missed-call.png'}
+                                                            alt={booking.callDisposition === 'ANSWERED' ? 'Answered' : 'Missed'}
+                                                            className="w-4 h-4"
                                                         />
                                                     )}
                                                 </div>
