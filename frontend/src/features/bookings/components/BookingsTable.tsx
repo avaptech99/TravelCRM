@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -136,6 +136,23 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
             id: 'createdBy',
             header: 'Created By',
+            cell: (info) => {
+                const name = info.getValue();
+                const booking = info.row.original;
+                const isPhoneLead = name === 'Phone Lead';
+                
+                return (
+                    <div className="flex items-center gap-1.5">
+                        <span className="whitespace-nowrap">{name}</span>
+                        {isPhoneLead && (
+                            <Phone 
+                                size={12} 
+                                className={booking.callDisposition === 'ANSWERED' ? 'text-green-600 fill-green-600/10' : 'text-red-500 fill-red-500/10'} 
+                            />
+                        )}
+                    </div>
+                );
+            }
         }),
         columnHelper.accessor('contactPerson', {
             header: 'Contact Person',
@@ -337,7 +354,15 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         <div className="flex flex-col gap-3 py-3 border-y border-slate-50">
                                             <div className="text-xs text-slate-500 bg-slate-50/50 p-2 rounded-lg border border-slate-100/50">
                                                 <span className="font-medium mr-1">Created by</span>
-                                                <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
+                                                <div className="flex items-center gap-1.5">
+                                                    <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
+                                                    {booking.createdByUser?.name === 'Phone Lead' && (
+                                                        <Phone 
+                                                            size={11} 
+                                                            className={booking.callDisposition === 'ANSWERED' ? 'text-green-600 fill-green-600/10' : 'text-red-500 fill-red-500/10'} 
+                                                        />
+                                                    )}
+                                                </div>
                                                 <span className="mx-1.5">on</span>
                                                 <strong className="text-slate-700">{booking.createdAt ? dayjs(booking.createdAt).format('DD MMM YYYY') : '-'}</strong>
                                             </div>

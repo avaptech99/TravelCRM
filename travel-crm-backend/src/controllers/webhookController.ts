@@ -116,6 +116,7 @@ const processCallIntoCRM = async (
         flightFrom: null,
         flightTo: null,
         segments: [],
+        callDisposition: (disposition === 'ANSWERED' && billsec > 0) ? 'ANSWERED' : 'MISSED'
     });
 
     appCache.invalidateByPrefix('bookings_');
