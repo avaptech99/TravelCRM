@@ -42,7 +42,8 @@ const processCallIntoCRM = async (
     endTime: Date | null,
     duration: number,
     billsec: number,
-    disposition: string
+    disposition: string,
+    pbxCallId: string
 ) => {
     const phoneLeadUser = await getPhoneLeadUser();
 
@@ -98,6 +99,34 @@ const processCallIntoCRM = async (
         }
     }
 
+    // Check if a booking already exists for this PBX Call Unique ID
+    let existingBooking = await Booking.findOne({ pbxCallId });
+
+    if (existingBooking) {
+        let updated = false;
+        
+        // If the new record is ANSWERED and previous was MISSED, update it
+        if (disposition === 'ANSWERED' && billsec > 0 && existingBooking.callDisposition !== 'ANSWERED') {
+            existingBooking.callDisposition = 'ANSWERED';
+            updated = true;
+        }
+
+        // Always update requirements/comment if we have a better/longer duration
+        // We'll replace the requirements if it was a system-generated one
+        if (existingBooking.requirements && existingBooking.requirements.includes('Call from')) {
+            existingBooking.requirements = commentText;
+            updated = true;
+        }
+
+        if (updated) {
+            await existingBooking.save();
+            appCache.invalidateByPrefix('bookings_');
+            return { action: 'lead_updated', contactId: contact?._id, bookingId: existingBooking._id };
+        }
+        
+        return { action: 'lead_exists_no_update', contactId: contact?._id, bookingId: existingBooking._id };
+    }
+
     // New contact — create lead
     if (!contact) {
         contact = await PrimaryContact.create({
@@ -116,7 +145,8 @@ const processCallIntoCRM = async (
         flightFrom: null,
         flightTo: null,
         segments: [],
-        callDisposition: (disposition === 'ANSWERED' && billsec > 0) ? 'ANSWERED' : 'MISSED'
+        callDisposition: (disposition === 'ANSWERED' && billsec > 0) ? 'ANSWERED' : 'MISSED',
+        pbxCallId: pbxCallId
     });
 
     appCache.invalidateByPrefix('bookings_');
@@ -192,14 +222,22 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             continue;
         }
 
-        // Deduplicate: skip only if we already processed this CDR into the CRM
-        const existing = await MissedCall.findOne({ uniqueId });
-        if (existing && existing.isProcessed) {
+        // Filtering: Ignore Outbound calls from PBX
+        if (cdr.userfield === 'Outbound') {
+            console.log(`[GDMS Webhook] Skipping outbound call: ${cdr.AcctId}`);
             skippedCount++;
             continue;
         }
 
-        const callerNumber = cdr.src || '';
+        // Filtering: Ignore internal extensions (4 digits or fewer)
+        const rawCallerNumber = (cdr.src || '').toString();
+        if (rawCallerNumber.length <= 4 && rawCallerNumber.length > 0) {
+            console.log(`[GDMS Webhook] Skipping internal extension call: ${rawCallerNumber}`);
+            skippedCount++;
+            continue;
+        }
+
+        const callerNumber = rawCallerNumber;
         const callerName = cdr.caller_name || cdr.src || '';
         const callTime = cdr.start ? new Date(cdr.start) : new Date();
         const endTime = cdr.end ? new Date(cdr.end) : null;
@@ -212,7 +250,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
 
         try {
             // 1. Process into CRM (add comment or create lead)
-            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition);
+            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
 
             // 2. Save/update MissedCall log and mark as processed
