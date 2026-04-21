@@ -121,10 +121,11 @@ const processCallIntoCRM = async (
         }
 
         // Always update requirements/comment if we have a better/longer duration
-        // We'll replace the requirements if it was a system-generated one
-        if (existingBooking.requirements && existingBooking.requirements.includes('Call from')) {
-            existingBooking.requirements = commentText;
+        // We'll update the contact requirements if it was a system-generated one
+        if (contact && contact.requirements && contact.requirements.includes('Call from')) {
+            contact.requirements = commentText;
             updated = true;
+            await contact.save();
         }
 
         if (updated) {
@@ -257,7 +258,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
 
         const callerNumber = finalCallerNumber;
         const callerName = finalCallerName;
-        const disposition = finalDisposition;
+        disposition = finalDisposition;
 
         const callTime = cdr.start ? new Date(cdr.start) : new Date();
         const endTime = cdr.end ? new Date(cdr.end) : null;
