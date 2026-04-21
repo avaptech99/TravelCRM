@@ -59,6 +59,12 @@ const invalidateBookingCaches = () => {
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
 // @access  Private
+// Helper to safely get string ID from potentially populated ObjectId field
+const getObjectIdString = (field) => {
+    if (!field)
+        return null;
+    return field._id?.toString() || field.toString();
+};
 exports.getBookingStats = (0, express_async_handler_1.default)(async (req, res) => {
     const cacheKey = `stats_${req.user?.id || 'all'}`;
     const cached = cache_1.default.get(cacheKey);
@@ -118,8 +124,8 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         query.createdByUserId = req.user.id;
     }
     const bookings = await Booking_1.default.find(query)
-        .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
-        .sort({ createdAt: -1 })
+        .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount callDisposition createdAt')
+        .sort({ lastInteractionAt: -1 })
         .limit(5)
         .populate('assignedToUserId', 'name')
         .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
@@ -289,8 +295,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [bookings, total] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
-            .sort({ createdAt: -1 })
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId callDisposition createdAt')
+            .sort({ lastInteractionAt: -1 })
             .skip(skip)
             .limit(Number(limit))
             .populate('assignedToUserId', 'name')
@@ -340,7 +346,19 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     }
     const cacheKey = `booking_${id}`;
     const cached = cache_1.default.get(cacheKey);
+    // Auth Check Function (internal)
+    const checkAuth = (b) => {
+        const creatorId = b.createdByUserId?._id?.toString() || b.createdByUserId?.toString();
+        if (req.user?.role === 'MARKETER' && creatorId !== String(req.user.id)) {
+            return false;
+        }
+        return true;
+    };
     if (cached) {
+        if (!checkAuth(cached)) {
+            res.status(403);
+            throw new Error('Not authorized to view this booking');
+        }
         console.log(`[CACHE HIT] ${cacheKey}`);
         res.json(cached);
         return;
@@ -364,7 +382,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'MARKETER' && booking.createdByUserId?.toString() !== req.user.id) {
+    if (!checkAuth(booking)) {
         res.status(403);
         throw new Error('Not authorized to view this booking');
     }
@@ -523,7 +541,7 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
             throw new Error('Marketers are only authorized to update Detailed Requirements');
         }
     }
-    else if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id && booking.createdByUserId?.toString() !== req.user.id) {
+    else if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -613,7 +631,7 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         res.status(403);
         throw new Error('Marketers are not authorized to update booking status');
     }
-    if (req.user?.role === 'AGENT' && existingBooking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(existingBooking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -621,7 +639,7 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
     // Notify Marketer if their lead status changed
-    if (existingBooking.createdByUserId && existingBooking.createdByUserId.toString() !== req.user?.id) {
+    if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
         const creator = await User_1.default.findById(existingBooking.createdByUserId);
         if (creator?.role === 'MARKETER') {
             await Notification_1.default.create({
@@ -652,12 +670,12 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
             throw new Error('Invalid agent selected');
         }
     }
-    const booking = await Booking_1.default.findById(id);
+    const booking = await Booking_1.default.findById(id).populate('primaryContact', 'contactName');
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+    const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
         booking.assignedToUserId = newAssignedUserId;
@@ -686,12 +704,12 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
             await Notification_1.default.create({
                 userId: newAssignedUserId,
                 bookingId: id,
-                message: `Booking has been assigned to you.`,
+                message: `Lead ${booking.primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
             });
             // Also notify the marketer who created the lead
             if (booking.createdByUserId) {
                 const creator = await User_1.default.findById(booking.createdByUserId);
-                if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
                     const agent = await User_1.default.findById(newAssignedUserId);
                     await Notification_1.default.create({
                         userId: booking.createdByUserId,
@@ -726,11 +744,11 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
         newAgentName = newAgent?.name || 'Unknown Agent';
     }
     // Process in bulk
-    const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } });
+    const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } }).populate('primaryContact', 'contactName');
     // We'll use a for...of loop or map with Promise.all
     // For each booking, check if assignment changed, then update and create comment
     const updatePromises = bookings.map(async (booking) => {
-        const previousAssignedUserId = booking.assignedToUserId?.toString() || null;
+        const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
         if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
             booking.assignedToUserId = newAgentId;
             await booking.save();
@@ -749,12 +767,12 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
                 await Notification_1.default.create({
                     userId: newAgentId,
                     bookingId: booking._id,
-                    message: `Booking has been assigned to you.`,
+                    message: `Lead ${booking.primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
                 });
                 // Also notify the marketer who created the lead
                 if (booking.createdByUserId) {
                     const creator = await User_1.default.findById(booking.createdByUserId);
-                    if (creator?.role === 'MARKETER' && booking.createdByUserId.toString() !== req.user?.id) {
+                    if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
                         await Notification_1.default.create({
                             userId: booking.createdByUserId,
                             bookingId: booking._id,
@@ -779,12 +797,12 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Invalid comment input');
     }
-    const booking = await Booking_1.default.findById(id);
+    const booking = await Booking_1.default.findById(id).populate('primaryContact', 'contactName');
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to comment on this booking');
     }
@@ -800,7 +818,7 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         await Notification_1.default.create({
             userId: booking.assignedToUserId,
             bookingId: id,
-            message: `Marketer ${req.user.name} added a remark on lead ${booking.destination || 'Unassigned'}.`,
+            message: `Marketer ${req.user.name} added a remark on lead ${booking.primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
         });
     }
     invalidateBookingCaches();
@@ -842,7 +860,7 @@ exports.addPassengers = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(403);
         throw new Error('Marketers are not authorized to add passengers');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add passengers to this booking');
     }
@@ -879,7 +897,7 @@ exports.updatePassengers = (0, express_async_handler_1.default)(async (req, res)
         res.status(403);
         throw new Error('Marketers are not authorized to update passengers');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to update passengers for this booking');
     }
@@ -915,7 +933,7 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(403);
         throw new Error('Marketers are not authorized to add payments');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to add payment to this booking');
     }
@@ -953,7 +971,7 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(403);
         throw new Error('Marketers are not authorized to delete payments');
     }
-    if (req.user?.role === 'AGENT' && booking.assignedToUserId?.toString() !== req.user.id) {
+    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
         throw new Error('Not authorized to delete payment from this booking');
     }

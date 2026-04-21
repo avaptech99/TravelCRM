@@ -99,7 +99,9 @@ const processCallIntoCRM = async (
                 appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
             }
 
-            // Also update the booking's lastInteractionAt to jump to top
+            // Update status and interaction time to jump to top and change color
+            const newDisposition = disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED');
+            latestBooking.callDisposition = newDisposition;
             latestBooking.lastInteractionAt = new Date();
             await latestBooking.save();
 
@@ -126,6 +128,11 @@ const processCallIntoCRM = async (
             contact.requirements = commentText;
             updated = true;
             await contact.save();
+        }
+
+        if (disposition === 'OUTBOUND' && existingBooking.callDisposition !== 'OUTBOUND') {
+            existingBooking.callDisposition = 'OUTBOUND';
+            updated = true;
         }
 
         if (updated) {
@@ -242,7 +249,8 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         let finalCallerName = cdr.caller_name || cdr.src || '';
         let finalDisposition = (cdr.disposition || '').toUpperCase();
 
-        if (cdr.userfield === 'Outbound') {
+        const userField = (cdr.userfield || '').toLowerCase();
+        if (userField === 'outbound') {
             console.log(`[GDMS Webhook] Processing outbound call to ${cdr.dst}`);
             finalCallerNumber = (cdr.dst || '').toString();
             finalCallerName = 'Outbound Customer';

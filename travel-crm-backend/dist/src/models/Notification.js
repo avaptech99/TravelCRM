@@ -52,6 +52,10 @@ const notificationSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
+    isDismissed: {
+        type: Boolean,
+        default: false,
+    },
 }, {
     timestamps: true,
 });
