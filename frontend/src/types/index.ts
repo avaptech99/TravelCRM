@@ -85,7 +85,7 @@ export interface Booking {
     includesAdditionalServices?: boolean;
     additionalServicesDetails?: string | null;
     duration?: string;
-    callDisposition?: 'ANSWERED' | 'MISSED';
+    callDisposition?: 'ANSWERED' | 'MISSED' | 'OUTBOUND';
 }
 
 export interface PaginatedResponse<T> {

@@ -146,8 +146,16 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                         <span className="whitespace-nowrap">{name}</span>
                         {isPhoneLead && (
                             <img 
-                                src={booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : '/icons/missed-call.png'}
-                                alt={booking.callDisposition === 'ANSWERED' ? 'Answered' : 'Missed'}
+                                src={
+                                    booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : 
+                                    booking.callDisposition === 'OUTBOUND' ? '/icons/attended-call.png' : 
+                                    '/icons/missed-call.png'
+                                }
+                                alt={
+                                    booking.callDisposition === 'ANSWERED' ? 'Answered' : 
+                                    booking.callDisposition === 'OUTBOUND' ? 'Outbound' : 
+                                    'Missed'
+                                }
                                 className="w-4 h-4"
                             />
                         )}
@@ -359,8 +367,16 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                     <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                     {booking.createdByUser?.name === 'Phone Lead' && (
                                                         <img 
-                                                            src={booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : '/icons/missed-call.png'}
-                                                            alt={booking.callDisposition === 'ANSWERED' ? 'Answered' : 'Missed'}
+                                                            src={
+                                                                booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : 
+                                                                booking.callDisposition === 'OUTBOUND' ? '/icons/attended-call.png' : 
+                                                                '/icons/missed-call.png'
+                                                            }
+                                                            alt={
+                                                                booking.callDisposition === 'ANSWERED' ? 'Answered' : 
+                                                                booking.callDisposition === 'OUTBOUND' ? 'Outbound' : 
+                                                                'Missed'
+                                                            }
                                                             className="w-4 h-4"
                                                         />
                                                     )}

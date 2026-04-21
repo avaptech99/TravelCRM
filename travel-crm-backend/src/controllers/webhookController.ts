@@ -64,7 +64,12 @@ const processCallIntoCRM = async (
     }
 
     // Build call type label
-    const callType = (disposition === 'ANSWERED' && billsec > 0) ? 'Answered Call' : 'Missed Call';
+    let callType = 'Missed Call';
+    if (disposition === 'OUTBOUND') {
+        callType = 'Outbound Call';
+    } else if (disposition === 'ANSWERED' && billsec > 0) {
+        callType = 'Answered Call';
+    }
 
     // Format times
     const dateStr = formatDate(callTime);
@@ -145,7 +150,7 @@ const processCallIntoCRM = async (
         flightFrom: null,
         flightTo: null,
         segments: [],
-        callDisposition: (disposition === 'ANSWERED' && billsec > 0) ? 'ANSWERED' : 'MISSED',
+        callDisposition: disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED'),
         pbxCallId: pbxCallId
     });
 
@@ -222,23 +227,29 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             continue;
         }
 
-        // Filtering: Ignore Outbound calls from PBX
+        // Handing Outbound calls: Swap src/dst so the customer is the primary contact
+        let finalCallerNumber = (cdr.src || '').toString();
+        let finalCallerName = cdr.caller_name || cdr.src || '';
+        let finalDisposition = (cdr.disposition || '').toUpperCase();
+
         if (cdr.userfield === 'Outbound') {
-            console.log(`[GDMS Webhook] Skipping outbound call: ${cdr.AcctId}`);
-            skippedCount++;
-            continue;
+            console.log(`[GDMS Webhook] Processing outbound call to ${cdr.dst}`);
+            finalCallerNumber = (cdr.dst || '').toString();
+            finalCallerName = 'Outbound Customer';
+            finalDisposition = 'OUTBOUND';
+        } else {
+            // Filtering for Inbound: Ignore internal extensions (4 digits or fewer)
+            if (finalCallerNumber.length <= 4 && finalCallerNumber.length > 0) {
+                console.log(`[GDMS Webhook] Skipping internal extension call: ${finalCallerNumber}`);
+                skippedCount++;
+                continue;
+            }
         }
 
-        // Filtering: Ignore internal extensions (4 digits or fewer)
-        const rawCallerNumber = (cdr.src || '').toString();
-        if (rawCallerNumber.length <= 4 && rawCallerNumber.length > 0) {
-            console.log(`[GDMS Webhook] Skipping internal extension call: ${rawCallerNumber}`);
-            skippedCount++;
-            continue;
-        }
+        const callerNumber = finalCallerNumber;
+        const callerName = finalCallerName;
+        const disposition = finalDisposition;
 
-        const callerNumber = rawCallerNumber;
-        const callerName = cdr.caller_name || cdr.src || '';
         const callTime = cdr.start ? new Date(cdr.start) : new Date();
         const endTime = cdr.end ? new Date(cdr.end) : null;
         const duration = parseInt(cdr.duration || '0', 10);
