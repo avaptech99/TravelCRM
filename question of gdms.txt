@@ -1,0 +1,23 @@
+Case 1 Phone in CRM
+
+Day1 GDMS receives miss call, CRM created comment 
+Day3 GDMS receives miss call, CRM created new comment ?? and in table will it appear at top again ??
+Day5 GDMS outbound agents call customer, Will in CRM badge change from red to blue ?? and add a comment
+or 
+Day5 GDMS receives answered call , Will in CRM badge change from red to green ?? and add a comment ?? also will it appear at top ??
+
+
+Case 2 Phone not in CRM
+
+Day1 GDMS receives miss call, CRM created LEAD 
+Day3 GDMS receives miss call, WILL CRM create comment ?? and in table will it appear at top again ?? will badge change from green to red ??
+Day5 GDMS outbound agents call customer , WILL CRM create comment ?? and in table will it appear at top again ?? will badge change from red to blue ??
+
+
+Case 3 Outbond call
+
+Day1 GDMS outbound agents call customer, will crm create lead ? 
+Day3 GDMS receives miss call, WILL CRM create comment ?? and in table will it appear at top again ?? will badge change from blue to red ??
+Day5 GDMS receives answered call, CRM created comment ?? will badge change from red to green ?? in table will it appear at top again ??
+
+

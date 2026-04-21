@@ -99,6 +99,10 @@ const processCallIntoCRM = async (
                 appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
             }
 
+            // Also update the booking's lastInteractionAt to jump to top
+            latestBooking.lastInteractionAt = new Date();
+            await latestBooking.save();
+
             appCache.invalidateByPrefix('bookings_');
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
         }
@@ -124,11 +128,15 @@ const processCallIntoCRM = async (
         }
 
         if (updated) {
+            existingBooking.lastInteractionAt = new Date();
             await existingBooking.save();
             appCache.invalidateByPrefix('bookings_');
             return { action: 'lead_updated', contactId: contact?._id, bookingId: existingBooking._id };
         }
         
+        // Even if no visual update, refresh interaction time to jump to top
+        existingBooking.lastInteractionAt = new Date();
+        await existingBooking.save();
         return { action: 'lead_exists_no_update', contactId: contact?._id, bookingId: existingBooking._id };
     }
 
@@ -151,7 +159,8 @@ const processCallIntoCRM = async (
         flightTo: null,
         segments: [],
         callDisposition: disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED'),
-        pbxCallId: pbxCallId
+        pbxCallId: pbxCallId,
+        lastInteractionAt: new Date()
     });
 
     appCache.invalidateByPrefix('bookings_');
