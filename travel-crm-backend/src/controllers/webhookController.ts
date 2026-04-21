@@ -228,7 +228,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
 
     for (const cdr of cdrRoot) {
         // Parse call metadata
-        const disposition = (cdr.disposition || '').toUpperCase();
+        let disposition = (cdr.disposition || '').toUpperCase();
         const billsec = parseInt(cdr.billsec || '0', 10);
 
         const uniqueId = cdr.uniqueid || cdr.uniqueId;
