@@ -1,0 +1,2371 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "gdms-test-all.ps1",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\gdms-test-all.ps1",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_gdms_test_all_ps1",
+      "community": 35,
+      "norm_label": "gdms-test-all.ps1"
+    },
+    {
+      "label": "test-step-1.ps1",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\test-step-1.ps1",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_test_step_1_ps1",
+      "community": 36,
+      "norm_label": "test-step-1.ps1"
+    },
+    {
+      "label": "test-step-2.ps1",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\test-step-2.ps1",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_test_step_2_ps1",
+      "community": 37,
+      "norm_label": "test-step-2.ps1"
+    },
+    {
+      "label": "wordpress_integration_all data.php",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_all data.php",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_all_data_php",
+      "community": 13,
+      "norm_label": "wordpress_integration_all data.php"
+    },
+    {
+      "label": "travelwindow_crm_send_all_v4()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_all data.php",
+      "source_location": "L10",
+      "id": "wordpress_integration_all_data_travelwindow_crm_send_all_v4",
+      "community": 13,
+      "norm_label": "travelwindow_crm_send_all_v4()"
+    },
+    {
+      "label": "wordpress_integration_v5.php",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_v5.php",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_v5_php",
+      "community": 14,
+      "norm_label": "wordpress_integration_v5.php"
+    },
+    {
+      "label": "travelwindow_crm_send_v5()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_v5.php",
+      "source_location": "L10",
+      "id": "wordpress_integration_v5_travelwindow_crm_send_v5",
+      "community": 14,
+      "norm_label": "travelwindow_crm_send_v5()"
+    },
+    {
+      "label": "eslint.config.js",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\eslint.config.js",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_eslint_config_js",
+      "community": 38,
+      "norm_label": "eslint.config.js"
+    },
+    {
+      "label": "vite.config.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\vite.config.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_vite_config_ts",
+      "community": 39,
+      "norm_label": "vite.config.ts"
+    },
+    {
+      "label": "App.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\App.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_app_tsx",
+      "community": 2,
+      "norm_label": "app.tsx"
+    },
+    {
+      "label": "PageLoader()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\App.tsx",
+      "source_location": "L37",
+      "id": "app_pageloader",
+      "community": 2,
+      "norm_label": "pageloader()"
+    },
+    {
+      "label": "main.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\main.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_main_tsx",
+      "community": 2,
+      "norm_label": "main.tsx"
+    },
+    {
+      "label": "client.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\api\\client.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_api_client_ts",
+      "community": 40,
+      "norm_label": "client.ts"
+    },
+    {
+      "label": "ErrorBoundary.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "community": 2,
+      "norm_label": "errorboundary.tsx"
+    },
+    {
+      "label": "constructor()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L13",
+      "id": "errorboundary_constructor",
+      "community": 2,
+      "norm_label": "constructor()"
+    },
+    {
+      "label": "getDerivedStateFromError()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L18",
+      "id": "errorboundary_getderivedstatefromerror",
+      "community": 2,
+      "norm_label": "getderivedstatefromerror()"
+    },
+    {
+      "label": "componentDidCatch()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L22",
+      "id": "errorboundary_componentdidcatch",
+      "community": 2,
+      "norm_label": "componentdidcatch()"
+    },
+    {
+      "label": "ProtectedRoute.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ProtectedRoute.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_protectedroute_tsx",
+      "community": 5,
+      "norm_label": "protectedroute.tsx"
+    },
+    {
+      "label": "ProtectedRoute()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ProtectedRoute.tsx",
+      "source_location": "L5",
+      "id": "protectedroute_protectedroute",
+      "community": 5,
+      "norm_label": "protectedroute()"
+    },
+    {
+      "label": "BottomNav.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\BottomNav.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_bottomnav_tsx",
+      "community": 41,
+      "norm_label": "bottomnav.tsx"
+    },
+    {
+      "label": "MainLayout.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\MainLayout.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_mainlayout_tsx",
+      "community": 15,
+      "norm_label": "mainlayout.tsx"
+    },
+    {
+      "label": "MainLayout()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\MainLayout.tsx",
+      "source_location": "L7",
+      "id": "mainlayout_mainlayout",
+      "community": 15,
+      "norm_label": "mainlayout()"
+    },
+    {
+      "label": "Sidebar.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Sidebar.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_sidebar_tsx",
+      "community": 42,
+      "norm_label": "sidebar.tsx"
+    },
+    {
+      "label": "Topbar.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "community": 4,
+      "norm_label": "topbar.tsx"
+    },
+    {
+      "label": "handleToggleStatus()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L94",
+      "id": "topbar_handletogglestatus",
+      "community": 4,
+      "norm_label": "handletogglestatus()"
+    },
+    {
+      "label": "handleClickOutside()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L103",
+      "id": "topbar_handleclickoutside",
+      "community": 4,
+      "norm_label": "handleclickoutside()"
+    },
+    {
+      "label": "handleNotificationClick()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L116",
+      "id": "topbar_handlenotificationclick",
+      "community": 4,
+      "norm_label": "handlenotificationclick()"
+    },
+    {
+      "label": "handleDismiss()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L126",
+      "id": "topbar_handledismiss",
+      "community": 4,
+      "norm_label": "handledismiss()"
+    },
+    {
+      "label": "handleLogout()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L131",
+      "id": "topbar_handlelogout",
+      "community": 4,
+      "norm_label": "handlelogout()"
+    },
+    {
+      "label": "dialog.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ui\\dialog.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_ui_dialog_tsx",
+      "community": 43,
+      "norm_label": "dialog.tsx"
+    },
+    {
+      "label": "dropdown-menu.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ui\\dropdown-menu.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_ui_dropdown_menu_tsx",
+      "community": 44,
+      "norm_label": "dropdown-menu.tsx"
+    },
+    {
+      "label": "AuthContext.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\context\\AuthContext.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_context_authcontext_tsx",
+      "community": 5,
+      "norm_label": "authcontext.tsx"
+    },
+    {
+      "label": "useAuth()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\context\\AuthContext.tsx",
+      "source_location": "L54",
+      "id": "authcontext_useauth",
+      "community": 5,
+      "norm_label": "useauth()"
+    },
+    {
+      "label": "ActionDropdown.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\ActionDropdown.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_actiondropdown_tsx",
+      "community": 45,
+      "norm_label": "actiondropdown.tsx"
+    },
+    {
+      "label": "AddPaymentModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AddPaymentModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_addpaymentmodal_tsx",
+      "community": 16,
+      "norm_label": "addpaymentmodal.tsx"
+    },
+    {
+      "label": "if()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AddPaymentModal.tsx",
+      "source_location": "L123",
+      "id": "addpaymentmodal_if",
+      "community": 16,
+      "norm_label": "if()"
+    },
+    {
+      "label": "AssignAgentModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AssignAgentModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_assignagentmodal_tsx",
+      "community": 17,
+      "norm_label": "assignagentmodal.tsx"
+    },
+    {
+      "label": "onSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AssignAgentModal.tsx",
+      "source_location": "L72",
+      "id": "assignagentmodal_onsubmit",
+      "community": 17,
+      "norm_label": "onsubmit()"
+    },
+    {
+      "label": "BookingsTable.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\BookingsTable.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_bookingstable_tsx",
+      "community": 46,
+      "norm_label": "bookingstable.tsx"
+    },
+    {
+      "label": "CommentModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\CommentModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_commentmodal_tsx",
+      "community": 18,
+      "norm_label": "commentmodal.tsx"
+    },
+    {
+      "label": "handleSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\CommentModal.tsx",
+      "source_location": "L70",
+      "id": "commentmodal_handlesubmit",
+      "community": 18,
+      "norm_label": "handlesubmit()"
+    },
+    {
+      "label": "EditModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\EditModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_editmodal_tsx",
+      "community": 47,
+      "norm_label": "editmodal.tsx"
+    },
+    {
+      "label": "NewBookingModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\NewBookingModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_newbookingmodal_tsx",
+      "community": 7,
+      "norm_label": "newbookingmodal.tsx"
+    },
+    {
+      "label": "handleClose()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\NewBookingModal.tsx",
+      "source_location": "L72",
+      "id": "newbookingmodal_handleclose",
+      "community": 7,
+      "norm_label": "handleclose()"
+    },
+    {
+      "label": "onSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\NewBookingModal.tsx",
+      "source_location": "L77",
+      "id": "newbookingmodal_onsubmit",
+      "community": 7,
+      "norm_label": "onsubmit()"
+    },
+    {
+      "label": "RequirementsCell.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\RequirementsCell.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_requirementscell_tsx",
+      "community": 48,
+      "norm_label": "requirementscell.tsx"
+    },
+    {
+      "label": "StatusUpdateModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\StatusUpdateModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_statusupdatemodal_tsx",
+      "community": 19,
+      "norm_label": "statusupdatemodal.tsx"
+    },
+    {
+      "label": "StatusUpdateModal()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\StatusUpdateModal.tsx",
+      "source_location": "L22",
+      "id": "statusupdatemodal_statusupdatemodal",
+      "community": 19,
+      "norm_label": "statusupdatemodal()"
+    },
+    {
+      "label": "AddUserModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\users\\components\\AddUserModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_users_components_addusermodal_tsx",
+      "community": 49,
+      "norm_label": "addusermodal.tsx"
+    },
+    {
+      "label": "EditUserModal.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\users\\components\\EditUserModal.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_users_components_editusermodal_tsx",
+      "community": 50,
+      "norm_label": "editusermodal.tsx"
+    },
+    {
+      "label": "useGlobalSync.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\hooks\\useGlobalSync.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_hooks_useglobalsync_ts",
+      "community": 5,
+      "norm_label": "useglobalsync.ts"
+    },
+    {
+      "label": "useGlobalSync()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\hooks\\useGlobalSync.ts",
+      "source_location": "L18",
+      "id": "useglobalsync_useglobalsync",
+      "community": 5,
+      "norm_label": "useglobalsync()"
+    },
+    {
+      "label": "utils.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\lib\\utils.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_lib_utils_ts",
+      "community": 20,
+      "norm_label": "utils.ts"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\lib\\utils.ts",
+      "source_location": "L4",
+      "id": "utils_cn",
+      "community": 20,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "BookedEDT.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookedEDT.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookededt_tsx",
+      "community": 21,
+      "norm_label": "bookededt.tsx"
+    },
+    {
+      "label": "BookedEDT()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookedEDT.tsx",
+      "source_location": "L5",
+      "id": "bookededt_bookededt",
+      "community": 21,
+      "norm_label": "bookededt()"
+    },
+    {
+      "label": "BookingDetails.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingDetails.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingdetails_tsx",
+      "community": 22,
+      "norm_label": "bookingdetails.tsx"
+    },
+    {
+      "label": "startEditingReqs()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingDetails.tsx",
+      "source_location": "L196",
+      "id": "bookingdetails_starteditingreqs",
+      "community": 22,
+      "norm_label": "starteditingreqs()"
+    },
+    {
+      "label": "Bookings.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Bookings.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookings_tsx",
+      "community": 23,
+      "norm_label": "bookings.tsx"
+    },
+    {
+      "label": "toggleStatus()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Bookings.tsx",
+      "source_location": "L47",
+      "id": "bookings_togglestatus",
+      "community": 23,
+      "norm_label": "togglestatus()"
+    },
+    {
+      "label": "BookingTravelers.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingTravelers.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingtravelers_tsx",
+      "community": 24,
+      "norm_label": "bookingtravelers.tsx"
+    },
+    {
+      "label": "onSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingTravelers.tsx",
+      "source_location": "L431",
+      "id": "bookingtravelers_onsubmit",
+      "community": 24,
+      "norm_label": "onsubmit()"
+    },
+    {
+      "label": "CalendarView.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "community": 3,
+      "norm_label": "calendarview.tsx"
+    },
+    {
+      "label": "Loader()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L8",
+      "id": "calendarview_loader",
+      "community": 3,
+      "norm_label": "loader()"
+    },
+    {
+      "label": "prevMonth()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L74",
+      "id": "calendarview_prevmonth",
+      "community": 3,
+      "norm_label": "prevmonth()"
+    },
+    {
+      "label": "nextMonth()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L75",
+      "id": "calendarview_nextmonth",
+      "community": 3,
+      "norm_label": "nextmonth()"
+    },
+    {
+      "label": "goToToday()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L76",
+      "id": "calendarview_gototoday",
+      "community": 3,
+      "norm_label": "gototoday()"
+    },
+    {
+      "label": "getStatusStyle()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L96",
+      "id": "calendarview_getstatusstyle",
+      "community": 3,
+      "norm_label": "getstatusstyle()"
+    },
+    {
+      "label": "handleDateClick()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L106",
+      "id": "calendarview_handledateclick",
+      "community": 3,
+      "norm_label": "handledateclick()"
+    },
+    {
+      "label": "Dashboard.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Dashboard.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_dashboard_tsx",
+      "community": 25,
+      "norm_label": "dashboard.tsx"
+    },
+    {
+      "label": "Loader()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Dashboard.tsx",
+      "source_location": "L16",
+      "id": "dashboard_loader",
+      "community": 25,
+      "norm_label": "loader()"
+    },
+    {
+      "label": "Login.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Login.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_login_tsx",
+      "community": 26,
+      "norm_label": "login.tsx"
+    },
+    {
+      "label": "handleSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Login.tsx",
+      "source_location": "L30",
+      "id": "login_handlesubmit",
+      "community": 26,
+      "norm_label": "handlesubmit()"
+    },
+    {
+      "label": "MissedCalls.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MissedCalls.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_missedcalls_tsx",
+      "community": 8,
+      "norm_label": "missedcalls.tsx"
+    },
+    {
+      "label": "handleSearch()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MissedCalls.tsx",
+      "source_location": "L45",
+      "id": "missedcalls_handlesearch",
+      "community": 8,
+      "norm_label": "handlesearch()"
+    },
+    {
+      "label": "getDispositionBadge()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MissedCalls.tsx",
+      "source_location": "L54",
+      "id": "missedcalls_getdispositionbadge",
+      "community": 8,
+      "norm_label": "getdispositionbadge()"
+    },
+    {
+      "label": "MyBookings.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MyBookings.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_mybookings_tsx",
+      "community": 27,
+      "norm_label": "mybookings.tsx"
+    },
+    {
+      "label": "toggleStatus()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MyBookings.tsx",
+      "source_location": "L32",
+      "id": "mybookings_togglestatus",
+      "community": 27,
+      "norm_label": "togglestatus()"
+    },
+    {
+      "label": "Reports.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Reports.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_reports_tsx",
+      "community": 51,
+      "norm_label": "reports.tsx"
+    },
+    {
+      "label": "Settings.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Settings.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_settings_tsx",
+      "community": 9,
+      "norm_label": "settings.tsx"
+    },
+    {
+      "label": "handleProfileSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Settings.tsx",
+      "source_location": "L59",
+      "id": "settings_handleprofilesubmit",
+      "community": 9,
+      "norm_label": "handleprofilesubmit()"
+    },
+    {
+      "label": "handlePasswordSubmit()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Settings.tsx",
+      "source_location": "L64",
+      "id": "settings_handlepasswordsubmit",
+      "community": 9,
+      "norm_label": "handlepasswordsubmit()"
+    },
+    {
+      "label": "Users.tsx",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Users.tsx",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_users_tsx",
+      "community": 52,
+      "norm_label": "users.tsx"
+    },
+    {
+      "label": "index.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\types\\index.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_types_index_ts",
+      "community": 53,
+      "norm_label": "index.ts"
+    },
+    {
+      "label": "countryCodes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\utils\\countryCodes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_frontend_src_utils_countrycodes_ts",
+      "community": 54,
+      "norm_label": "countrycodes.ts"
+    },
+    {
+      "label": "check.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\check.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_check_ts",
+      "community": 55,
+      "norm_label": "check.ts"
+    },
+    {
+      "label": "test-marketer-update.js",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\test-marketer-update.js",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_test_marketer_update_js",
+      "community": 28,
+      "norm_label": "test-marketer-update.js"
+    },
+    {
+      "label": "test()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\test-marketer-update.js",
+      "source_location": "L5",
+      "id": "test_marketer_update_test",
+      "community": 28,
+      "norm_label": "test()"
+    },
+    {
+      "label": "test.js",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\test.js",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_test_js",
+      "community": 56,
+      "norm_label": "test.js"
+    },
+    {
+      "label": "importData.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\importData.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_importdata_ts",
+      "community": 10,
+      "norm_label": "importdata.ts"
+    },
+    {
+      "label": "reviver()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\importData.ts",
+      "source_location": "L6",
+      "id": "importdata_reviver",
+      "community": 10,
+      "norm_label": "reviver()"
+    },
+    {
+      "label": "importData()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\importData.ts",
+      "source_location": "L24",
+      "id": "importdata_importdata",
+      "community": 10,
+      "norm_label": "importdata()"
+    },
+    {
+      "label": "seed.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\seed.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_seed_ts",
+      "community": 6,
+      "norm_label": "seed.ts"
+    },
+    {
+      "label": "seedDB()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\seed.ts",
+      "source_location": "L9",
+      "id": "seed_seeddb",
+      "community": 6,
+      "norm_label": "seeddb()"
+    },
+    {
+      "label": "server.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\server.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_server_ts",
+      "community": 57,
+      "norm_label": "server.ts"
+    },
+    {
+      "label": "socket.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\socket.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_socket_ts",
+      "community": 11,
+      "norm_label": "socket.ts"
+    },
+    {
+      "label": "initSocket()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\socket.ts",
+      "source_location": "L5",
+      "id": "socket_initsocket",
+      "community": 11,
+      "norm_label": "initsocket()"
+    },
+    {
+      "label": "getIO()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\socket.ts",
+      "source_location": "L24",
+      "id": "socket_getio",
+      "community": 11,
+      "norm_label": "getio()"
+    },
+    {
+      "label": "test-mongo.js",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\test-mongo.js",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_test_mongo_js",
+      "community": 29,
+      "norm_label": "test-mongo.js"
+    },
+    {
+      "label": "test()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\test-mongo.js",
+      "source_location": "L3",
+      "id": "test_mongo_test",
+      "community": 29,
+      "norm_label": "test()"
+    },
+    {
+      "label": "db.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\config\\db.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_config_db_ts",
+      "community": 6,
+      "norm_label": "db.ts"
+    },
+    {
+      "label": "connectDB()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\config\\db.ts",
+      "source_location": "L3",
+      "id": "db_connectdb",
+      "community": 6,
+      "norm_label": "connectdb()"
+    },
+    {
+      "label": "analyticsController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\analyticsController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_analyticscontroller_ts",
+      "community": 58,
+      "norm_label": "analyticscontroller.ts"
+    },
+    {
+      "label": "authController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\authController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_authcontroller_ts",
+      "community": 59,
+      "norm_label": "authcontroller.ts"
+    },
+    {
+      "label": "bookingController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_bookingcontroller_ts",
+      "community": 0,
+      "norm_label": "bookingcontroller.ts"
+    },
+    {
+      "label": "invalidateBookingCaches()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L24",
+      "id": "bookingcontroller_invalidatebookingcaches",
+      "community": 0,
+      "norm_label": "invalidatebookingcaches()"
+    },
+    {
+      "label": "getObjectIdString()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L36",
+      "id": "bookingcontroller_getobjectidstring",
+      "community": 0,
+      "norm_label": "getobjectidstring()"
+    },
+    {
+      "label": "externalController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\externalController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_externalcontroller_ts",
+      "community": 30,
+      "norm_label": "externalcontroller.ts"
+    },
+    {
+      "label": "getWebsiteLeadUser()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\externalController.ts",
+      "source_location": "L9",
+      "id": "externalcontroller_getwebsiteleaduser",
+      "community": 30,
+      "norm_label": "getwebsiteleaduser()"
+    },
+    {
+      "label": "notificationController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\notificationController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_notificationcontroller_ts",
+      "community": 60,
+      "norm_label": "notificationcontroller.ts"
+    },
+    {
+      "label": "syncController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\syncController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_synccontroller_ts",
+      "community": 61,
+      "norm_label": "synccontroller.ts"
+    },
+    {
+      "label": "userController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\userController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_usercontroller_ts",
+      "community": 62,
+      "norm_label": "usercontroller.ts"
+    },
+    {
+      "label": "webhookController.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "community": 0,
+      "norm_label": "webhookcontroller.ts"
+    },
+    {
+      "label": "getPhoneLeadUser()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L12",
+      "id": "webhookcontroller_getphoneleaduser",
+      "community": 0,
+      "norm_label": "getphoneleaduser()"
+    },
+    {
+      "label": "formatDate()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L26",
+      "id": "webhookcontroller_formatdate",
+      "community": 0,
+      "norm_label": "formatdate()"
+    },
+    {
+      "label": "formatTime()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L31",
+      "id": "webhookcontroller_formattime",
+      "community": 0,
+      "norm_label": "formattime()"
+    },
+    {
+      "label": "processCallIntoCRM()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L38",
+      "id": "webhookcontroller_processcallintocrm",
+      "community": 0,
+      "norm_label": "processcallintocrm()"
+    },
+    {
+      "label": "auth.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\middleware\\auth.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_middleware_auth_ts",
+      "community": 31,
+      "norm_label": "auth.ts"
+    },
+    {
+      "label": "adminGuard()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\middleware\\auth.ts",
+      "source_location": "L46",
+      "id": "auth_adminguard",
+      "community": 31,
+      "norm_label": "adminguard()"
+    },
+    {
+      "label": "Activity.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Activity.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_activity_ts",
+      "community": 63,
+      "norm_label": "activity.ts"
+    },
+    {
+      "label": "Booking.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Booking.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_booking_ts",
+      "community": 64,
+      "norm_label": "booking.ts"
+    },
+    {
+      "label": "Comment.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Comment.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_comment_ts",
+      "community": 65,
+      "norm_label": "comment.ts"
+    },
+    {
+      "label": "Counter.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Counter.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_counter_ts",
+      "community": 66,
+      "norm_label": "counter.ts"
+    },
+    {
+      "label": "MissedCall.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\MissedCall.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_missedcall_ts",
+      "community": 67,
+      "norm_label": "missedcall.ts"
+    },
+    {
+      "label": "Notification.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Notification.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_notification_ts",
+      "community": 68,
+      "norm_label": "notification.ts"
+    },
+    {
+      "label": "Passenger.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Passenger.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_passenger_ts",
+      "community": 69,
+      "norm_label": "passenger.ts"
+    },
+    {
+      "label": "Payment.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Payment.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_payment_ts",
+      "community": 70,
+      "norm_label": "payment.ts"
+    },
+    {
+      "label": "PrimaryContact.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\PrimaryContact.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_primarycontact_ts",
+      "community": 71,
+      "norm_label": "primarycontact.ts"
+    },
+    {
+      "label": "Traveler.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\Traveler.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_traveler_ts",
+      "community": 72,
+      "norm_label": "traveler.ts"
+    },
+    {
+      "label": "User.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\models\\User.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_models_user_ts",
+      "community": 73,
+      "norm_label": "user.ts"
+    },
+    {
+      "label": "analyticsRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\analyticsRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_analyticsroutes_ts",
+      "community": 74,
+      "norm_label": "analyticsroutes.ts"
+    },
+    {
+      "label": "authRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\authRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_authroutes_ts",
+      "community": 75,
+      "norm_label": "authroutes.ts"
+    },
+    {
+      "label": "bookingRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\bookingRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_bookingroutes_ts",
+      "community": 76,
+      "norm_label": "bookingroutes.ts"
+    },
+    {
+      "label": "externalRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\externalRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_externalroutes_ts",
+      "community": 77,
+      "norm_label": "externalroutes.ts"
+    },
+    {
+      "label": "notificationRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\notificationRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_notificationroutes_ts",
+      "community": 78,
+      "norm_label": "notificationroutes.ts"
+    },
+    {
+      "label": "syncRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\syncRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_syncroutes_ts",
+      "community": 79,
+      "norm_label": "syncroutes.ts"
+    },
+    {
+      "label": "userRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\userRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_userroutes_ts",
+      "community": 80,
+      "norm_label": "userroutes.ts"
+    },
+    {
+      "label": "webhookRoutes.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\routes\\webhookRoutes.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_routes_webhookroutes_ts",
+      "community": 81,
+      "norm_label": "webhookroutes.ts"
+    },
+    {
+      "label": "migrateData.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\scripts\\migrateData.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_scripts_migratedata_ts",
+      "community": 32,
+      "norm_label": "migratedata.ts"
+    },
+    {
+      "label": "migrate()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\scripts\\migrateData.ts",
+      "source_location": "L13",
+      "id": "migratedata_migrate",
+      "community": 32,
+      "norm_label": "migrate()"
+    },
+    {
+      "label": "index.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\types\\index.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_types_index_ts",
+      "community": 82,
+      "norm_label": "index.ts"
+    },
+    {
+      "label": "activityLogger.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\activityLogger.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_activitylogger_ts",
+      "community": 33,
+      "norm_label": "activitylogger.ts"
+    },
+    {
+      "label": "logActivity()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\activityLogger.ts",
+      "source_location": "L3",
+      "id": "activitylogger_logactivity",
+      "community": 33,
+      "norm_label": "logactivity()"
+    },
+    {
+      "label": "cache.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_cache_ts",
+      "community": 1,
+      "norm_label": "cache.ts"
+    },
+    {
+      "label": "MemoryCache",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L11",
+      "id": "cache_memorycache",
+      "community": 1,
+      "norm_label": "memorycache"
+    },
+    {
+      "label": ".get()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L18",
+      "id": "cache_memorycache_get",
+      "community": 1,
+      "norm_label": ".get()"
+    },
+    {
+      "label": ".set()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L33",
+      "id": "cache_memorycache_set",
+      "community": 1,
+      "norm_label": ".set()"
+    },
+    {
+      "label": ".del()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L43",
+      "id": "cache_memorycache_del",
+      "community": 1,
+      "norm_label": ".del()"
+    },
+    {
+      "label": ".invalidateByPrefix()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L51",
+      "id": "cache_memorycache_invalidatebyprefix",
+      "community": 0,
+      "norm_label": ".invalidatebyprefix()"
+    },
+    {
+      "label": ".flush()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L62",
+      "id": "cache_memorycache_flush",
+      "community": 1,
+      "norm_label": ".flush()"
+    },
+    {
+      "label": "extractTravelInfo.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\extractTravelInfo.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_extracttravelinfo_ts",
+      "community": 1,
+      "norm_label": "extracttravelinfo.ts"
+    },
+    {
+      "label": "extractTravelInfo()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\extractTravelInfo.ts",
+      "source_location": "L11",
+      "id": "extracttravelinfo_extracttravelinfo",
+      "community": 1,
+      "norm_label": "extracttravelinfo()"
+    },
+    {
+      "label": "jwt.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\jwt.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_jwt_ts",
+      "community": 12,
+      "norm_label": "jwt.ts"
+    },
+    {
+      "label": "generateToken()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\jwt.ts",
+      "source_location": "L13",
+      "id": "jwt_generatetoken",
+      "community": 12,
+      "norm_label": "generatetoken()"
+    },
+    {
+      "label": "verifyToken()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\jwt.ts",
+      "source_location": "L21",
+      "id": "jwt_verifytoken",
+      "community": 12,
+      "norm_label": "verifytoken()"
+    },
+    {
+      "label": "keepWarm.ts",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\keepWarm.ts",
+      "source_location": "L1",
+      "id": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_keepwarm_ts",
+      "community": 34,
+      "norm_label": "keepwarm.ts"
+    },
+    {
+      "label": "startSelfPinging()",
+      "file_type": "code",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\keepWarm.ts",
+      "source_location": "L7",
+      "id": "keepwarm_startselfpinging",
+      "community": 34,
+      "norm_label": "startselfpinging()"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_all data.php",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_all_data_php",
+      "_tgt": "wordpress_integration_all_data_travelwindow_crm_send_all_v4",
+      "source": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_all_data_php",
+      "target": "wordpress_integration_all_data_travelwindow_crm_send_all_v4",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\wordpress_integration_v5.php",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_v5_php",
+      "_tgt": "wordpress_integration_v5_travelwindow_crm_send_v5",
+      "source": "c_users_anmol_onedrive_desktop_crm_wordpress_integration_v5_php",
+      "target": "wordpress_integration_v5_travelwindow_crm_send_v5",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\App.tsx",
+      "source_location": "L37",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_app_tsx",
+      "_tgt": "app_pageloader",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_app_tsx",
+      "target": "app_pageloader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\main.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_main_tsx",
+      "_tgt": "c_users_anmol_onedrive_desktop_crm_frontend_src_app_tsx",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_app_tsx",
+      "target": "c_users_anmol_onedrive_desktop_crm_frontend_src_main_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\main.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_main_tsx",
+      "_tgt": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_main_tsx",
+      "target": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "_tgt": "errorboundary_constructor",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "target": "errorboundary_constructor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "_tgt": "errorboundary_getderivedstatefromerror",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "target": "errorboundary_getderivedstatefromerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ErrorBoundary.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "_tgt": "errorboundary_componentdidcatch",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_errorboundary_tsx",
+      "target": "errorboundary_componentdidcatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ProtectedRoute.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_protectedroute_tsx",
+      "_tgt": "protectedroute_protectedroute",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_protectedroute_tsx",
+      "target": "protectedroute_protectedroute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\ProtectedRoute.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_src": "protectedroute_protectedroute",
+      "_tgt": "authcontext_useauth",
+      "source": "protectedroute_protectedroute",
+      "target": "authcontext_useauth"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\MainLayout.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_mainlayout_tsx",
+      "_tgt": "mainlayout_mainlayout",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_mainlayout_tsx",
+      "target": "mainlayout_mainlayout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L94",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "_tgt": "topbar_handletogglestatus",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "target": "topbar_handletogglestatus",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L103",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "_tgt": "topbar_handleclickoutside",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "target": "topbar_handleclickoutside",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L116",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "_tgt": "topbar_handlenotificationclick",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "target": "topbar_handlenotificationclick",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L126",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "_tgt": "topbar_handledismiss",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "target": "topbar_handledismiss",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\components\\layout\\Topbar.tsx",
+      "source_location": "L131",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "_tgt": "topbar_handlelogout",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_components_layout_topbar_tsx",
+      "target": "topbar_handlelogout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\context\\AuthContext.tsx",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_context_authcontext_tsx",
+      "_tgt": "authcontext_useauth",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_context_authcontext_tsx",
+      "target": "authcontext_useauth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\hooks\\useGlobalSync.ts",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_src": "useglobalsync_useglobalsync",
+      "_tgt": "authcontext_useauth",
+      "source": "authcontext_useauth",
+      "target": "useglobalsync_useglobalsync"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AddPaymentModal.tsx",
+      "source_location": "L123",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_addpaymentmodal_tsx",
+      "_tgt": "addpaymentmodal_if",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_addpaymentmodal_tsx",
+      "target": "addpaymentmodal_if",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\AssignAgentModal.tsx",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_assignagentmodal_tsx",
+      "_tgt": "assignagentmodal_onsubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_assignagentmodal_tsx",
+      "target": "assignagentmodal_onsubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\CommentModal.tsx",
+      "source_location": "L70",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_commentmodal_tsx",
+      "_tgt": "commentmodal_handlesubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_commentmodal_tsx",
+      "target": "commentmodal_handlesubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\NewBookingModal.tsx",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_newbookingmodal_tsx",
+      "_tgt": "newbookingmodal_handleclose",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_newbookingmodal_tsx",
+      "target": "newbookingmodal_handleclose",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\NewBookingModal.tsx",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_newbookingmodal_tsx",
+      "_tgt": "newbookingmodal_onsubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_newbookingmodal_tsx",
+      "target": "newbookingmodal_onsubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\features\\bookings\\components\\StatusUpdateModal.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_statusupdatemodal_tsx",
+      "_tgt": "statusupdatemodal_statusupdatemodal",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_features_bookings_components_statusupdatemodal_tsx",
+      "target": "statusupdatemodal_statusupdatemodal",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\hooks\\useGlobalSync.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_hooks_useglobalsync_ts",
+      "_tgt": "useglobalsync_useglobalsync",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_hooks_useglobalsync_ts",
+      "target": "useglobalsync_useglobalsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\lib\\utils.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_lib_utils_ts",
+      "_tgt": "utils_cn",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_lib_utils_ts",
+      "target": "utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookedEDT.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookededt_tsx",
+      "_tgt": "bookededt_bookededt",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookededt_tsx",
+      "target": "bookededt_bookededt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingDetails.tsx",
+      "source_location": "L196",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingdetails_tsx",
+      "_tgt": "bookingdetails_starteditingreqs",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingdetails_tsx",
+      "target": "bookingdetails_starteditingreqs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Bookings.tsx",
+      "source_location": "L47",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookings_tsx",
+      "_tgt": "bookings_togglestatus",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookings_tsx",
+      "target": "bookings_togglestatus",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\BookingTravelers.tsx",
+      "source_location": "L431",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingtravelers_tsx",
+      "_tgt": "bookingtravelers_onsubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_bookingtravelers_tsx",
+      "target": "bookingtravelers_onsubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_loader",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_loader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_prevmonth",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_prevmonth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_nextmonth",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_nextmonth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_gototoday",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_gototoday",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L96",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_getstatusstyle",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_getstatusstyle",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\CalendarView.tsx",
+      "source_location": "L106",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "_tgt": "calendarview_handledateclick",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_calendarview_tsx",
+      "target": "calendarview_handledateclick",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Dashboard.tsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_dashboard_tsx",
+      "_tgt": "dashboard_loader",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_dashboard_tsx",
+      "target": "dashboard_loader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Login.tsx",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_login_tsx",
+      "_tgt": "login_handlesubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_login_tsx",
+      "target": "login_handlesubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MissedCalls.tsx",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_missedcalls_tsx",
+      "_tgt": "missedcalls_handlesearch",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_missedcalls_tsx",
+      "target": "missedcalls_handlesearch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MissedCalls.tsx",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_missedcalls_tsx",
+      "_tgt": "missedcalls_getdispositionbadge",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_missedcalls_tsx",
+      "target": "missedcalls_getdispositionbadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\MyBookings.tsx",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_mybookings_tsx",
+      "_tgt": "mybookings_togglestatus",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_mybookings_tsx",
+      "target": "mybookings_togglestatus",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Settings.tsx",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_settings_tsx",
+      "_tgt": "settings_handleprofilesubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_settings_tsx",
+      "target": "settings_handleprofilesubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\frontend\\src\\pages\\Settings.tsx",
+      "source_location": "L64",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_settings_tsx",
+      "_tgt": "settings_handlepasswordsubmit",
+      "source": "c_users_anmol_onedrive_desktop_crm_frontend_src_pages_settings_tsx",
+      "target": "settings_handlepasswordsubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\test-marketer-update.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_test_marketer_update_js",
+      "_tgt": "test_marketer_update_test",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_test_marketer_update_js",
+      "target": "test_marketer_update_test",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\importData.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_importdata_ts",
+      "_tgt": "importdata_reviver",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_importdata_ts",
+      "target": "importdata_reviver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\importData.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_importdata_ts",
+      "_tgt": "importdata_importdata",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_importdata_ts",
+      "target": "importdata_importdata",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\seed.ts",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_seed_ts",
+      "_tgt": "seed_seeddb",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_seed_ts",
+      "target": "seed_seeddb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\seed.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_src": "seed_seeddb",
+      "_tgt": "db_connectdb",
+      "source": "seed_seeddb",
+      "target": "db_connectdb"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\socket.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_socket_ts",
+      "_tgt": "socket_initsocket",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_socket_ts",
+      "target": "socket_initsocket",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\socket.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_socket_ts",
+      "_tgt": "socket_getio",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_socket_ts",
+      "target": "socket_getio",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\test-mongo.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_test_mongo_js",
+      "_tgt": "test_mongo_test",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_test_mongo_js",
+      "target": "test_mongo_test",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\config\\db.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_config_db_ts",
+      "_tgt": "db_connectdb",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_config_db_ts",
+      "target": "db_connectdb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_bookingcontroller_ts",
+      "_tgt": "bookingcontroller_invalidatebookingcaches",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_bookingcontroller_ts",
+      "target": "bookingcontroller_invalidatebookingcaches",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_bookingcontroller_ts",
+      "_tgt": "bookingcontroller_getobjectidstring",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_bookingcontroller_ts",
+      "target": "bookingcontroller_getobjectidstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\bookingController.ts",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_src": "bookingcontroller_invalidatebookingcaches",
+      "_tgt": "cache_memorycache_invalidatebyprefix",
+      "source": "bookingcontroller_invalidatebookingcaches",
+      "target": "cache_memorycache_invalidatebyprefix"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\externalController.ts",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_externalcontroller_ts",
+      "_tgt": "externalcontroller_getwebsiteleaduser",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_externalcontroller_ts",
+      "target": "externalcontroller_getwebsiteleaduser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "_tgt": "webhookcontroller_getphoneleaduser",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "target": "webhookcontroller_getphoneleaduser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "_tgt": "webhookcontroller_formatdate",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "target": "webhookcontroller_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "_tgt": "webhookcontroller_formattime",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "target": "webhookcontroller_formattime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "_tgt": "webhookcontroller_processcallintocrm",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_controllers_webhookcontroller_ts",
+      "target": "webhookcontroller_processcallintocrm",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "_src": "webhookcontroller_processcallintocrm",
+      "_tgt": "webhookcontroller_getphoneleaduser",
+      "source": "webhookcontroller_getphoneleaduser",
+      "target": "webhookcontroller_processcallintocrm",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_src": "webhookcontroller_processcallintocrm",
+      "_tgt": "webhookcontroller_formatdate",
+      "source": "webhookcontroller_formatdate",
+      "target": "webhookcontroller_processcallintocrm",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_src": "webhookcontroller_processcallintocrm",
+      "_tgt": "webhookcontroller_formattime",
+      "source": "webhookcontroller_formattime",
+      "target": "webhookcontroller_processcallintocrm",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\controllers\\webhookController.ts",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_src": "webhookcontroller_processcallintocrm",
+      "_tgt": "cache_memorycache_invalidatebyprefix",
+      "source": "webhookcontroller_processcallintocrm",
+      "target": "cache_memorycache_invalidatebyprefix"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\middleware\\auth.ts",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_middleware_auth_ts",
+      "_tgt": "auth_adminguard",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_middleware_auth_ts",
+      "target": "auth_adminguard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\scripts\\migrateData.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_scripts_migratedata_ts",
+      "_tgt": "migratedata_migrate",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_scripts_migratedata_ts",
+      "target": "migratedata_migrate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\activityLogger.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_activitylogger_ts",
+      "_tgt": "activitylogger_logactivity",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_activitylogger_ts",
+      "target": "activitylogger_logactivity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_cache_ts",
+      "_tgt": "cache_memorycache",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_cache_ts",
+      "target": "cache_memorycache",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_src": "cache_memorycache",
+      "_tgt": "cache_memorycache_get",
+      "source": "cache_memorycache",
+      "target": "cache_memorycache_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_src": "cache_memorycache",
+      "_tgt": "cache_memorycache_set",
+      "source": "cache_memorycache",
+      "target": "cache_memorycache_set",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_src": "cache_memorycache",
+      "_tgt": "cache_memorycache_del",
+      "source": "cache_memorycache",
+      "target": "cache_memorycache_del",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L51",
+      "weight": 1.0,
+      "_src": "cache_memorycache",
+      "_tgt": "cache_memorycache_invalidatebyprefix",
+      "source": "cache_memorycache",
+      "target": "cache_memorycache_invalidatebyprefix",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\cache.ts",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_src": "cache_memorycache",
+      "_tgt": "cache_memorycache_flush",
+      "source": "cache_memorycache",
+      "target": "cache_memorycache_flush",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\extractTravelInfo.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "extracttravelinfo_extracttravelinfo",
+      "_tgt": "cache_memorycache_get",
+      "source": "cache_memorycache_get",
+      "target": "extracttravelinfo_extracttravelinfo"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\extractTravelInfo.ts",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_src": "extracttravelinfo_extracttravelinfo",
+      "_tgt": "cache_memorycache_set",
+      "source": "cache_memorycache_set",
+      "target": "extracttravelinfo_extracttravelinfo"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\extractTravelInfo.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_extracttravelinfo_ts",
+      "_tgt": "extracttravelinfo_extracttravelinfo",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_extracttravelinfo_ts",
+      "target": "extracttravelinfo_extracttravelinfo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\jwt.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_jwt_ts",
+      "_tgt": "jwt_generatetoken",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_jwt_ts",
+      "target": "jwt_generatetoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\jwt.ts",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_jwt_ts",
+      "_tgt": "jwt_verifytoken",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_jwt_ts",
+      "target": "jwt_verifytoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "C:\\Users\\anmol\\OneDrive\\Desktop\\CRM\\travel-crm-backend\\src\\utils\\keepWarm.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_keepwarm_ts",
+      "_tgt": "keepwarm_startselfpinging",
+      "source": "c_users_anmol_onedrive_desktop_crm_travel_crm_backend_src_utils_keepwarm_ts",
+      "target": "keepwarm_startselfpinging",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
+import fs from 'fs';
+import path from 'path';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
 import User from '../models/User';
@@ -217,7 +219,14 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
     }
 
     // ---- Parse CDR payload (flexible format detection) ----
-    console.log('[GDMS Webhook] Raw payload received:', JSON.stringify(req.body, null, 2));
+    try {
+        const logFilePath = path.join(__dirname, '../../../pbx-logs.txt');
+        const timestamp = new Date().toISOString();
+        const logData = `\n--- [${timestamp}] [GDMS Webhook] Raw payload received ---\n${JSON.stringify(req.body, null, 2)}\n`;
+        fs.appendFileSync(logFilePath, logData, 'utf-8');
+    } catch (err) {
+        console.error('Failed to write PBX log to file:', err);
+    }
 
     let cdrRoot: any[] = [];
 
@@ -332,4 +341,16 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         integrated: processedCount,
         skipped: skippedCount,
     });
+});
+
+// @desc    Download PBX logs file
+// @route   GET /api/webhook/pbx-logs
+// @access  Public (Hidden endpoint for debugging)
+export const getPbxLogs = asyncHandler(async (req: Request, res: Response) => {
+    const logFilePath = path.join(__dirname, '../../../pbx-logs.txt');
+    if (fs.existsSync(logFilePath)) {
+        res.download(logFilePath);
+    } else {
+        res.status(404).send('No logs found yet.');
+    }
 });
