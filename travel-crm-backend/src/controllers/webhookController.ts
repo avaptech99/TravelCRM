@@ -83,11 +83,20 @@ const processCallIntoCRM = async (
     if (contact) {
         const latestBooking = await Booking.findOne({ primaryContactId: contact._id }).sort({ createdAt: -1 });
         if (latestBooking) {
-            await Comment.create({
-                bookingId: latestBooking._id,
-                createdById: phoneLeadUser._id,
-                text: commentText,
-            });
+            // Deduplicate comments for the same call leg (e.g. Ring Groups generate many webhooks)
+            let existingComment = await Comment.findOne({ bookingId: latestBooking._id, pbxCallId });
+            
+            if (existingComment) {
+                existingComment.text = commentText;
+                await existingComment.save();
+            } else {
+                await Comment.create({
+                    bookingId: latestBooking._id,
+                    createdById: phoneLeadUser._id,
+                    text: commentText,
+                    pbxCallId, // track this to prevent spam
+                });
+            }
 
             // Notify assigned agent
             if (latestBooking.assignedToUserId) {
@@ -104,6 +113,12 @@ const processCallIntoCRM = async (
             latestBooking.callDisposition = newDisposition;
             latestBooking.lastInteractionAt = new Date();
             await latestBooking.save();
+
+            // Always update contact requirements if it was a system-generated placeholder
+            if (!contact.requirements || contact.requirements.includes('Call from') || contact.requirements.includes('Duration: 0s')) {
+                contact.requirements = commentText;
+                await contact.save();
+            }
 
             appCache.invalidateByPrefix('bookings_');
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
