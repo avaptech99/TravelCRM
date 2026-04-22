@@ -79,7 +79,22 @@ const processCallIntoCRM = async (
     const endStr = endTime ? formatTime(endTime) : 'N/A';
 
     // Build detailed comment text
-    const commentText = `${callType} from ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
+    const directionPreposition = disposition === 'OUTBOUND' ? 'to' : 'from';
+    const commentText = `${callType} ${directionPreposition} ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
+
+    // Hierarchy check helper to ensure worse durations/missed calls don't overwrite Answered/longer calls
+    const shouldUpdateHierarchy = (existingText: string) => {
+        const isIncomingAnswered = disposition === 'ANSWERED' && billsec > 0;
+        const isExistingAnswered = existingText.includes('Answered Call');
+        
+        // Extract duration from existing text safely
+        const match = existingText.match(/Duration: (\d+)s/);
+        const oldDuration = match ? parseInt(match[1], 10) : 0;
+        
+        if (isIncomingAnswered && !isExistingAnswered) return true;
+        if (duration > oldDuration) return true;
+        return false;
+    };
 
     // Existing contact — add comment to latest booking + notify agent
     if (contact) {
@@ -88,9 +103,14 @@ const processCallIntoCRM = async (
             // Deduplicate comments for the same call leg (e.g. Ring Groups generate many webhooks)
             let existingComment = await Comment.findOne({ bookingId: latestBooking._id, pbxCallId });
             
+            let commentUpdated = false;
+            let isNewComment = false;
             if (existingComment) {
-                existingComment.text = commentText;
-                await existingComment.save();
+                if (shouldUpdateHierarchy(existingComment.text)) {
+                    existingComment.text = commentText;
+                    await existingComment.save();
+                    commentUpdated = true;
+                }
             } else {
                 await Comment.create({
                     bookingId: latestBooking._id,
@@ -98,26 +118,38 @@ const processCallIntoCRM = async (
                     text: commentText,
                     pbxCallId, // track this to prevent spam
                 });
-            }
-
-            // Notify assigned agent
-            if (latestBooking.assignedToUserId) {
-                await Notification.create({
-                    userId: latestBooking.assignedToUserId,
-                    bookingId: latestBooking._id,
-                    message: `Missed call from ${finalName} (${contact.contactPhoneNo}) on your lead ${latestBooking.uniqueCode}.`,
-                });
-                appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
+                commentUpdated = true;
+                isNewComment = true;
             }
 
             // Update status and interaction time to jump to top and change color
             const newDisposition = disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED');
-            latestBooking.callDisposition = newDisposition;
-            latestBooking.lastInteractionAt = new Date();
-            await latestBooking.save();
+            
+            // Only update booking disposition if it is "better"
+            if (
+                latestBooking.callDisposition !== 'OUTBOUND' && 
+                (latestBooking.callDisposition !== 'ANSWERED' || newDisposition === 'ANSWERED')
+            ) {
+                latestBooking.callDisposition = newDisposition;
+            }
 
-            // Always update contact requirements if it was a system-generated placeholder
-            if (!contact.requirements || contact.requirements.includes('Call from') || contact.requirements.includes('Duration: 0s')) {
+            if (commentUpdated) {
+                latestBooking.lastInteractionAt = new Date();
+                await latestBooking.save();
+
+                // Notify assigned agent
+                if (latestBooking.assignedToUserId && isNewComment) {
+                    await Notification.create({
+                        userId: latestBooking.assignedToUserId,
+                        bookingId: latestBooking._id,
+                        message: `${callType} ${directionPreposition} ${finalName} (${contact.contactPhoneNo}) on your lead ${latestBooking.uniqueCode}.`,
+                    });
+                    appCache.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
+                }
+            }
+
+            // Always update contact requirements if it was a system-generated placeholder or if we have a better duration
+            if (!contact.requirements || (contact.requirements.includes('Call ') && shouldUpdateHierarchy(contact.requirements))) {
                 contact.requirements = commentText;
                 await contact.save();
             }
@@ -126,8 +158,7 @@ const processCallIntoCRM = async (
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
         }
     }
-
-    // Check if a booking already exists for this PBX Call Unique ID
+       // Check if a booking already exists for this PBX Call Unique ID
     let existingBooking = await Booking.findOne({ pbxCallId });
 
     if (existingBooking) {
@@ -140,11 +171,12 @@ const processCallIntoCRM = async (
         }
 
         // Always update requirements/comment if we have a better/longer duration
-        // We'll update the contact requirements if it was a system-generated one
-        if (contact && contact.requirements && contact.requirements.includes('Call from')) {
-            contact.requirements = commentText;
-            updated = true;
-            await contact.save();
+        if (contact && contact.requirements && contact.requirements.includes('Call ')) {
+            if (shouldUpdateHierarchy(contact.requirements)) {
+                contact.requirements = commentText;
+                updated = true;
+                await contact.save();
+            }
         }
 
         if (disposition === 'OUTBOUND' && existingBooking.callDisposition !== 'OUTBOUND') {
@@ -158,11 +190,7 @@ const processCallIntoCRM = async (
             appCache.invalidateByPrefix('bookings_');
             return { action: 'lead_updated', contactId: contact?._id, bookingId: existingBooking._id };
         }
-        
-        // Even if no visual update, refresh interaction time to jump to top
-        existingBooking.lastInteractionAt = new Date();
-        await existingBooking.save();
-        return { action: 'lead_exists_no_update', contactId: contact?._id, bookingId: existingBooking._id };
+        return { action: 'lead_skipped', reason: 'already_exists_and_newer_duration_not_found' };
     }
 
     // New contact — create lead
@@ -306,16 +334,30 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
 
-            // 2. Save/update MissedCall log and mark as processed
-            await MissedCall.findOneAndUpdate(
-                { uniqueId },
-                {
+            // 2. Save/update MissedCall log and mark as processed (with Hierarchy Lock)
+            const incomingDuration = parseInt(cdr.duration || '0', 10);
+            const existingMissedCall = await MissedCall.findOne({ uniqueId });
+
+            if (existingMissedCall) {
+                const isIncomingAnswered = cdr.disposition === 'ANSWERED';
+                const isExistingAnswered = existingMissedCall.disposition === 'ANSWERED';
+                const hasLongerDuration = incomingDuration > existingMissedCall.duration;
+
+                if ((isIncomingAnswered && !isExistingAnswered) || hasLongerDuration) {
+                    existingMissedCall.duration = incomingDuration;
+                    existingMissedCall.billsec = billsec;
+                    existingMissedCall.disposition = cdr.disposition || 'UNKNOWN';
+                    existingMissedCall.rawPayload = cdr;
+                    await existingMissedCall.save();
+                }
+            } else {
+                await MissedCall.create({
                     callerNumber,
                     callerName,
                     calledNumber: cdr.dst || '',
                     callTime,
                     endTime,
-                    duration: parseInt(cdr.duration || '0', 10),
+                    duration: incomingDuration,
                     billsec,
                     disposition: cdr.disposition || 'UNKNOWN',
                     uniqueId,
@@ -323,9 +365,8 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
                     userfield: cdr.userfield || '',
                     rawPayload: cdr,
                     isProcessed: true,
-                },
-                { upsert: true, new: true }
-            );
+                });
+            }
 
             processedCount++;
         } catch (err: any) {
