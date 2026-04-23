@@ -13,9 +13,11 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
+import { BulkAssignAgentModal } from './BulkAssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Trash2, Users } from 'lucide-react';
 
 
 
@@ -37,6 +39,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
+    const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
     const initialPage = isInlineView ? 1 : parseInt(searchParams.get('page') || '1', 10);
 
@@ -92,6 +96,26 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         }
     });
 
+    const bulkDeleteMutation = useMutation({
+        mutationFn: async (bookingIds: string[]) => {
+            if (window.confirm(`Are you sure you want to completely DELETE ${bookingIds.length} selected leads? This action cannot be undone.`)) {
+                const { data } = await api.post('/bookings/bulk-delete', { bookingIds });
+                return data;
+            }
+            return Promise.reject(new Error('Cancelled'));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            setRowSelection({});
+            toast.success('Leads deleted successfully');
+        },
+        onError: (error: any) => {
+            if (error.message !== 'Cancelled') {
+                toast.error(error.response?.data?.message || 'Failed to delete leads');
+            }
+        }
+    });
+
     const { data, isLoading } = useQuery({
         queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
@@ -116,6 +140,29 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const columnHelper = createColumnHelper<Booking>();
 
     const columns = [
+        columnHelper.display({
+            id: 'select',
+            header: ({ table }) => (
+                <div className="px-1">
+                    <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                        checked={table.getIsAllPageRowsSelected()}
+                        onChange={table.getToggleAllPageRowsSelectedHandler()}
+                    />
+                </div>
+            ),
+            cell: ({ row }) => (
+                <div className="px-1">
+                    <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                        checked={row.getIsSelected()}
+                        onChange={row.getToggleSelectedHandler()}
+                    />
+                </div>
+            ),
+        }),
         columnHelper.accessor('uniqueCode', {
             header: 'Booking ID',
             cell: (info) => info.getValue() || '-',
@@ -241,7 +288,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         pageCount: data?.meta?.totalPages || -1,
         state: {
             pagination,
+            rowSelection,
         },
+        enableRowSelection: true,
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => row.id,
         onPaginationChange: setPagination,
         getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
@@ -257,6 +308,34 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <div className="p-8 text-center text-slate-500 bg-white rounded-lg shadow-sm border border-slate-200">Loading bookings...</div>
                 ) : (
                     <>
+                        {Object.keys(rowSelection).length > 0 && (
+                            <div className="bg-primary/10 border-b border-primary/20 px-4 py-3 flex items-center justify-between">
+                                <span className="text-sm font-bold text-primary">
+                                    {Object.keys(rowSelection).length} leads selected
+                                </span>
+                                <div className="flex gap-2">
+                                    {user?.role === 'ADMIN' && (
+                                        <>
+                                            <button 
+                                                onClick={() => setIsBulkAssignOpen(true)}
+                                                className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-50 transition-colors"
+                                            >
+                                                <Users size={14} />
+                                                Assign Selected
+                                            </button>
+                                            <button 
+                                                onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
+                                                className="flex items-center gap-1.5 text-xs font-semibold bg-red-100 text-red-700 px-3 py-1.5 rounded hover:bg-red-200 transition-colors"
+                                            >
+                                                <Trash2 size={14} />
+                                                Delete Selected
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Desktop View Table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="min-w-full divide-y divide-slate-200">
@@ -296,8 +375,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             key={cell.id}
                                             className="px-2 py-2 text-sm text-slate-700 font-medium"
                                             onClick={(e) => {
-                                                // Prevent navigation when clicking on the Actions column
-                                                if (cell.column.id === 'actions') {
+                                                // Prevent navigation when clicking on the Actions or checkbox column
+                                                if (cell.column.id === 'actions' || cell.column.id === 'select') {
                                                     e.stopPropagation();
                                                 }
                                             }}
@@ -512,6 +591,13 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 booking={activeAssignBooking}
                 isOpen={!!activeAssignBooking}
                 onClose={() => setActiveAssignBooking(null)}
+            />
+
+            <BulkAssignAgentModal
+                bookingIds={Object.keys(rowSelection)}
+                isOpen={isBulkAssignOpen}
+                onClose={() => setIsBulkAssignOpen(false)}
+                onSuccess={() => setRowSelection({})}
             />
         </div>
     );

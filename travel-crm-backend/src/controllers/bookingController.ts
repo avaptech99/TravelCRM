@@ -448,6 +448,46 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json({ message: 'Booking and all related records removed successfully' });
 });
 
+// @desc    Delete multiple bookings
+// @route   POST /api/bookings/bulk-delete
+// @access  Private (Admin only)
+export const bulkDeleteBookings = asyncHandler(async (req: Request, res: Response) => {
+    const { bookingIds } = req.body;
+
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        res.status(400);
+        throw new Error('No booking IDs provided');
+    }
+
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
+    }
+
+    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    
+    if (bookings.length === 0) {
+        res.status(404);
+        throw new Error('No valid bookings found');
+    }
+
+    const primaryContactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
+    const pbxCallIds = bookings.map(b => b.pbxCallId).filter(Boolean);
+
+    await Promise.all([
+        Comment.deleteMany({ bookingId: { $in: bookingIds } }),
+        Passenger.deleteMany({ bookingId: { $in: bookingIds } }),
+        Payment.deleteMany({ bookingId: { $in: bookingIds } }),
+        Notification.deleteMany({ bookingId: { $in: bookingIds } }),
+        primaryContactIds.length > 0 ? PrimaryContact.deleteMany({ _id: { $in: primaryContactIds } }) : Promise.resolve(),
+        pbxCallIds.length > 0 ? MissedCall.deleteMany({ uniqueId: { $in: pbxCallIds } }) : Promise.resolve(),
+        Booking.deleteMany({ _id: { $in: bookingIds } })
+    ]);
+
+    invalidateBookingCaches();
+    res.json({ message: `${bookings.length} bookings and related records removed successfully` });
+});
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private (Admin & Agent)
