@@ -140,29 +140,31 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const columnHelper = createColumnHelper<Booking>();
 
     const columns = [
-        columnHelper.display({
-            id: 'select',
-            header: ({ table }) => (
-                <div className="px-1">
-                    <input
-                        type="checkbox"
-                        className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
-                        checked={table.getIsAllPageRowsSelected()}
-                        onChange={table.getToggleAllPageRowsSelectedHandler()}
-                    />
-                </div>
-            ),
-            cell: ({ row }) => (
-                <div className="px-1">
-                    <input
-                        type="checkbox"
-                        className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
-                        checked={row.getIsSelected()}
-                        onChange={row.getToggleSelectedHandler()}
-                    />
-                </div>
-            ),
-        }),
+        ...(user?.role === 'ADMIN' ? [
+            columnHelper.display({
+                id: 'select',
+                header: ({ table }) => (
+                    <div className="px-1">
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                            checked={table.getIsAllPageRowsSelected()}
+                            onChange={table.getToggleAllPageRowsSelectedHandler()}
+                        />
+                    </div>
+                ),
+                cell: ({ row }) => (
+                    <div className="px-1">
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                            checked={row.getIsSelected()}
+                            onChange={row.getToggleSelectedHandler()}
+                        />
+                    </div>
+                ),
+            })
+        ] : []),
         columnHelper.accessor('uniqueCode', {
             header: 'Booking ID',
             cell: (info) => info.getValue() || '-',
