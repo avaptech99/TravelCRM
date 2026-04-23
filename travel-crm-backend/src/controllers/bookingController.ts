@@ -7,6 +7,7 @@ import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
+import MissedCall from '../models/MissedCall';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import {
@@ -438,6 +439,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         Payment.deleteMany({ bookingId: req.params.id }),
         Notification.deleteMany({ bookingId: req.params.id }),
         booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
+        booking.pbxCallId ? MissedCall.deleteMany({ uniqueId: booking.pbxCallId }) : Promise.resolve(),
         Booking.findByIdAndDelete(req.params.id)
     ]);
     console.timeEnd(`deleteBooking_${req.params.id}`);
