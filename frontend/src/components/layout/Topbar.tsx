@@ -74,27 +74,6 @@ export const Topbar: React.FC = () => {
         }
     });
 
-    const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
-
-    const toggleStatusMutation = useMutation({
-        mutationFn: async (newStatus: boolean) => {
-            const { data } = await api.patch('/users/status', { isOnline: newStatus });
-            return data;
-        },
-        onSuccess: (data) => {
-            setIsOnline(data.isOnline);
-            toast.success(`You are now ${data.isOnline ? 'Online' : 'Offline'}`);
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-        },
-        onError: () => {
-            toast.error('Failed to update status');
-        }
-    });
-
-    const handleToggleStatus = () => {
-        toggleStatusMutation.mutate(!isOnline);
-    };
-
     // Filter out dismissed notifications for bell icon
     const visibleNotifications = notifications.filter((n: any) => !n.isDismissed);
     const unreadCount = visibleNotifications.filter(n => !n.read).length;
@@ -129,13 +108,7 @@ export const Topbar: React.FC = () => {
     };
 
     const handleLogout = async () => {
-        try {
-            await api.patch('/users/status', { isOnline: false });
-        } catch (error) {
-            console.error('Failed to set offline status on logout', error);
-        } finally {
-            logout();
-        }
+        logout();
     };
 
     return (
@@ -144,23 +117,6 @@ export const Topbar: React.FC = () => {
                 <h1 className="text-xl font-semibold text-slate-800 truncate">Dashboard</h1>
             </div>
             <div className="flex items-center space-x-6">
-                {/* Online/Offline Toggle */}
-                <div className="flex items-center gap-2 md:gap-3 pr-2 md:pr-4 border-r border-slate-100">
-                    <span className={`hidden md:block text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-green-500' : 'text-slate-400'}`}>
-                        {isOnline ? 'Online' : 'Offline'}
-                    </span>
-                    <button
-                        onClick={handleToggleStatus}
-                        disabled={toggleStatusMutation.isPending}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 ${isOnline ? 'bg-green-500' : 'bg-slate-200'
-                            }`}
-                    >
-                        <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isOnline ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                        />
-                    </button>
-                </div>
 
                 {/* Notifications */}
                 <div className="relative" ref={dropdownRef}>
