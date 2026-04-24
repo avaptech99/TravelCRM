@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User } from '../types';
 import { jwtDecode } from 'jwt-decode';
 import { useQueryClient } from '@tanstack/react-query';
+import api from '../api/client';
 
 interface AuthContextType {
     token: string | null;
@@ -30,6 +31,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
             setUser(null);
         }
+    }, [token]);
+
+    // Heartbeat logic to keep user online
+    useEffect(() => {
+        if (!token) return;
+
+        const sendHeartbeat = async () => {
+            try {
+                await api.post('/users/heartbeat');
+            } catch (error) {
+                // If 401, token might be expired, handled by axios interceptors usually
+                console.debug('Heartbeat ping');
+            }
+        };
+
+        // Initial heartbeat
+        sendHeartbeat();
+
+        // Every 2 minutes
+        const interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
+
+        return () => clearInterval(interval);
     }, [token]);
 
     const login = (newToken: string) => {

@@ -6,6 +6,9 @@ import { createUserSchema } from '../types';
 import bcrypt from 'bcrypt';
 import appCache from '../utils/cache';
 
+// ONLINE_THRESHOLD in milliseconds (5 minutes)
+const ONLINE_THRESHOLD = 5 * 60 * 1000;
+
 // @desc    Get all agents
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
@@ -19,12 +22,22 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const agents = await User.find({ role: 'AGENT' })
-        .select('name email isOnline lastSeen')
+        .select('name email lastSeen')
         .sort({ name: 1 })
         .lean();
 
-    const mappedAgents = agents.map(a => ({ ...a, id: a._id.toString() }));
-    appCache.set(cacheKey, mappedAgents, 60); // Cache for 60 seconds (agents rarely change)
+    const now = Date.now();
+    const mappedAgents = agents.map(a => {
+        const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+        const isOnline = (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return { 
+            ...a, 
+            id: a._id.toString(),
+            isOnline 
+        };
+    });
+
+    appCache.set(cacheKey, mappedAgents, 30); // Lower cache time for online status
     res.json(mappedAgents);
 });
 
@@ -41,13 +54,39 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const users = await User.find()
-        .select('name email role isOnline lastSeen createdAt')
+        .select('name email role lastSeen createdAt')
         .sort({ createdAt: -1 })
         .lean();
 
-    const mappedUsers = users.map(u => ({ ...u, id: u._id.toString() }));
-    appCache.set(cacheKey, mappedUsers, 60); // Cache for 60 seconds
+    const now = Date.now();
+    const mappedUsers = users.map(u => {
+        const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
+        const isOnline = (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return { 
+            ...u, 
+            id: u._id.toString(),
+            isOnline 
+        };
+    });
+
+    appCache.set(cacheKey, mappedUsers, 30);
     res.json(mappedUsers);
+});
+
+// @desc    Update user lastSeen (Heartbeat)
+// @route   POST /api/users/heartbeat
+// @access  Private
+export const heartbeat = asyncHandler(async (req: Request, res: Response) => {
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    user.lastSeen = new Date();
+    await user.save();
+
+    res.json({ success: true, lastSeen: user.lastSeen });
 });
 
 // @desc    Create a new user (Admin only)
