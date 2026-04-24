@@ -41,6 +41,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
     const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     const initialPage = isInlineView ? 1 : parseInt(searchParams.get('page') || '1', 10);
 
@@ -140,7 +141,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const columnHelper = createColumnHelper<Booking>();
 
     const columns = [
-        ...(user?.role === 'ADMIN' ? [
+        ...(user?.role === 'ADMIN' && isSelectionMode ? [
             columnHelper.display({
                 id: 'select',
                 header: ({ table }) => (
@@ -166,7 +167,24 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             })
         ] : []),
         columnHelper.accessor('uniqueCode', {
-            header: 'Booking ID',
+            header: () => (
+                <div className="flex items-center gap-2">
+                    {user?.role === 'ADMIN' && (
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-3.5 h-3.5"
+                            checked={isSelectionMode}
+                            onChange={(e) => {
+                                setIsSelectionMode(e.target.checked);
+                                if (!e.target.checked) setRowSelection({});
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            title={isSelectionMode ? "Disable Selection Mode" : "Enable Selection Mode"}
+                        />
+                    )}
+                    <span>Booking ID</span>
+                </div>
+            ),
             cell: (info) => info.getValue() || '-',
         }),
         columnHelper.accessor('createdAt', {
