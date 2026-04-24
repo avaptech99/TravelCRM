@@ -157,8 +157,14 @@ const processCallIntoCRM = async (
                 }
             }
 
-            // Always update contact requirements if it was a system-generated placeholder or if we have a better duration
-            if (!contact.requirements || (contact.requirements.includes('Call ') && shouldUpdateHierarchy(contact.requirements))) {
+            // Only update contact requirements if it is still a system-generated PBX placeholder.
+            // If an agent has manually edited the field, never overwrite their work.
+            const isPbxGenerated = contact.requirements && (
+                contact.requirements.startsWith('Missed Call ') || 
+                contact.requirements.startsWith('Answered Call ') || 
+                contact.requirements.startsWith('Outbound call ')
+            );
+            if (!contact.requirements || (isPbxGenerated && shouldUpdateHierarchy(contact.requirements))) {
                 contact.requirements = commentText;
                 await contact.save();
             }
