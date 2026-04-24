@@ -51,10 +51,11 @@ const processCallIntoCRM = async (
 
     // Normalize number for lookup (strip spaces, dashes, + etc.)
     const normalizedNumber = callerNumber.replace(/[\s\-\(\)\+]/g, '');
+    const last10 = normalizedNumber.length >= 10 ? normalizedNumber.slice(-10) : normalizedNumber;
 
-    // Check CRM for existing contact
+    // Check CRM for existing contact (Match the suffix - last 10 digits - to handle prefixes like 1 or +1)
     let contact = await PrimaryContact.findOne({
-        contactPhoneNo: { $regex: new RegExp(normalizedNumber + '$') },
+        contactPhoneNo: { $regex: new RegExp(last10 + '$') },
     });
 
     // Determine name: Prioritize CRM name > caller name from PBX > "Unknown"
@@ -299,7 +300,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         if (userField === 'outbound') {
             console.log(`[GDMS Webhook] Processing outbound call to ${cdr.dst}`);
             finalCallerNumber = (cdr.dst || '').toString();
-            finalCallerName = 'Outbound Customer';
+            finalCallerName = `Outbound: ${cdr.dst || 'Unknown'}`;
             finalDisposition = 'OUTBOUND';
         } else {
             // Filtering for Inbound: Ignore internal extensions (4 digits or fewer)
