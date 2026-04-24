@@ -143,11 +143,11 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
             }
         },
         { $unwind: { path: '$agentDetails', preserveNullAndEmptyArrays: true } },
-        // Filter out system users
+        // Filter to only include bookings assigned to real agents
         {
             $match: {
-                $or: [
-                    { agentDetails: { $exists: false } }, // Include real Unassigned
+                $and: [
+                    { 'agentDetails._id': { $exists: true } }, // Must be assigned to a real user in the DB
                     { 'agentDetails.email': { $nin: ['phone-lead@system.internal', 'website-lead@system.internal'] } }
                 ]
             }
