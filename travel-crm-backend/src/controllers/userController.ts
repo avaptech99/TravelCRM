@@ -6,6 +6,9 @@ import { createUserSchema } from '../types';
 import bcrypt from 'bcrypt';
 import appCache from '../utils/cache';
 
+// ONLINE_THRESHOLD in milliseconds (30 minutes) - Fallback for crashes
+const ONLINE_THRESHOLD = 30 * 60 * 1000;
+
 // @desc    Get all agents
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
@@ -23,8 +26,19 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         .sort({ name: 1 })
         .lean();
 
-    const mappedAgents = agents.map(a => ({ ...a, id: a._id.toString() }));
-    appCache.set(cacheKey, mappedAgents, 60); // Cache for 60 seconds (agents rarely change)
+    const now = Date.now();
+    const mappedAgents = agents.map(a => {
+        const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+        // User is online only if they haven't manually closed (isOnline) AND haven't crashed (threshold)
+        const isOnline = a.isOnline && (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return { 
+            ...a, 
+            id: a._id.toString(),
+            isOnline 
+        };
+    });
+
+    appCache.set(cacheKey, mappedAgents, 30); // 30s cache for status freshness
     res.json(mappedAgents);
 });
 
@@ -42,12 +56,42 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 
     const users = await User.find()
         .select('name email role isOnline lastSeen createdAt')
-        .sort({ createdAt: -1 })
+        .sort({ role: 1, createdAt: -1 })
         .lean();
 
-    const mappedUsers = users.map(u => ({ ...u, id: u._id.toString() }));
-    appCache.set(cacheKey, mappedUsers, 60); // Cache for 60 seconds
+    const now = Date.now();
+    const mappedUsers = users.map(u => {
+        const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
+        const isOnline = u.isOnline && (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return { 
+            ...u, 
+            id: u._id.toString(),
+            isOnline 
+        };
+    });
+
+    appCache.set(cacheKey, mappedUsers, 30);
     res.json(mappedUsers);
+});
+
+// @desc    Set user offline (Goodbye Signal)
+// @route   POST /api/users/offline
+// @access  Private
+export const setOffline = asyncHandler(async (req: Request, res: Response) => {
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    user.isOnline = false;
+    user.lastSeen = new Date();
+    await user.save();
+
+    // Invalidate user caches
+    appCache.invalidateByPrefix('users_');
+
+    res.json({ success: true });
 });
 
 // @desc    Create a new user (Admin only)

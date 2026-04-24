@@ -1,11 +1,14 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings, setOffline } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
 
 // Get agents is protected (available to both Admin and Agents)
 router.get('/agents', protect, getAgents);
+
+// Set offline (Goodbye Signal)
+router.post('/offline', protect, setOffline);
 
 // Change password (available to all authenticated users)
 router.put('/change-password', protect, changePassword);

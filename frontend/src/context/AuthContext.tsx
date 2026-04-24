@@ -32,6 +32,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [token]);
 
+    // Goodbye Signal: Mark offline on tab/browser close
+    useEffect(() => {
+        if (!token) return;
+
+        const handleGoodbye = () => {
+            // Use fetch with keepalive: true to ensure the request finishes after the tab closes
+            // axios doesn't support keepalive easily, so we use native fetch
+            const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/users/offline';
+            
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                keepalive: true, // Crucial for "Goodbye" signals
+                body: JSON.stringify({})
+            }).catch(() => {
+                // Silently fail as tab is closing
+            });
+        };
+
+        window.addEventListener('beforeunload', handleGoodbye);
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                // Optional: You could mark as 'Away' here
+            }
+        });
+
+        return () => {
+            window.removeEventListener('beforeunload', handleGoodbye);
+        };
+    }, [token]);
+
     const login = (newToken: string) => {
         setToken(newToken);
         localStorage.setItem('token', newToken);
