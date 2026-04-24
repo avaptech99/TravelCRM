@@ -157,25 +157,6 @@ const processCallIntoCRM = async (
                 }
             }
 
-            // Intelligent Line Replacement:
-            // If the field is empty, just set it.
-            // If it starts with a PBX message, replace ONLY that first line and keep the agent's notes below it.
-            const pbxRegex = /^(Missed|Answered|Outbound) Call (from|to) .* on \d{1,2}\/\d{1,2}\/\d{4} \| Start: \d{2}:\d{2} \| End: (\d{2}:\d{2}|N\/A) \| Duration: \d+s \| Billsec: \d+s$/;
-            
-            if (!contact.requirements) {
-                contact.requirements = commentText;
-                await contact.save();
-            } else {
-                const lines = contact.requirements.split(/\r?\n/);
-                const isFirstLinePbx = pbxRegex.test(lines[0]);
-
-                if (isFirstLinePbx && shouldUpdateHierarchy(lines[0])) {
-                    lines[0] = commentText;
-                    contact.requirements = lines.join('\n');
-                    await contact.save();
-                }
-            }
-
             appCache.invalidateByPrefix('bookings_');
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
         }
@@ -190,15 +171,6 @@ const processCallIntoCRM = async (
         if (disposition === 'ANSWERED' && billsec > 0 && existingBooking.callDisposition !== 'ANSWERED') {
             existingBooking.callDisposition = 'ANSWERED';
             updated = true;
-        }
-
-        // Always update requirements/comment if we have a better/longer duration
-        if (contact && contact.requirements && contact.requirements.includes('Call ')) {
-            if (shouldUpdateHierarchy(contact.requirements)) {
-                contact.requirements = commentText;
-                updated = true;
-                await contact.save();
-            }
         }
 
         if (disposition === 'OUTBOUND' && existingBooking.callDisposition !== 'OUTBOUND') {
@@ -221,7 +193,7 @@ const processCallIntoCRM = async (
             contactName: finalName,
             contactPhoneNo: callerNumber,
             bookingType: 'Direct (B2C)',
-            requirements: commentText,
+            requirements: '',
         });
     }
 
