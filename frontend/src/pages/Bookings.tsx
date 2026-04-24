@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BookingsTable } from '../features/bookings/components/BookingsTable';
 import { Plus, Search, Filter } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
@@ -19,12 +20,30 @@ const STATUS_COLORS: Record<string, string> = {
 export const Bookings: React.FC = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
+    const [searchParams, setSearchParams] = useSearchParams();
+
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-    const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
-    const [showFilters, setShowFilters] = useState(false);
+    
+    // Initialize state from URL params
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>(
+        searchParams.get('status')?.split(',').filter(Boolean) || []
+    );
+    const [selectedAgents, setSelectedAgents] = useState<string[]>(
+        searchParams.get('agent')?.split(',').filter(Boolean) || []
+    );
+    const [showFilters, setShowFilters] = useState(selectedStatuses.length > 0 || selectedAgents.length > 0);
+
+    // Update URL params when filters change
+    useEffect(() => {
+        const params: Record<string, string> = {};
+        if (debouncedSearch) params.q = debouncedSearch;
+        if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
+        if (selectedAgents.length > 0) params.agent = selectedAgents.join(',');
+        
+        setSearchParams(params, { replace: true });
+    }, [debouncedSearch, selectedStatuses, selectedAgents, setSearchParams]);
 
     const { data: agents } = useQuery({
         queryKey: ['agents'],
