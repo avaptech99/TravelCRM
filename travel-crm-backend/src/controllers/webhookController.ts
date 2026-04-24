@@ -157,15 +157,23 @@ const processCallIntoCRM = async (
                 }
             }
 
-            // Strict check: Only update contact requirements if it contains ONLY the system-generated PBX message.
-            // If an agent has appended notes, added newlines, or edited the text, we must not overwrite it.
+            // Intelligent Line Replacement:
+            // If the field is empty, just set it.
+            // If it starts with a PBX message, replace ONLY that first line and keep the agent's notes below it.
             const pbxRegex = /^(Missed|Answered|Outbound) Call (from|to) .* on \d{1,2}\/\d{1,2}\/\d{4} \| Start: \d{2}:\d{2} \| End: (\d{2}:\d{2}|N\/A) \| Duration: \d+s \| Billsec: \d+s$/;
             
-            const isPurePbxText = contact.requirements && pbxRegex.test(contact.requirements);
-
-            if (!contact.requirements || (isPurePbxText && shouldUpdateHierarchy(contact.requirements))) {
+            if (!contact.requirements) {
                 contact.requirements = commentText;
                 await contact.save();
+            } else {
+                const lines = contact.requirements.split(/\r?\n/);
+                const isFirstLinePbx = pbxRegex.test(lines[0]);
+
+                if (isFirstLinePbx && shouldUpdateHierarchy(lines[0])) {
+                    lines[0] = commentText;
+                    contact.requirements = lines.join('\n');
+                    await contact.save();
+                }
             }
 
             appCache.invalidateByPrefix('bookings_');
