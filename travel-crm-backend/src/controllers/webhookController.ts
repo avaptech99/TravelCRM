@@ -312,7 +312,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         if (userField === 'outbound') {
             console.log(`[GDMS Webhook] Processing outbound call to ${cdr.dst}`);
             finalCallerNumber = (cdr.dst || '').toString();
-            finalCallerName = `Outbound: ${cdr.dst || 'Unknown'}`;
+            finalCallerName = 'Unknown';
             finalDisposition = 'OUTBOUND';
             agentExtension = (cdr.src || '').toString();
         } else {
