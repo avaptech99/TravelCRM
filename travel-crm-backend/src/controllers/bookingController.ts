@@ -152,10 +152,19 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             { createdByUserId: req.user?.id },
         ];
     } else if (assignedTo) {
-        if (assignedTo === 'unassigned') {
+        const agentArray = (assignedTo as string).split(',').map(a => a.trim());
+        const hasUnassigned = agentArray.includes('unassigned');
+        const realAgentIds = agentArray.filter(a => a !== 'unassigned');
+
+        if (hasUnassigned && realAgentIds.length > 0) {
+            query.$or = [
+                { assignedToUserId: null },
+                { assignedToUserId: { $in: realAgentIds } }
+            ];
+        } else if (hasUnassigned) {
             query.assignedToUserId = null;
         } else {
-            query.assignedToUserId = assignedTo as string;
+            query.assignedToUserId = { $in: realAgentIds };
         }
     }
 
