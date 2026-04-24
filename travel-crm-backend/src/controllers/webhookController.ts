@@ -125,12 +125,21 @@ const processCallIntoCRM = async (
             // Update status and interaction time to jump to top and change color
             const newDisposition = disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED');
             
-            // Only update booking disposition if it is "better"
-            if (
-                latestBooking.callDisposition !== 'OUTBOUND' && 
-                (latestBooking.callDisposition !== 'ANSWERED' || newDisposition === 'ANSWERED')
-            ) {
+            // Hierarchy lock: only apply "better data wins" for the SAME call (Ring Group spam).
+            // For a genuinely NEW call (different pbxCallId), always update to reflect latest status.
+            const isSameCall = latestBooking.pbxCallId === pbxCallId;
+            if (isSameCall) {
+                // Same call — only upgrade (e.g. MISSED → ANSWERED), never downgrade
+                if (
+                    latestBooking.callDisposition !== 'OUTBOUND' && 
+                    (latestBooking.callDisposition !== 'ANSWERED' || newDisposition === 'ANSWERED')
+                ) {
+                    latestBooking.callDisposition = newDisposition;
+                }
+            } else {
+                // Different call — always update to show the latest call status
                 latestBooking.callDisposition = newDisposition;
+                latestBooking.pbxCallId = pbxCallId;
             }
 
             if (commentUpdated) {
