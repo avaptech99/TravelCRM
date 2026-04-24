@@ -55,7 +55,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 
     const users = await User.find()
         .select('name email role lastSeen createdAt')
-        .sort({ createdAt: -1 })
+        .sort({ role: 1, createdAt: -1 })
         .lean();
 
     const now = Date.now();
