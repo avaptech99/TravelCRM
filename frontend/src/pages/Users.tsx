@@ -39,7 +39,10 @@ export const Users: React.FC = () => {
         refetchInterval: 30000, // Refresh status every 30s
     });
 
-    const displayUsers = users?.filter((u: User) => u.email !== 'website-lead@system.internal');
+    const displayUsers = users?.filter((u: User) => 
+        u.email !== 'website-lead@system.internal' && 
+        u.email !== 'phone-lead@system.internal'
+    );
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {

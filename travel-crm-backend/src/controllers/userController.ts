@@ -103,10 +103,15 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const user = await User.findById(id);
-
     if (!user) {
         res.status(404);
         throw new Error('User not found');
+    }
+
+    // Prevent deleting system users
+    if (user.email === 'phone-lead@system.internal' || user.email === 'website-lead@system.internal') {
+        res.status(403);
+        throw new Error('Cannot delete internal system users');
     }
 
     if (user.role === 'ADMIN') {
@@ -211,6 +216,12 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
     if (!user) {
         res.status(404);
         throw new Error('User not found');
+    }
+
+    // Prevent modifying system users
+    if (user.email === 'phone-lead@system.internal' || user.email === 'website-lead@system.internal') {
+        res.status(403);
+        throw new Error('Cannot modify internal system users');
     }
 
     if (email && email !== user.email) {
