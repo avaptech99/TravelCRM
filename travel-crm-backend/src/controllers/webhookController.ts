@@ -87,9 +87,8 @@ const processCallIntoCRM = async (
             extensionInfo = ` from Ext: ${agentExtension}`;
         } else if (disposition === 'ANSWERED') {
             extensionInfo = ` by Ext: ${agentExtension}`;
-        } else {
-            extensionInfo = ` on Ext: ${agentExtension}`;
         }
+        // Skip extension for missed calls as requested
     }
 
     const directionPreposition = disposition === 'OUTBOUND' ? 'to' : 'from';
