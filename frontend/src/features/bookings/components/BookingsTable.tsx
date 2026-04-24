@@ -144,16 +144,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         ...(user?.role === 'ADMIN' && isSelectionMode ? [
             columnHelper.display({
                 id: 'select',
-                header: ({ table }) => (
-                    <div className="px-1">
-                        <input
-                            type="checkbox"
-                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
-                            checked={table.getIsAllPageRowsSelected()}
-                            onChange={table.getToggleAllPageRowsSelectedHandler()}
-                        />
-                    </div>
-                ),
+                header: () => null,
                 cell: ({ row }) => (
                     <div className="px-1">
                         <input
@@ -167,16 +158,29 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             })
         ] : []),
         columnHelper.accessor('uniqueCode', {
-            header: () => (
+            header: ({ table }) => (
                 <div className="flex items-center gap-2">
                     {user?.role === 'ADMIN' && (
                         <input
                             type="checkbox"
                             className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-3.5 h-3.5"
-                            checked={isSelectionMode}
+                            checked={isSelectionMode ? table.getIsAllPageRowsSelected() : false}
+                            ref={(el) => {
+                                if (el) {
+                                    el.indeterminate = isSelectionMode && table.getIsSomePageRowsSelected();
+                                }
+                            }}
                             onChange={(e) => {
-                                setIsSelectionMode(e.target.checked);
-                                if (!e.target.checked) setRowSelection({});
+                                const checked = e.target.checked;
+                                if (!isSelectionMode) {
+                                    setIsSelectionMode(true);
+                                    table.toggleAllPageRowsSelected(true);
+                                } else if (!checked && isSelectionMode) {
+                                    setIsSelectionMode(false);
+                                    setRowSelection({});
+                                } else {
+                                    table.getToggleAllPageRowsSelectedHandler()(e);
+                                }
                             }}
                             onClick={(e) => e.stopPropagation()}
                             title={isSelectionMode ? "Disable Selection Mode" : "Enable Selection Mode"}
