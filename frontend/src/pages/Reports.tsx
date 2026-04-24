@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
 
 interface StatCardProps {
     title: string;
