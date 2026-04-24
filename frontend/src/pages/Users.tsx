@@ -6,6 +6,12 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { AddUserModal } from '../features/users/components/AddUserModal';
 
 dayjs.extend(relativeTime);
+
+const ROLE_COLORS: Record<string, string> = {
+    ADMIN: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    AGENT: 'bg-purple-50 text-purple-700 border-purple-100',
+    MARKETER: 'bg-amber-50 text-amber-700 border-amber-100',
+};
 import { EditUserModal } from '../features/users/components/EditUserModal';
 import { Trash2, Plus, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
@@ -149,8 +155,7 @@ export const Users: React.FC = () => {
                                             {user.email}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'ADMIN' ? 'bg-secondary/10 text-secondary' : 'bg-slate-100 text-slate-800'
-                                                }`}>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
                                                 {user.role}
                                             </span>
                                         </td>
@@ -259,7 +264,7 @@ export const Users: React.FC = () => {
                                                     <p className="text-xs text-slate-500 mt-0.5">{user.email}</p>
                                                 </div>
                                             </div>
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase ${user.role === 'ADMIN' ? 'bg-secondary/10 text-secondary' : 'bg-slate-100 text-slate-800'}`}>
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
                                                 {user.role}
                                             </span>
                                         </div>
