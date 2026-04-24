@@ -8,6 +8,7 @@ import type { Notification } from '../../types';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { GlobalSearch } from './GlobalSearch';
 
 dayjs.extend(relativeTime);
 
@@ -113,8 +114,11 @@ export const Topbar: React.FC = () => {
 
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-30 relative">
-            <div className="flex items-center flex-1">
-                <h1 className="text-xl font-semibold text-slate-800 truncate">Dashboard</h1>
+            <div className="flex items-center space-x-4 flex-1">
+                <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden lg:block">TravelCRM</h1>
+                <div className="hidden md:block flex-1 max-w-md mx-auto">
+                    <GlobalSearch />
+                </div>
             </div>
             <div className="flex items-center space-x-6">
 

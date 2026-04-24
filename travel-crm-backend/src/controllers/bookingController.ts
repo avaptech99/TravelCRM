@@ -1204,3 +1204,62 @@ export const getBookingActivity = asyncHandler(async (req: Request, res: Respons
     res.json(mapped);
 });
 
+
+// @desc    Global search across Bookings and PrimaryContacts
+// @route   GET /api/bookings/search/global
+// @access  Private
+export const globalSearch = asyncHandler(async (req: Request, res: Response) => {
+    const { q } = req.query;
+    
+    if (!q || typeof q !== 'string' || q.trim().length < 2) {
+        res.json([]);
+        return;
+    }
+
+    const searchStr = q.trim();
+    const searchRegex = new RegExp(searchStr, 'i');
+
+    // 1. Search by Unique Code (TWXXXX)
+    const bookingsByCode = await Booking.find({ uniqueCode: searchRegex })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(5)
+        .lean();
+
+    // 2. Search by Contact Name or Phone in PrimaryContact
+    const contacts = await PrimaryContact.find({
+        $or: [
+            { contactName: searchRegex },
+            { contactPhoneNo: searchRegex },
+            { contactEmail: searchRegex }
+        ]
+    })
+    .select('_id contactName contactPhoneNo')
+    .limit(10)
+    .lean();
+
+    const contactIds = contacts.map(c => c._id);
+
+    // 3. Find Bookings associated with these contacts
+    const bookingsByContact = await Booking.find({ primaryContactId: { $in: contactIds } })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(10)
+        .lean();
+
+    // Merge and deduplicate by ID
+    const allResults = [...bookingsByCode, ...bookingsByContact];
+    const uniqueResults = Array.from(new Map(allResults.map(item => [item._id.toString(), item])).values());
+
+    // Map to a clean search result format
+    const formatted = uniqueResults.map(b => ({
+        id: b._id.toString(),
+        uniqueCode: b.uniqueCode,
+        destination: b.destination,
+        status: b.status,
+        contactName: (b as any).primaryContact?.contactName || 'Unknown',
+        contactPhoneNo: (b as any).primaryContact?.contactPhoneNo || 'Unknown',
+    }));
+
+    res.json(formatted);
+});
