@@ -103,6 +103,24 @@ export const Reports: React.FC = () => {
         value: s.count 
     })) || [];
 
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'Booked': return '#10b981'; // Green
+            case 'Sent': return '#f59e0b';   // Yellow
+            case 'Working': return '#8b5cf6'; // Purple
+            case 'Pending': return '#6366f1'; // Blue
+            default: return '#94a3b8';        // Slate
+        }
+    };
+
+    const getInterestColor = (interest: string) => {
+        switch (interest) {
+            case 'Interested': return '#f59e0b';     // Yellow
+            case 'Not Interested': return '#ef4444'; // Red
+            default: return '#94a3b8';               // Slate
+        }
+    };
+
     return (
         <div className="space-y-8 pb-12">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
@@ -234,8 +252,8 @@ export const Reports: React.FC = () => {
                                     paddingAngle={8}
                                     dataKey="value"
                                 >
-                                    {statusData.map((_entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                    {statusData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} stroke="none" />
                                     ))}
                                 </Pie>
                                 <Tooltip />
@@ -260,8 +278,8 @@ export const Reports: React.FC = () => {
                                     paddingAngle={8}
                                     dataKey="value"
                                 >
-                                    {interestData.map((_entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} stroke="none" />
+                                    {interestData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={getInterestColor(entry.name)} stroke="none" />
                                     ))}
                                 </Pie>
                                 <Tooltip />
