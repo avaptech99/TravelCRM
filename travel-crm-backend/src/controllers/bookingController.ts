@@ -151,7 +151,11 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             { createdByUserId: req.user?.id },
         ];
     } else if (assignedTo) {
-        query.assignedToUserId = assignedTo as string;
+        if (assignedTo === 'unassigned') {
+            query.assignedToUserId = null;
+        } else {
+            query.assignedToUserId = assignedTo as string;
+        }
     }
 
     if (status) {
