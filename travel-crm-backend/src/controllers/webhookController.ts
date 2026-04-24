@@ -157,14 +157,13 @@ const processCallIntoCRM = async (
                 }
             }
 
-            // Only update contact requirements if it is still a system-generated PBX placeholder.
-            // If an agent has manually edited the field, never overwrite their work.
-            const isPbxGenerated = contact.requirements && (
-                contact.requirements.startsWith('Missed Call ') || 
-                contact.requirements.startsWith('Answered Call ') || 
-                contact.requirements.startsWith('Outbound call ')
-            );
-            if (!contact.requirements || (isPbxGenerated && shouldUpdateHierarchy(contact.requirements))) {
+            // Strict check: Only update contact requirements if it contains ONLY the system-generated PBX message.
+            // If an agent has appended notes, added newlines, or edited the text, we must not overwrite it.
+            const pbxRegex = /^(Missed|Answered|Outbound) Call (from|to) .* on \d{1,2}\/\d{1,2}\/\d{4} \| Start: \d{2}:\d{2} \| End: (\d{2}:\d{2}|N\/A) \| Duration: \d+s \| Billsec: \d+s$/;
+            
+            const isPurePbxText = contact.requirements && pbxRegex.test(contact.requirements);
+
+            if (!contact.requirements || (isPurePbxText && shouldUpdateHierarchy(contact.requirements))) {
                 contact.requirements = commentText;
                 await contact.save();
             }
