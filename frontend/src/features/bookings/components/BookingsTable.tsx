@@ -17,7 +17,7 @@ import { BulkAssignAgentModal } from './BulkAssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2, Users } from 'lucide-react';
+import { Trash2, Users, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
 
 
 
@@ -194,19 +194,21 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <div className="flex items-center gap-1.5">
                         <span className="whitespace-nowrap">{name}</span>
                         {isPhoneLead && (
-                            <img 
-                                src={
-                                    booking.callDisposition === 'ANSWERED' ? '/icons/answered-call.png' : 
-                                    booking.callDisposition === 'OUTBOUND' ? '/icons/attended-call.png' : 
-                                    '/icons/missed-call.png'
-                                }
-                                alt={
-                                    booking.callDisposition === 'ANSWERED' ? 'Answered' : 
-                                    booking.callDisposition === 'OUTBOUND' ? 'Outbound' : 
-                                    'Missed'
-                                }
-                                className="w-4 h-4"
-                            />
+                            <div className="flex items-center">
+                                {booking.callDisposition === 'ANSWERED' ? (
+                                    <div title="Answered">
+                                        <PhoneIncoming className="text-green-500" strokeWidth={2} size={16} />
+                                    </div>
+                                ) : booking.callDisposition === 'OUTBOUND' ? (
+                                    <div title="Outbound">
+                                        <PhoneOutgoing className="text-blue-500" strokeWidth={2} size={16} />
+                                    </div>
+                                ) : (
+                                    <div title="Missed">
+                                        <PhoneMissed className="text-red-500" strokeWidth={2} size={16} />
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 );

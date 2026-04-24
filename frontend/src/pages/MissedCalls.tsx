@@ -144,7 +144,7 @@ export const MissedCalls: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center border border-red-100">
-                                                    <Phone size={16} className="text-red-500" />
+                                                    <PhoneMissed size={16} strokeWidth={2} className="text-red-500" />
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-semibold text-slate-800">{call.callerNumber}</p>

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle, List } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle, List, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { useAuth } from '../context/AuthContext';
@@ -705,7 +705,18 @@ export const BookingDetails: React.FC = () => {
                                     <div key={comment.id} className="relative pl-4 border-l-2 border-secondary/20">
                                         <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
                                         <div className="flex justify-between items-start mb-1">
-                                            <span className="text-xs font-semibold text-slate-900">{comment.createdBy?.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-slate-900">{comment.createdBy?.name}</span>
+                                                {comment.text.startsWith('Answered Call') && (
+                                                    <PhoneIncoming className="text-green-500" strokeWidth={2} size={14} />
+                                                )}
+                                                {comment.text.startsWith('Missed Call') && (
+                                                    <PhoneMissed className="text-red-500" strokeWidth={2} size={14} />
+                                                )}
+                                                {comment.text.startsWith('Outbound Call') && (
+                                                    <PhoneOutgoing className="text-blue-500" strokeWidth={2} size={14} />
+                                                )}
+                                            </div>
                                             <span className="text-[10px] text-slate-400 flex items-center">
                                                 <Clock size={10} className="mr-1" />
                                                 {dayjs(comment.createdAt).format('MMM DD, h:mm A')}
