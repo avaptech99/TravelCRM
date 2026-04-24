@@ -142,6 +142,7 @@ export const Bookings: React.FC = () => {
                                 className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary px-3 py-1.5 shadow-sm min-w-[180px]"
                             >
                                 <option value="">All Agents</option>
+                                <option value="unassigned">Unassigned</option>
                                 {agents?.filter(a => a.name !== 'Website Lead').map(a => (
                                     <option key={a.id} value={a.id}>{a.name}</option>
                                 ))}
