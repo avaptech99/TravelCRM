@@ -45,7 +45,8 @@ const processCallIntoCRM = async (
     duration: number,
     billsec: number,
     disposition: string,
-    pbxCallId: string
+    pbxCallId: string,
+    agentExtension: string
 ) => {
     const phoneLeadUser = await getPhoneLeadUser();
 
@@ -80,8 +81,19 @@ const processCallIntoCRM = async (
     const endStr = endTime ? formatTime(endTime) : 'N/A';
 
     // Build detailed comment text
+    let extensionInfo = '';
+    if (agentExtension) {
+        if (disposition === 'OUTBOUND') {
+            extensionInfo = ` from Ext: ${agentExtension}`;
+        } else if (disposition === 'ANSWERED') {
+            extensionInfo = ` by Ext: ${agentExtension}`;
+        } else {
+            extensionInfo = ` on Ext: ${agentExtension}`;
+        }
+    }
+
     const directionPreposition = disposition === 'OUTBOUND' ? 'to' : 'from';
-    const commentText = `${callType} ${directionPreposition} ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
+    const commentText = `${callType} ${directionPreposition} "${finalName}"${extensionInfo} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
 
     // Hierarchy check helper to ensure worse durations/missed calls don't overwrite Answered/longer calls
     const shouldUpdateHierarchy = (existingText: string) => {
@@ -295,6 +307,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         let finalCallerNumber = (cdr.src || '').toString();
         let finalCallerName = cdr.caller_name || cdr.src || '';
         let finalDisposition = (cdr.disposition || '').toUpperCase();
+        let agentExtension = '';
 
         const userField = (cdr.userfield || '').toLowerCase();
         if (userField === 'outbound') {
@@ -302,6 +315,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             finalCallerNumber = (cdr.dst || '').toString();
             finalCallerName = `Outbound: ${cdr.dst || 'Unknown'}`;
             finalDisposition = 'OUTBOUND';
+            agentExtension = (cdr.src || '').toString();
         } else {
             // Filtering for Inbound: Ignore internal extensions (4 digits or fewer)
             if (finalCallerNumber.length <= 4 && finalCallerNumber.length > 0) {
@@ -309,6 +323,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
                 skippedCount++;
                 continue;
             }
+            agentExtension = (cdr.dstchannel_ext || cdr.dstanswer || cdr.dst || '').toString();
         }
 
         const callerNumber = finalCallerNumber;
@@ -326,7 +341,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
 
         try {
             // 1. Process into CRM (add comment or create lead)
-            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId);
+            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, agentExtension);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
 
             // 2. Save/update MissedCall log and mark as processed (with Hierarchy Lock)
