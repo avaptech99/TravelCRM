@@ -232,6 +232,7 @@ export const Bookings: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
+                        )}
                     </div>
                 </div>
             )}
