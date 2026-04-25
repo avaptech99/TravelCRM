@@ -315,6 +315,25 @@ export const updateStatus = asyncHandler(async (req: Request, res: Response) => 
     });
 });
 
+// @desc    Set user offline (Goodbye signal — no auth, used by sendBeacon)
+// @route   POST /api/users/offline
+// @access  Public (sendBeacon can't send auth headers)
+export const setOffline = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.body;
+    if (!userId) {
+        res.status(400);
+        throw new Error('userId is required');
+    }
+
+    await User.findByIdAndUpdate(userId, {
+        isOnline: false,
+        lastSeen: new Date(),
+    });
+
+    appCache.invalidateByPrefix('users_');
+    res.json({ success: true });
+});
+
 // @desc    Unassign bookings from offline agents
 // @route   POST /api/users/unassign-offline-bookings
 // @access  Private/Admin

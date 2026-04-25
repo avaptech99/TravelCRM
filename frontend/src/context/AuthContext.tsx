@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [token]);
 
-    // Heartbeat logic to keep user online
+    // Heartbeat + multi-tab aware goodbye signal
     useEffect(() => {
         if (!token) return;
 
@@ -41,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 await api.post('/users/heartbeat');
             } catch (error) {
-                // If 401, token might be expired, handled by axios interceptors usually
                 console.debug('Heartbeat ping');
             }
         };
@@ -52,8 +51,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Every 2 minutes
         const interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
 
-        return () => clearInterval(interval);
-    }, [token]);
+        // Multi-tab aware goodbye signal
+        const TAB_COUNT_KEY = 'crm_active_tabs';
+        const currentCount = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '0', 10);
+        localStorage.setItem(TAB_COUNT_KEY, String(currentCount + 1));
+
+        const handleGoodbye = () => {
+            const count = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '1', 10);
+            const newCount = Math.max(0, count - 1);
+            localStorage.setItem(TAB_COUNT_KEY, String(newCount));
+
+            // Only send offline signal when the LAST tab is closing
+            if (newCount === 0) {
+                const payload = JSON.stringify({ userId: user?.id });
+                const blob = new Blob([payload], { type: 'application/json' });
+                const apiBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+                navigator.sendBeacon(`${apiBase}/api/users/offline`, blob);
+            }
+        };
+
+        window.addEventListener('beforeunload', handleGoodbye);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('beforeunload', handleGoodbye);
+            // Decrement tab count on React cleanup (navigation), but don't send offline signal
+            const count = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '1', 10);
+            localStorage.setItem(TAB_COUNT_KEY, String(Math.max(0, count - 1)));
+        };
+    }, [token, user?.id]);
 
     const login = (newToken: string) => {
         setToken(newToken);

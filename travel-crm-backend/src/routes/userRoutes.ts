@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings, heartbeat } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings, heartbeat, setOffline } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
@@ -9,6 +9,9 @@ router.get('/agents', protect, getAgents);
 
 // Heartbeat for online status
 router.post('/heartbeat', protect, heartbeat);
+
+// Goodbye signal — no auth (sendBeacon can't send headers)
+router.post('/offline', setOffline);
 
 // Change password (available to all authenticated users)
 router.put('/change-password', protect, changePassword);
