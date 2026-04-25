@@ -17,7 +17,7 @@ import { BulkAssignAgentModal } from './BulkAssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2, Users, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
+import { Trash2, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
 
 
 
