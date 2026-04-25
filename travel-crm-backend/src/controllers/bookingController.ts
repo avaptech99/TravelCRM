@@ -307,27 +307,39 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .populate('createdByUserId', 'name')
             .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
             .populate('passengers', 'name')
+            .populate('payments', 'amount')
             .lean(),
         Booking.countDocuments(query),
     ]);
     console.timeEnd(`getBookingsQuery_${reqId}`);
 
-    const mappedBookings = bookings.map(b => ({
-        ...b,
-        id: b._id.toString(),
-        createdOn: b.createdAt,
-        contactPerson: (b as any).primaryContact?.contactName,
-        contactNumber: (b as any).primaryContact?.contactPhoneNo,
+    const mappedBookings = bookings.map(b => {
+        const totalPaid = (b as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+        const outstanding = (b.amount || 0) - totalPaid;
+
+        return {
+            ...b,
+            id: b._id.toString(),
+            createdOn: b.createdAt,
+            outstanding,
+            contactPerson: (b as any).primaryContact?.contactName,
+            contactNumber: (b as any).primaryContact?.contactPhoneNo,
+            contactEmail: (b as any).primaryContact?.contactEmail,
+            requirements: (b as any).primaryContact?.requirements,
+            interested: (b as any).primaryContact?.interested,
+            bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            destinationCity: b.destination,
+            travellers: b.travellers,
+            travelers: (b as any).passengers,
+            createdByUser: b.createdByUserId,
+            assignedToUser: b.assignedToUserId,
+        };
+    });
         contactEmail: (b as any).primaryContact?.contactEmail,
         requirements: (b as any).primaryContact?.requirements,
         interested: (b as any).primaryContact?.interested,
         bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: b.destination,
-        travellers: b.travellers,
-        travelers: (b as any).passengers,
-        createdByUser: b.createdByUserId,
-        assignedToUser: b.assignedToUserId,
-    }));
+    });
 
     const result = {
         data: mappedBookings,

@@ -358,7 +358,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             {table.getRowModel().rows.map((row) => (
                                 <tr 
                                     key={row.id} 
-                                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                    className={`transition-colors cursor-pointer ${
+                                        (row.original as any).outstanding > 0 
+                                            ? 'bg-[#FECACA] hover:bg-[#FCA5A5]' 
+                                            : 'bg-white hover:bg-slate-50'
+                                    }`}
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
                                         sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
@@ -408,7 +412,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
                                             navigate(`/bookings/${booking.id}`);
                                         }}
-                                        className="bg-white rounded-xl p-4 border border-slate-200 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative"
+                                        className={`rounded-xl p-4 border flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative ${
+                                            (booking as any).outstanding > 0 
+                                                ? 'bg-red-50 border-red-200' 
+                                                : 'bg-white border-slate-200'
+                                        }`}
                                     >
                                         <div className="flex justify-between items-start">
                                             <div className="flex flex-1 items-center gap-3">
