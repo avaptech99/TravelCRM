@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -37,6 +37,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     const initialPage = isInlineView ? 1 : parseInt(searchParams.get('page') || '1', 10);
 
@@ -92,6 +94,27 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         }
     });
 
+    const bulkDeleteMutation = useMutation({
+        mutationFn: async (bookingIds: string[]) => {
+            if (window.confirm(`Are you sure you want to completely DELETE ${bookingIds.length} selected leads? This action cannot be undone.`)) {
+                const { data } = await api.post('/bookings/bulk-delete', { bookingIds });
+                return data;
+            }
+            return Promise.reject(new Error('Cancelled'));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            setRowSelection({});
+            setIsSelectionMode(false);
+            toast.success('Leads deleted successfully');
+        },
+        onError: (error: any) => {
+            if (error.message !== 'Cancelled') {
+                toast.error(error.response?.data?.message || 'Failed to delete leads');
+            }
+        }
+    });
+
     const { data, isLoading } = useQuery({
         queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
@@ -115,10 +138,65 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
 
     const columnHelper = createColumnHelper<Booking>();
 
+    // 3-click cycle handler for master checkbox:
+    // Click 1: Enter selection mode (show row checkboxes, nothing selected)
+    // Click 2: Select all rows on page
+    // Click 3: Deselect all & exit selection mode
+    const handleMasterCheckboxClick = (e: React.MouseEvent<HTMLInputElement>, table: any) => {
+        e.stopPropagation();
+        
+        if (!isSelectionMode) {
+            setIsSelectionMode(true);
+            setRowSelection({});
+        } else if (Object.keys(rowSelection).length === 0 || table.getIsSomePageRowsSelected()) {
+            table.toggleAllPageRowsSelected(true);
+        } else {
+            table.toggleAllPageRowsSelected(false);
+            setRowSelection({});
+            setIsSelectionMode(false);
+        }
+    };
+
     const columns = [
         columnHelper.accessor('uniqueCode', {
-            header: 'Booking ID',
-            cell: (info) => info.getValue() || '-',
+            header: ({ table }) => (
+                <div className="flex items-center gap-2">
+                    {user?.role === 'ADMIN' && (
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-3.5 h-3.5"
+                            checked={isSelectionMode && table.getIsAllPageRowsSelected()}
+                            ref={(el) => {
+                                if (el) {
+                                    el.indeterminate = isSelectionMode && !table.getIsAllPageRowsSelected() && Object.keys(rowSelection).length > 0;
+                                }
+                            }}
+                            onClick={(e) => handleMasterCheckboxClick(e, table)}
+                            onChange={() => {}}
+                            title={
+                                !isSelectionMode ? "Enable Selection Mode" :
+                                Object.keys(rowSelection).length === 0 ? "Select All" :
+                                "Deselect All & Exit"
+                            }
+                        />
+                    )}
+                    <span>Booking ID</span>
+                </div>
+            ),
+            cell: (info) => (
+                <div className="flex items-center gap-2">
+                    {isSelectionMode && user?.role === 'ADMIN' && (
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4 shrink-0"
+                            checked={info.row.getIsSelected()}
+                            onChange={info.row.getToggleSelectedHandler()}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    )}
+                    <span>{info.getValue() || '-'}</span>
+                </div>
+            ),
         }),
         columnHelper.accessor('createdAt', {
             header: 'Created On',
@@ -215,7 +293,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         pageCount: data?.meta?.totalPages || -1,
         state: {
             pagination,
+            rowSelection,
         },
+        enableRowSelection: true,
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => row.id,
         onPaginationChange: setPagination,
         getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
@@ -231,6 +313,24 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <div className="p-8 text-center text-slate-500 bg-white rounded-lg shadow-sm border border-slate-200">Loading bookings...</div>
                 ) : (
                     <>
+                        {Object.keys(rowSelection).length > 0 && (
+                            <div className="bg-primary/10 border-b border-primary/20 px-4 py-3 flex items-center justify-between">
+                                <span className="text-sm font-bold text-primary">
+                                    {Object.keys(rowSelection).length} leads selected
+                                </span>
+                                {user?.role === 'ADMIN' && (
+                                    <button 
+                                        onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
+                                        disabled={bulkDeleteMutation.isPending}
+                                        className="p-2 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50"
+                                        title="Delete Selected"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Desktop View Table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="min-w-full divide-y divide-slate-200">
