@@ -140,21 +140,50 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
 
     const columnHelper = createColumnHelper<Booking>();
 
+    // 3-click cycle handler for master checkbox:
+    // Click 1: Enter selection mode (show row checkboxes, nothing selected)
+    // Click 2: Select all rows on page
+    // Click 3: Deselect all & exit selection mode
+    const handleMasterCheckboxClick = (e: React.MouseEvent<HTMLInputElement>, table: any) => {
+        e.stopPropagation();
+        
+        if (!isSelectionMode) {
+            // Click 1: Enter selection mode, show checkboxes but don't select
+            setIsSelectionMode(true);
+            setRowSelection({});
+        } else if (Object.keys(rowSelection).length === 0 || table.getIsSomePageRowsSelected()) {
+            // Click 2: Select all (when none or some are selected)
+            table.toggleAllPageRowsSelected(true);
+        } else {
+            // Click 3: Deselect all & exit selection mode
+            table.toggleAllPageRowsSelected(false);
+            setRowSelection({});
+            setIsSelectionMode(false);
+        }
+    };
+
     const columns = [
-        ...(user?.role === 'ADMIN' && isSelectionMode ? [
+        // Always reserve the select column for ADMIN to avoid layout shift
+        ...(user?.role === 'ADMIN' ? [
             columnHelper.display({
                 id: 'select',
-                header: () => null,
+                header: () => null, // Header checkbox is in the uniqueCode column
                 cell: ({ row }) => (
-                    <div className="px-1">
-                        <input
-                            type="checkbox"
-                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
-                            checked={row.getIsSelected()}
-                            onChange={row.getToggleSelectedHandler()}
-                        />
+                    <div className="w-5 flex items-center justify-center">
+                        {isSelectionMode ? (
+                            <input
+                                type="checkbox"
+                                className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
+                                checked={row.getIsSelected()}
+                                onChange={row.getToggleSelectedHandler()}
+                            />
+                        ) : (
+                            // Invisible placeholder to prevent layout shift
+                            <div className="w-4 h-4" />
+                        )}
                     </div>
                 ),
+                size: 36,
             })
         ] : []),
         columnHelper.accessor('uniqueCode', {
@@ -164,26 +193,19 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                         <input
                             type="checkbox"
                             className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-3.5 h-3.5"
-                            checked={isSelectionMode ? table.getIsAllPageRowsSelected() : false}
+                            checked={isSelectionMode && table.getIsAllPageRowsSelected()}
                             ref={(el) => {
                                 if (el) {
-                                    el.indeterminate = isSelectionMode && table.getIsSomePageRowsSelected();
+                                    el.indeterminate = isSelectionMode && !table.getIsAllPageRowsSelected() && Object.keys(rowSelection).length > 0;
                                 }
                             }}
-                            onChange={(e) => {
-                                const checked = e.target.checked;
-                                if (!isSelectionMode) {
-                                    setIsSelectionMode(true);
-                                    table.toggleAllPageRowsSelected(true);
-                                } else if (!checked && isSelectionMode) {
-                                    setIsSelectionMode(false);
-                                    setRowSelection({});
-                                } else {
-                                    table.getToggleAllPageRowsSelectedHandler()(e);
-                                }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            title={isSelectionMode ? "Disable Selection Mode" : "Enable Selection Mode"}
+                            onClick={(e) => handleMasterCheckboxClick(e, table)}
+                            onChange={() => {}} // controlled by onClick
+                            title={
+                                !isSelectionMode ? "Enable Selection Mode" :
+                                Object.keys(rowSelection).length === 0 ? "Select All" :
+                                "Deselect All & Exit"
+                            }
                         />
                     )}
                     <span>Booking ID</span>
