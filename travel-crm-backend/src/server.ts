@@ -20,6 +20,8 @@ import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
 // Socket.io is available in ./socket.ts for future real-time upgrades
 import User from './models/User';
+import Booking from './models/Booking';
+import Payment from './models/Payment';
 import bcrypt from 'bcrypt';
 
 const app: Express = express();
@@ -106,9 +108,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Auto-seed admin user if the database is completely empty
+// Auto-seed admin user + backfill outstanding on startup
 mongoose.connection.once('open', async () => {
     try {
+        // Auto-seed admin if DB is empty
         const count = await User.countDocuments();
         if (count === 0) {
             console.log('Auto-Seeder: Database is empty! Creating default admin user...');
@@ -121,8 +124,25 @@ mongoose.connection.once('open', async () => {
             });
             console.log('Auto-Seeder: Admin user created successfully. You can now log in.');
         }
+
+        // One-time migration: backfill outstanding field on all bookings
+        const missingOutstanding = await Booking.countDocuments({ outstanding: { $exists: false } });
+        if (missingOutstanding > 0) {
+            console.log(`[Migration] Backfilling outstanding for ${missingOutstanding} bookings...`);
+            const bookings = await Booking.find({ outstanding: { $exists: false } }).lean();
+            for (const booking of bookings) {
+                const payments = await Payment.find({ bookingId: booking._id }).lean();
+                const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+                const bookingTotal = booking.totalAmount || booking.amount || 0;
+                const outstanding = Math.max(bookingTotal - totalPaid, 0);
+                await Booking.updateOne({ _id: booking._id }, { $set: { outstanding } });
+            }
+            console.log(`[Migration] Backfilled outstanding for ${bookings.length} bookings.`);
+        } else {
+            console.log('[Migration] Outstanding field already present on all bookings.');
+        }
     } catch (error) {
-        console.error('Auto-Seeder Error:', error);
+        console.error('Startup tasks error:', error);
     }
 });
 

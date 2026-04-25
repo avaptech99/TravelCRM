@@ -2,59 +2,63 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load env before importing models
+// Load env (local fallback)
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 import Booking from '../models/Booking';
 import Payment from '../models/Payment';
 
 async function backfillOutstanding() {
-    console.log('--- BACKFILL OUTSTANDING START ---');
-
-    const mongoUri = process.env.MONGODB_URI;
+    // Allow passing MongoDB URI as CLI argument for production use
+    const mongoUri = process.argv[2] || process.env.MONGODB_URI;
+    
     if (!mongoUri) {
-        console.error('MONGODB_URI not found in environment');
+        console.error('Usage: npx ts-node backfillOutstanding.ts [MONGODB_URI]');
+        console.error('Or set MONGODB_URI in .env');
         process.exit(1);
     }
 
-    try {
-        await mongoose.connect(mongoUri);
-        console.log('Connected to MongoDB');
+    console.log('--- BACKFILL OUTSTANDING ---');
+    console.log(`Connecting to: ${mongoUri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')}`);
 
-        const bookings = await Booking.find({});
-        console.log(`Found ${bookings.length} bookings to process.`);
+    await mongoose.connect(mongoUri);
+    console.log('Connected');
 
-        let updated = 0;
-        let withOutstanding = 0;
+    const bookings = await Booking.find({}).lean();
+    console.log(`Found ${bookings.length} bookings`);
 
-        for (const booking of bookings) {
-            const payments = await Payment.find({ bookingId: booking._id });
-            const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-            const bookingTotal = booking.totalAmount || booking.amount || 0;
-            const outstanding = Math.max(bookingTotal - totalPaid, 0);
+    let updated = 0;
+    let withOutstanding = 0;
 
-            if (booking.outstanding !== outstanding) {
-                booking.outstanding = outstanding;
-                await booking.save();
-                updated++;
-            }
+    for (const booking of bookings) {
+        const payments = await Payment.find({ bookingId: booking._id }).lean();
+        const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const bookingTotal = booking.totalAmount || booking.amount || 0;
+        const outstanding = Math.max(bookingTotal - totalPaid, 0);
 
-            if (outstanding > 0) {
-                withOutstanding++;
-                console.log(`  ${booking.uniqueCode}: Total=${bookingTotal}, Paid=${totalPaid}, Outstanding=${outstanding}`);
-            }
+        await Booking.updateOne(
+            { _id: booking._id },
+            { $set: { outstanding } }
+        );
+        updated++;
+
+        if (outstanding > 0) {
+            withOutstanding++;
+            console.log(`  ${booking.uniqueCode}: Total=${bookingTotal}, Paid=${totalPaid}, Outstanding=${outstanding}`);
         }
-
-        console.log(`\n--- RESULTS ---`);
-        console.log(`Total bookings: ${bookings.length}`);
-        console.log(`Updated: ${updated}`);
-        console.log(`With outstanding balance: ${withOutstanding}`);
-        console.log('--- BACKFILL OUTSTANDING DONE ---');
-    } catch (error) {
-        console.error('Backfill failed:', error);
-    } finally {
-        await mongoose.disconnect();
     }
+
+    // Verify
+    const withField = await Booking.countDocuments({ outstanding: { $exists: true } });
+    const gt0 = await Booking.countDocuments({ outstanding: { $gt: 0 } });
+    
+    console.log(`\n--- RESULTS ---`);
+    console.log(`Total: ${bookings.length}, Updated: ${updated}`);
+    console.log(`With outstanding > 0: ${withOutstanding}`);
+    console.log(`DB verification: ${withField} have field, ${gt0} have outstanding > 0`);
+    console.log('--- DONE ---');
+
+    await mongoose.disconnect();
 }
 
 backfillOutstanding();

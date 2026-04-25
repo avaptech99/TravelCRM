@@ -23,6 +23,8 @@ const db_1 = __importDefault(require("./config/db"));
 const keepWarm_1 = require("./utils/keepWarm");
 // Socket.io is available in ./socket.ts for future real-time upgrades
 const User_1 = __importDefault(require("./models/User"));
+const Booking_1 = __importDefault(require("./models/Booking"));
+const Payment_1 = __importDefault(require("./models/Payment"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
@@ -98,9 +100,10 @@ app.use((err, req, res, next) => {
     });
 });
 const PORT = process.env.PORT || 5000;
-// Auto-seed admin user if the database is completely empty
+// Auto-seed admin user + backfill outstanding on startup
 mongoose_1.default.connection.once('open', async () => {
     try {
+        // Auto-seed admin if DB is empty
         const count = await User_1.default.countDocuments();
         if (count === 0) {
             console.log('Auto-Seeder: Database is empty! Creating default admin user...');
@@ -113,9 +116,26 @@ mongoose_1.default.connection.once('open', async () => {
             });
             console.log('Auto-Seeder: Admin user created successfully. You can now log in.');
         }
+        // One-time migration: backfill outstanding field on all bookings
+        const missingOutstanding = await Booking_1.default.countDocuments({ outstanding: { $exists: false } });
+        if (missingOutstanding > 0) {
+            console.log(`[Migration] Backfilling outstanding for ${missingOutstanding} bookings...`);
+            const bookings = await Booking_1.default.find({ outstanding: { $exists: false } }).lean();
+            for (const booking of bookings) {
+                const payments = await Payment_1.default.find({ bookingId: booking._id }).lean();
+                const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                const bookingTotal = booking.totalAmount || booking.amount || 0;
+                const outstanding = Math.max(bookingTotal - totalPaid, 0);
+                await Booking_1.default.updateOne({ _id: booking._id }, { $set: { outstanding } });
+            }
+            console.log(`[Migration] Backfilled outstanding for ${bookings.length} bookings.`);
+        }
+        else {
+            console.log('[Migration] Outstanding field already present on all bookings.');
+        }
     }
     catch (error) {
-        console.error('Auto-Seeder Error:', error);
+        console.error('Startup tasks error:', error);
     }
 });
 app.listen(Number(PORT), '0.0.0.0', () => {
