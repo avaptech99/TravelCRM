@@ -115,6 +115,18 @@ export const Bookings: React.FC = () => {
                             </span>
                         )}
                     </button>
+                    {/* Outstanding active indicator - always visible */}
+                    {isOutstandingOnly && (
+                        <button
+                            onClick={() => setIsOutstandingOnly(false)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-bold shadow-sm hover:bg-red-700 transition-all"
+                        >
+                            Outstanding
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsNewBookingModalOpen(true)}
                         className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold transform hover:scale-[1.02] active:scale-[0.98]"
