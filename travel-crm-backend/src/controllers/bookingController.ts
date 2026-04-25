@@ -302,7 +302,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}, Outstanding: ${outstandingOnly}`);
     console.time(`getBookingsQuery_${reqId}`);
 
-    if (outstandingOnly === 'true') {
+    if (String(outstandingOnly) === 'true') {
         const pipeline: any[] = [
             { $match: query },
             {
@@ -316,23 +316,29 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             {
                 $addFields: {
                     totalPaid: { $sum: '$paymentDocs.amount' },
-                    calculatedTotal: { $ifNull: ["$totalAmount", "$amount"] }
+                    calculatedTotal: { 
+                        $convert: { 
+                            input: { $ifNull: ["$totalAmount", { $ifNull: ["$amount", 0] }] }, 
+                            to: "double", 
+                            onError: 0, 
+                            onNull: 0 
+                        }
+                    }
                 }
             },
             {
                 $match: {
                     $expr: {
-                        $gt: ['$calculatedTotal', '$totalPaid']
-                    },
-                    calculatedTotal: { $gt: 0 }
+                        $gt: [{ $subtract: ["$calculatedTotal", "$totalPaid"] }, 0.5]
+                    }
                 }
-            }
+            },
+            { $sort: { createdAt: -1 } }
         ];
 
         const [results, countResults] = await Promise.all([
             Booking.aggregate([
                 ...pipeline,
-                { $sort: { createdAt: -1 } },
                 { $skip: skip },
                 { $limit: limitNum },
                 {
@@ -359,15 +365,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
                         as: 'primaryContact'
                     }
                 },
-                {
-                    $unwind: { path: '$assignedToUser', preserveNullAndEmptyArrays: true }
-                },
-                {
-                    $unwind: { path: '$createdByUser', preserveNullAndEmptyArrays: true }
-                },
-                {
-                    $unwind: { path: '$primaryContact', preserveNullAndEmptyArrays: true }
-                }
+                { $unwind: { path: '$assignedToUser', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$createdByUser', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$primaryContact', preserveNullAndEmptyArrays: true } }
             ]),
             Booking.aggregate([
                 ...pipeline,
@@ -376,7 +376,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         ]);
 
         bookings = results;
-        total = countResults[0]?.total || 0;
+        total = countResults.length > 0 ? countResults[0].total : 0;
     } else {
         const [rawBookings, count] = await Promise.all([
             Booking.find(query)
