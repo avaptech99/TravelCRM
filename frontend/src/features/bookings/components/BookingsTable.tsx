@@ -361,7 +361,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <tr 
                                     key={row.id} 
                                     className={`transition-colors cursor-pointer ${
-                                        (row.original as any).outstanding > 0 
+                                        row.original.outstanding && row.original.outstanding > 0 
                                             ? 'bg-[#FECACA] hover:bg-[#FCA5A5]' 
                                             : 'bg-white hover:bg-slate-50'
                                     }`}
