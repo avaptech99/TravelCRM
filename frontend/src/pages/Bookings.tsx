@@ -33,7 +33,8 @@ export const Bookings: React.FC = () => {
     const [selectedAgents, setSelectedAgents] = useState<string[]>(
         searchParams.get('agent')?.split(',').filter(Boolean) || []
     );
-    const [showFilters, setShowFilters] = useState(selectedStatuses.length > 0 || selectedAgents.length > 0);
+    const [isOutstandingOnly, setIsOutstandingOnly] = useState(searchParams.get('outstanding') === 'true');
+    const [showFilters, setShowFilters] = useState(selectedStatuses.length > 0 || selectedAgents.length > 0 || searchParams.get('outstanding') === 'true');
 
     // Update URL params when filters change
     useEffect(() => {
@@ -41,9 +42,10 @@ export const Bookings: React.FC = () => {
         if (debouncedSearch) params.q = debouncedSearch;
         if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
         if (selectedAgents.length > 0) params.agent = selectedAgents.join(',');
+        if (isOutstandingOnly) params.outstanding = 'true';
         
         setSearchParams(params, { replace: true });
-    }, [debouncedSearch, selectedStatuses, selectedAgents, setSearchParams]);
+    }, [debouncedSearch, selectedStatuses, selectedAgents, isOutstandingOnly, setSearchParams]);
 
     const { data: agents } = useQuery({
         queryKey: ['agents'],
@@ -75,7 +77,7 @@ export const Bookings: React.FC = () => {
         );
     };
 
-    const activeFilterCount = selectedStatuses.length + selectedAgents.length;
+    const activeFilterCount = selectedStatuses.length + selectedAgents.length + (isOutstandingOnly ? 1 : 0);
 
     return (
         <div className="space-y-4">
@@ -113,6 +115,18 @@ export const Bookings: React.FC = () => {
                             </span>
                         )}
                     </button>
+                    {/* Outstanding active indicator - always visible */}
+                    {isOutstandingOnly && (
+                        <button
+                            onClick={() => setIsOutstandingOnly(false)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-bold shadow-sm hover:bg-red-700 transition-all"
+                        >
+                            Outstanding
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsNewBookingModalOpen(true)}
                         className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold transform hover:scale-[1.02] active:scale-[0.98]"
@@ -157,6 +171,29 @@ export const Bookings: React.FC = () => {
                                     </span>
                                 </label>
                             ))}
+                        </div>
+                        {/* Outstanding Filter Toggle */}
+                        <div className="pt-4 border-t border-slate-100">
+                            <label className="relative cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={isOutstandingOnly}
+                                    onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                    className="peer sr-only"
+                                />
+                                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                                    isOutstandingOnly 
+                                        ? 'bg-red-600 text-white border-red-700 shadow-md' 
+                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                } group-hover:shadow-sm`}>
+                                    {isOutstandingOnly && (
+                                        <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                    Outstanding
+                                </span>
+                            </label>
                         </div>
 
                         {isAdmin && (
@@ -218,6 +255,7 @@ export const Bookings: React.FC = () => {
                 searchTerm={debouncedSearch}
                 statusFilter={selectedStatuses.length > 0 ? selectedStatuses.join(',') : undefined}
                 agentFilter={selectedAgents.length > 0 ? selectedAgents.join(',') : undefined}
+                outstandingFilter={isOutstandingOnly}
             />
 
             <NewBookingModal

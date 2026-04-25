@@ -24,6 +24,7 @@ export interface IBooking extends Document {
     includesAdditionalServices: boolean;
     additionalServicesDetails: string | null;
     pricePerTicket: number | null;
+    outstanding: number;
     createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
     createdAt: Date;
@@ -54,6 +55,7 @@ const bookingSchema = new Schema<IBooking>(
         includesAdditionalServices: { type: Boolean, default: false },
         additionalServicesDetails: { type: String, default: null },
         pricePerTicket: { type: Number, default: 0 },
+        outstanding: { type: Number, default: 0 },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     },

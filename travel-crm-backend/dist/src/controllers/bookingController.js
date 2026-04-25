@@ -56,6 +56,17 @@ const invalidateBookingCaches = () => {
     cache_1.default.invalidateByPrefix('recent_');
     cache_1.default.invalidateByPrefix('booking_');
 };
+// Helper to recalculate and save outstanding balance on a booking
+const recalcOutstanding = async (bookingId) => {
+    const payments = await Payment_1.default.find({ bookingId });
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const booking = await Booking_1.default.findById(bookingId);
+    if (booking) {
+        const bookingTotal = booking.totalAmount || booking.amount || 0;
+        booking.outstanding = Math.max(bookingTotal - totalPaid, 0);
+        await booking.save();
+    }
+};
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
 // @access  Private
@@ -303,6 +314,10 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             }
         }
     }
+    // Outstanding filter - simple field check
+    if (String(outstandingOnly) === 'true') {
+        query.outstanding = { $gt: 0 };
+    }
     const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit);
     let bookings;
@@ -312,7 +327,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [rawBookings, count] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId outstanding createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum)
@@ -602,6 +617,10 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         }));
     }
     await booking.save();
+    // Recalculate outstanding if amount fields changed
+    if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
+        await recalcOutstanding(id);
+    }
     // Update PrimaryContact fields if provided
     if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
         const updateData = {};
@@ -963,6 +982,7 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
         ...result.data,
         bookingId: id,
     });
+    await recalcOutstanding(id);
     invalidateBookingCaches();
     res.status(201).json(payment);
 });
@@ -1003,6 +1023,7 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Payment not found for this booking');
     }
     await Payment_1.default.findByIdAndDelete(paymentId);
+    await recalcOutstanding(id);
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });
