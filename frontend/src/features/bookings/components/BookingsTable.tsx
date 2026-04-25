@@ -362,7 +362,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                     key={row.id} 
                                     className={`transition-colors cursor-pointer ${
                                         row.original.outstanding && row.original.outstanding > 0 
-                                            ? 'bg-[#FECACA] hover:bg-[#FCA5A5]' 
+                                            ? 'bg-[#FEF2F2] hover:bg-[#FEE2E2]' 
                                             : 'bg-white hover:bg-slate-50'
                                     }`}
                                     onClick={() => {

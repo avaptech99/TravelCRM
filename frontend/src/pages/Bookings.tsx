@@ -159,6 +159,27 @@ export const Bookings: React.FC = () => {
                                     </span>
                                 </label>
                             ))}
+                            {/* Outstanding Filter Toggle */}
+                            <label className="relative cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={isOutstandingOnly}
+                                    onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                    className="peer sr-only"
+                                />
+                                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                                    isOutstandingOnly 
+                                        ? 'bg-red-600 text-white border-red-700 shadow-md' 
+                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                } group-hover:shadow-sm`}>
+                                    {isOutstandingOnly && (
+                                        <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                    Outstanding
+                                </span>
+                            </label>
                         </div>
 
                         {isAdmin && (
@@ -211,20 +232,6 @@ export const Bookings: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Filters</h3>
-                                <label className="relative cursor-pointer group flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">
-                                    <input
-                                        type="checkbox"
-                                        checked={isOutstandingOnly}
-                                        onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
-                                        className="rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer w-4 h-4"
-                                    />
-                                    <span className="text-xs font-bold text-red-700">Outstanding Balance</span>
-                                </label>
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
