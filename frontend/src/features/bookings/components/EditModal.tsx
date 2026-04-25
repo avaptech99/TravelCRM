@@ -244,8 +244,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         />
                     </div>
                 </div>
+            </div>
 
-                <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
+            <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
                     {user?.role === 'ADMIN' && (
                         <button
                             type="button"
