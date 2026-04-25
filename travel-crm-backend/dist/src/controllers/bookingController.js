@@ -324,13 +324,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             {
                 $addFields: {
                     totalPaid: { $sum: '$paymentDocs.amount' },
-                    calculatedTotal: {
-                        $cond: {
-                            if: { $and: [{ $ne: ["$totalAmount", null] }, { $gt: ["$totalAmount", 0] }] },
-                            then: "$totalAmount",
-                            else: { $multiply: [{ $ifNull: ["$pricePerTicket", 0] }, { $ifNull: ["$travellers", 1] }] }
-                        }
-                    }
+                    calculatedTotal: { $ifNull: ["$totalAmount", "$amount"] }
                 }
             },
             {
@@ -410,11 +404,9 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     }
     console.timeEnd(`getBookingsQuery_${reqId}`);
     const mappedBookings = bookings.map(b => {
-        const totalAmount = b.totalAmount !== undefined && b.totalAmount !== null
-            ? b.totalAmount
-            : (b.pricePerTicket ? b.pricePerTicket * (b.travellers || 1) : 0);
+        const bookingTotal = b.totalAmount || b.amount || 0;
         const totalPaid = b.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-        const outstanding = totalAmount - totalPaid;
+        const outstanding = bookingTotal - totalPaid;
         return {
             ...b,
             id: b._id.toString(),

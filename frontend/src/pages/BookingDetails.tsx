@@ -569,9 +569,7 @@ export const BookingDetails: React.FC = () => {
                                 <span className="flex items-center gap-1.5">
                                     <CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})
                                     {(() => {
-                                        const totalAmount = booking.totalAmount !== undefined && booking.totalAmount !== null 
-                                            ? booking.totalAmount 
-                                            : (booking.pricePerTicket ? booking.pricePerTicket * (booking.travelers?.length || 1) : 0);
+                                        const totalAmount = booking.totalAmount || booking.amount || 0;
                                         const totalPaid = booking.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
                                         const outstanding = totalAmount - totalPaid;
                                         return (
