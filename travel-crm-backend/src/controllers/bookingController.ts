@@ -301,7 +301,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const [bookings, total] = await Promise.all([
         Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId callDisposition createdAt')
-            .sort({ lastInteractionAt: -1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit))
             .populate('assignedToUserId', 'name')
