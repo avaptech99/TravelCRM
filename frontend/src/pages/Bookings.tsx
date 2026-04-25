@@ -14,7 +14,7 @@ const STATUS_COLORS: Record<string, string> = {
     Working: 'bg-purple-50 text-purple-700 border-purple-200 peer-checked:bg-purple-100 peer-checked:border-purple-500',
     Booked: 'bg-green-50 text-green-700 border-green-200 peer-checked:bg-green-100 peer-checked:border-green-500',
     Interested: 'bg-amber-50 text-amber-700 border-amber-200 peer-checked:bg-amber-100 peer-checked:border-amber-500',
-    'Not Interested': 'bg-red-50 text-red-700 border-red-200 peer-checked:bg-red-100 peer-checked:border-red-500',
+    'Not Interested': 'bg-slate-50 text-slate-700 border-slate-200 peer-checked:bg-slate-100 peer-checked:border-slate-500',
 };
 
 export const Bookings: React.FC = () => {
