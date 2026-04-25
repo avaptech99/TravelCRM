@@ -303,80 +303,26 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.time(`getBookingsQuery_${reqId}`);
 
     if (String(outstandingOnly) === 'true') {
-        const pipeline: any[] = [
-            { $match: query },
-            {
-                $lookup: {
-                    from: 'payments',
-                    localField: '_id',
-                    foreignField: 'bookingId',
-                    as: 'paymentDocs'
-                }
-            },
-            {
-                $addFields: {
-                    totalPaid: { $sum: '$paymentDocs.amount' },
-                    calculatedTotal: { 
-                        $convert: { 
-                            input: { $ifNull: ["$totalAmount", { $ifNull: ["$amount", 0] }] }, 
-                            to: "double", 
-                            onError: 0, 
-                            onNull: 0 
-                        }
-                    }
-                }
-            },
-            {
-                $match: {
-                    $expr: {
-                        $gt: [{ $subtract: ["$calculatedTotal", "$totalPaid"] }, 0.5]
-                    }
-                }
-            },
-            { $sort: { createdAt: -1 } }
-        ];
+        // Simple approach: fetch all bookings with payments, filter in JS
+        const allBookings = await Booking.find(query)
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
+            .sort({ createdAt: -1 })
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
+            .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+            .populate('passengers', 'name')
+            .populate('payments', 'amount')
+            .lean();
 
-        const [results, countResults] = await Promise.all([
-            Booking.aggregate([
-                ...pipeline,
-                { $skip: skip },
-                { $limit: limitNum },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'assignedToUserId',
-                        foreignField: '_id',
-                        as: 'assignedToUser'
-                    }
-                },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'createdByUserId',
-                        foreignField: '_id',
-                        as: 'createdByUser'
-                    }
-                },
-                {
-                    $lookup: {
-                        from: 'primarycontacts',
-                        localField: 'primaryContactId',
-                        foreignField: '_id',
-                        as: 'primaryContact'
-                    }
-                },
-                { $unwind: { path: '$assignedToUser', preserveNullAndEmptyArrays: true } },
-                { $unwind: { path: '$createdByUser', preserveNullAndEmptyArrays: true } },
-                { $unwind: { path: '$primaryContact', preserveNullAndEmptyArrays: true } }
-            ]),
-            Booking.aggregate([
-                ...pipeline,
-                { $count: 'total' }
-            ])
-        ]);
+        // Filter: only bookings where (totalAmount OR amount) - totalPaid > 0
+        const outstandingBookings = allBookings.filter((b: any) => {
+            const bookingTotal = b.totalAmount || b.amount || 0;
+            const totalPaid = b.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
+            return bookingTotal > 0 && (bookingTotal - totalPaid) > 0;
+        });
 
-        bookings = results;
-        total = countResults.length > 0 ? countResults[0].total : 0;
+        total = outstandingBookings.length;
+        bookings = outstandingBookings.slice(skip, skip + limitNum);
     } else {
         const [rawBookings, count] = await Promise.all([
             Booking.find(query)
