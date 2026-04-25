@@ -93,6 +93,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            if (booking) {
+                queryClient.invalidateQueries({ queryKey: ['booking', booking.id] });
+            }
 
             let message = 'Booking updated successfully!';
             if (commentText.trim()) message = 'Booking updated & comment added!';

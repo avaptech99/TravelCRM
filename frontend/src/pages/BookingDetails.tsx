@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { EditModal } from '../features/bookings/components/EditModal';
 
 export const BookingDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export const BookingDetails: React.FC = () => {
 
     const [isEditingReqs, setIsEditingReqs] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
     const [commentText, setCommentText] = useState('');
@@ -627,7 +629,18 @@ export const BookingDetails: React.FC = () => {
                 <div className="space-y-6">
                     {/* Contact Info */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Contact Person</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">Contact Person</h2>
+                            {!isReadOnly && (
+                                <button
+                                    onClick={() => setIsEditModalOpen(true)}
+                                    className="text-slate-400 hover:text-primary transition-colors p-1 rounded-md hover:bg-slate-50"
+                                    title="Edit Lead Details"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+                            )}
+                        </div>
                         <div className="space-y-3">
                             <div className="flex items-center space-x-3 text-slate-700">
                                 <User size={18} className="text-slate-400" />
@@ -741,6 +754,14 @@ export const BookingDetails: React.FC = () => {
                     booking={booking}
                     isOpen={isPaymentModalOpen}
                     onClose={() => setIsPaymentModalOpen(false)}
+                />
+            )}
+            {booking && (
+                <EditModal
+                    booking={booking}
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onStatusChangeToBooked={() => {}}
                 />
             )}
         </div>
