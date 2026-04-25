@@ -293,24 +293,107 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit);
+
+    let bookings: any[];
+    let total: number;
 
     const reqId = Date.now().toString(36);
-    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
+    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}, Outstanding: ${outstandingOnly}`);
     console.time(`getBookingsQuery_${reqId}`);
-    const [bookings, total] = await Promise.all([
-        Booking.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(Number(limit))
-            .populate('assignedToUserId', 'name')
-            .populate('createdByUserId', 'name')
-            .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
-            .populate('passengers', 'name')
-            .populate('payments', 'amount')
-            .lean(),
-        Booking.countDocuments(query),
-    ]);
+
+    if (outstandingOnly === 'true') {
+        const pipeline: any[] = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: 'payments',
+                    localField: '_id',
+                    foreignField: 'bookingId',
+                    as: 'paymentDocs'
+                }
+            },
+            {
+                $addFields: {
+                    totalPaid: { $sum: '$paymentDocs.amount' }
+                }
+            },
+            {
+                $match: {
+                    $expr: {
+                        $gt: ['$amount', '$totalPaid']
+                    },
+                    amount: { $gt: 0 }
+                }
+            }
+        ];
+
+        const [results, countResults] = await Promise.all([
+            Booking.aggregate([
+                ...pipeline,
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limitNum },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'assignedToUserId',
+                        foreignField: '_id',
+                        as: 'assignedToUser'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'createdByUserId',
+                        foreignField: '_id',
+                        as: 'createdByUser'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'primarycontacts',
+                        localField: 'primaryContactId',
+                        foreignField: '_id',
+                        as: 'primaryContact'
+                    }
+                },
+                {
+                    $unwind: { path: '$assignedToUser', preserveNullAndEmptyArrays: true }
+                },
+                {
+                    $unwind: { path: '$createdByUser', preserveNullAndEmptyArrays: true }
+                },
+                {
+                    $unwind: { path: '$primaryContact', preserveNullAndEmptyArrays: true }
+                }
+            ]),
+            Booking.aggregate([
+                ...pipeline,
+                { $count: 'total' }
+            ])
+        ]);
+
+        bookings = results;
+        total = countResults[0]?.total || 0;
+    } else {
+        const [rawBookings, count] = await Promise.all([
+            Booking.find(query)
+                .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .populate('assignedToUserId', 'name')
+                .populate('createdByUserId', 'name')
+                .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
+                .populate('passengers', 'name')
+                .populate('payments', 'amount')
+                .lean(),
+            Booking.countDocuments(query),
+        ]);
+        bookings = rawBookings;
+        total = count;
+    }
     console.timeEnd(`getBookingsQuery_${reqId}`);
 
     const mappedBookings = bookings.map(b => {

@@ -33,7 +33,8 @@ export const Bookings: React.FC = () => {
     const [selectedAgents, setSelectedAgents] = useState<string[]>(
         searchParams.get('agent')?.split(',').filter(Boolean) || []
     );
-    const [showFilters, setShowFilters] = useState(selectedStatuses.length > 0 || selectedAgents.length > 0);
+    const [isOutstandingOnly, setIsOutstandingOnly] = useState(searchParams.get('outstanding') === 'true');
+    const [showFilters, setShowFilters] = useState(selectedStatuses.length > 0 || selectedAgents.length > 0 || searchParams.get('outstanding') === 'true');
 
     // Update URL params when filters change
     useEffect(() => {
@@ -41,9 +42,10 @@ export const Bookings: React.FC = () => {
         if (debouncedSearch) params.q = debouncedSearch;
         if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
         if (selectedAgents.length > 0) params.agent = selectedAgents.join(',');
+        if (isOutstandingOnly) params.outstanding = 'true';
         
         setSearchParams(params, { replace: true });
-    }, [debouncedSearch, selectedStatuses, selectedAgents, setSearchParams]);
+    }, [debouncedSearch, selectedStatuses, selectedAgents, isOutstandingOnly, setSearchParams]);
 
     const { data: agents } = useQuery({
         queryKey: ['agents'],
@@ -75,7 +77,7 @@ export const Bookings: React.FC = () => {
         );
     };
 
-    const activeFilterCount = selectedStatuses.length + selectedAgents.length;
+    const activeFilterCount = selectedStatuses.length + selectedAgents.length + (isOutstandingOnly ? 1 : 0);
 
     return (
         <div className="space-y-4">
@@ -209,7 +211,20 @@ export const Bookings: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                        )}
+                        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Filters</h3>
+                                <label className="relative cursor-pointer group flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={isOutstandingOnly}
+                                        onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                        className="rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer w-4 h-4"
+                                    />
+                                    <span className="text-xs font-bold text-red-700">Outstanding Balance</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -218,6 +233,7 @@ export const Bookings: React.FC = () => {
                 searchTerm={debouncedSearch}
                 statusFilter={selectedStatuses.length > 0 ? selectedStatuses.join(',') : undefined}
                 agentFilter={selectedAgents.length > 0 ? selectedAgents.join(',') : undefined}
+                outstandingFilter={isOutstandingOnly}
             />
 
             <NewBookingModal
