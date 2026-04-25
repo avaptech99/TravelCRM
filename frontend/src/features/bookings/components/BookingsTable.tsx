@@ -163,29 +163,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     };
 
     const columns = [
-        // Always reserve the select column for ADMIN to avoid layout shift
-        ...(user?.role === 'ADMIN' ? [
-            columnHelper.display({
-                id: 'select',
-                header: () => null, // Header checkbox is in the uniqueCode column
-                cell: ({ row }) => (
-                    <div className="w-5 flex items-center justify-center">
-                        {isSelectionMode ? (
-                            <input
-                                type="checkbox"
-                                className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4"
-                                checked={row.getIsSelected()}
-                                onChange={row.getToggleSelectedHandler()}
-                            />
-                        ) : (
-                            // Invisible placeholder to prevent layout shift
-                            <div className="w-4 h-4" />
-                        )}
-                    </div>
-                ),
-                size: 36,
-            })
-        ] : []),
         columnHelper.accessor('uniqueCode', {
             header: ({ table }) => (
                 <div className="flex items-center gap-2">
@@ -200,7 +177,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 }
                             }}
                             onClick={(e) => handleMasterCheckboxClick(e, table)}
-                            onChange={() => {}} // controlled by onClick
+                            onChange={() => {}}
                             title={
                                 !isSelectionMode ? "Enable Selection Mode" :
                                 Object.keys(rowSelection).length === 0 ? "Select All" :
@@ -211,7 +188,20 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <span>Booking ID</span>
                 </div>
             ),
-            cell: (info) => info.getValue() || '-',
+            cell: (info) => (
+                <div className="flex items-center gap-2">
+                    {isSelectionMode && user?.role === 'ADMIN' && (
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer w-4 h-4 shrink-0"
+                            checked={info.row.getIsSelected()}
+                            onChange={info.row.getToggleSelectedHandler()}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    )}
+                    <span>{info.getValue() || '-'}</span>
+                </div>
+            ),
         }),
         columnHelper.accessor('createdAt', {
             header: 'Created On',
@@ -424,7 +414,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             className="px-2 py-2 text-sm text-slate-700 font-medium"
                                             onClick={(e) => {
                                                 // Prevent navigation when clicking on the Actions or checkbox column
-                                                if (cell.column.id === 'actions' || cell.column.id === 'select') {
+                                                if (cell.column.id === 'actions') {
                                                     e.stopPropagation();
                                                 }
                                             }}
