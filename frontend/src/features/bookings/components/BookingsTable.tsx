@@ -351,26 +351,16 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <span className="text-sm font-bold text-primary">
                                     {Object.keys(rowSelection).length} leads selected
                                 </span>
-                                <div className="flex gap-2">
-                                    {user?.role === 'ADMIN' && (
-                                        <>
-                                            <button 
-                                                onClick={() => setIsBulkAssignOpen(true)}
-                                                className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-50 transition-colors"
-                                            >
-                                                <Users size={14} />
-                                                Assign Selected
-                                            </button>
-                                            <button 
-                                                onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
-                                                className="flex items-center gap-1.5 text-xs font-semibold bg-red-100 text-red-700 px-3 py-1.5 rounded hover:bg-red-200 transition-colors"
-                                            >
-                                                <Trash2 size={14} />
-                                                Delete Selected
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                {user?.role === 'ADMIN' && (
+                                    <button 
+                                        onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
+                                        disabled={bulkDeleteMutation.isPending}
+                                        className="p-2 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50"
+                                        title="Delete Selected"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                             </div>
                         )}
 
