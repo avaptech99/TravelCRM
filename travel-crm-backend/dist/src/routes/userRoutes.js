@@ -9,6 +9,10 @@ const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
 // Get agents is protected (available to both Admin and Agents)
 router.get('/agents', auth_1.protect, userController_1.getAgents);
+// Heartbeat for online status
+router.post('/heartbeat', auth_1.protect, userController_1.heartbeat);
+// Goodbye signal — no auth (sendBeacon can't send headers)
+router.post('/offline', userController_1.setOffline);
 // Change password (available to all authenticated users)
 router.put('/change-password', auth_1.protect, userController_1.changePassword);
 // Update profile

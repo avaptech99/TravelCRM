@@ -3,13 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.unassignUserBookings = exports.unassignOfflineBookings = exports.updateStatus = exports.updateUserById = exports.updateProfile = exports.changePassword = exports.deleteUser = exports.createUser = exports.getAllUsers = exports.getAgents = void 0;
+exports.unassignUserBookings = exports.unassignOfflineBookings = exports.setOffline = exports.updateStatus = exports.updateUserById = exports.updateProfile = exports.changePassword = exports.deleteUser = exports.createUser = exports.heartbeat = exports.getAllUsers = exports.getAgents = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const User_1 = __importDefault(require("../models/User"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const types_1 = require("../types");
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const cache_1 = __importDefault(require("../utils/cache"));
+// ONLINE_THRESHOLD in milliseconds (5 minutes)
+const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @desc    Get all agents
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
@@ -22,11 +24,20 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
         return;
     }
     const agents = await User_1.default.find({ role: 'AGENT' })
-        .select('name email isOnline lastSeen')
+        .select('name email lastSeen')
         .sort({ name: 1 })
         .lean();
-    const mappedAgents = agents.map(a => ({ ...a, id: a._id.toString() }));
-    cache_1.default.set(cacheKey, mappedAgents, 60); // Cache for 60 seconds (agents rarely change)
+    const now = Date.now();
+    const mappedAgents = agents.map(a => {
+        const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+        const isOnline = (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return {
+            ...a,
+            id: a._id.toString(),
+            isOnline
+        };
+    });
+    cache_1.default.set(cacheKey, mappedAgents, 30); // Lower cache time for online status
     res.json(mappedAgents);
 });
 // @desc    Get all users (Admin only)
@@ -41,12 +52,34 @@ exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
         return;
     }
     const users = await User_1.default.find()
-        .select('name email role isOnline lastSeen createdAt')
-        .sort({ createdAt: -1 })
+        .select('name email role lastSeen createdAt')
+        .sort({ role: 1, createdAt: -1 })
         .lean();
-    const mappedUsers = users.map(u => ({ ...u, id: u._id.toString() }));
-    cache_1.default.set(cacheKey, mappedUsers, 60); // Cache for 60 seconds
+    const now = Date.now();
+    const mappedUsers = users.map(u => {
+        const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
+        const isOnline = (now - lastSeenTime) < ONLINE_THRESHOLD;
+        return {
+            ...u,
+            id: u._id.toString(),
+            isOnline
+        };
+    });
+    cache_1.default.set(cacheKey, mappedUsers, 30);
     res.json(mappedUsers);
+});
+// @desc    Update user lastSeen (Heartbeat)
+// @route   POST /api/users/heartbeat
+// @access  Private
+exports.heartbeat = (0, express_async_handler_1.default)(async (req, res) => {
+    const user = await User_1.default.findById(req.user?.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+    user.lastSeen = new Date();
+    await user.save();
+    res.json({ success: true, lastSeen: user.lastSeen });
 });
 // @desc    Create a new user (Admin only)
 // @route   POST /api/users
@@ -230,6 +263,22 @@ exports.updateStatus = (0, express_async_handler_1.default)(async (req, res) => 
         isOnline: user.isOnline,
         lastSeen: user.lastSeen
     });
+});
+// @desc    Set user offline (Goodbye signal — no auth, used by sendBeacon)
+// @route   POST /api/users/offline
+// @access  Public (sendBeacon can't send auth headers)
+exports.setOffline = (0, express_async_handler_1.default)(async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) {
+        res.status(400);
+        throw new Error('userId is required');
+    }
+    await User_1.default.findByIdAndUpdate(userId, {
+        isOnline: false,
+        lastSeen: new Date(),
+    });
+    cache_1.default.invalidateByPrefix('users_');
+    res.json({ success: true });
 });
 // @desc    Unassign bookings from offline agents
 // @route   POST /api/users/unassign-offline-bookings

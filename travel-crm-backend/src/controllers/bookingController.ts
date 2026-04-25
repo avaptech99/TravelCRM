@@ -130,7 +130,7 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly } = req.query;
 
     const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
@@ -315,15 +315,22 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             },
             {
                 $addFields: {
-                    totalPaid: { $sum: '$paymentDocs.amount' }
+                    totalPaid: { $sum: '$paymentDocs.amount' },
+                    calculatedTotal: {
+                        $cond: {
+                            if: { $and: [{ $ne: ["$totalAmount", null] }, { $gt: ["$totalAmount", 0] }] },
+                            then: "$totalAmount",
+                            else: { $multiply: [{ $ifNull: ["$pricePerTicket", 0] }, { $ifNull: ["$travellers", 1] }] }
+                        }
+                    }
                 }
             },
             {
                 $match: {
                     $expr: {
-                        $gt: ['$amount', '$totalPaid']
+                        $gt: ['$calculatedTotal', '$totalPaid']
                     },
-                    amount: { $gt: 0 }
+                    calculatedTotal: { $gt: 0 }
                 }
             }
         ];
@@ -379,7 +386,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     } else {
         const [rawBookings, count] = await Promise.all([
             Booking.find(query)
-                .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
+                .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limitNum)
@@ -397,8 +404,11 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.timeEnd(`getBookingsQuery_${reqId}`);
 
     const mappedBookings = bookings.map(b => {
+        const totalAmount = b.totalAmount !== undefined && b.totalAmount !== null 
+            ? b.totalAmount 
+            : (b.pricePerTicket ? b.pricePerTicket * (b.travellers || 1) : 0);
         const totalPaid = (b as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-        const outstanding = (b.amount || 0) - totalPaid;
+        const outstanding = totalAmount - totalPaid;
 
         return {
             ...b,
@@ -417,11 +427,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
         };
-    });
-        contactEmail: (b as any).primaryContact?.contactEmail,
-        requirements: (b as any).primaryContact?.requirements,
-        interested: (b as any).primaryContact?.interested,
-        bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
     });
 
     const result = {

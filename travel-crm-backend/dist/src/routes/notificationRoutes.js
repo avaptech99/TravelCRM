@@ -9,5 +9,9 @@ const notificationController_1 = require("../controllers/notificationController"
 const router = express_1.default.Router();
 router.use(auth_1.protect); // All notification routes are private
 router.route('/').get(notificationController_1.getMyNotifications);
+router.route('/read-all').put(notificationController_1.markAllAsRead); // Must be before /:id routes
+router.route('/dismiss-all').put(notificationController_1.dismissAllNotifications);
 router.route('/:id/read').put(notificationController_1.markNotificationAsRead);
+router.route('/:id/dismiss').put(notificationController_1.dismissNotification);
+router.route('/:id').delete(notificationController_1.deleteNotification);
 exports.default = router;

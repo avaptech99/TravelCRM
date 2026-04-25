@@ -129,26 +129,36 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
     const agentStats = await Booking_1.default.aggregate([
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'users',
+                localField: 'assignedToUserId',
+                foreignField: '_id',
+                as: 'agentDetails'
+            }
+        },
+        { $unwind: { path: '$agentDetails', preserveNullAndEmptyArrays: true } },
+        // Filter to only include bookings assigned to real agents
+        {
+            $match: {
+                $and: [
+                    { 'agentDetails._id': { $exists: true } }, // Must be assigned to a real user in the DB
+                    { 'agentDetails.email': { $nin: ['phone-lead@system.internal', 'website-lead@system.internal'] } }
+                ]
+            }
+        },
+        {
             $group: {
-                _id: '$assignedToUserId',
+                _id: { $ifNull: ['$assignedToUserId', 'unassigned'] }, // Group all nulls together
+                agentName: { $first: { $ifNull: ['$agentDetails.name', 'Unassigned'] } },
                 totalBookings: { $sum: 1 },
                 convertedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
                 totalRevenue: { $sum: '$amount' }
             }
         },
         {
-            $lookup: {
-                from: 'users',
-                localField: '_id',
-                foreignField: '_id',
-                as: 'agentDetails'
-            }
-        },
-        { $unwind: { path: '$agentDetails', preserveNullAndEmptyArrays: true } },
-        {
             $project: {
                 _id: 1,
-                agentName: { $ifNull: ['$agentDetails.name', 'Unassigned'] },
+                agentName: 1,
                 totalBookings: 1,
                 convertedBookings: 1,
                 totalRevenue: 1,
