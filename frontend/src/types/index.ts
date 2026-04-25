@@ -86,7 +86,6 @@ export interface Booking {
     additionalServicesDetails?: string | null;
     duration?: string;
     amount?: number;
-    outstanding?: number;
 }
 
 export interface PaginatedResponse<T> {

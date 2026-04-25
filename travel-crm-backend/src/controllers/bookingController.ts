@@ -299,60 +299,32 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     let total: number;
 
     const reqId = Date.now().toString(36);
-    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}, Outstanding: ${outstandingOnly}`);
+    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
 
-    if (String(outstandingOnly) === 'true') {
-        // Simple approach: fetch all bookings with payments, filter in JS
-        const allBookings = await Booking.find(query)
+    const [rawBookings, count] = await Promise.all([
+        Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
             .populate('assignedToUserId', 'name')
             .populate('createdByUserId', 'name')
             .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
             .populate('passengers', 'name')
             .populate('payments', 'amount')
-            .lean();
-
-        // Filter: only bookings where (totalAmount OR amount) - totalPaid > 0
-        const outstandingBookings = allBookings.filter((b: any) => {
-            const bookingTotal = b.totalAmount || b.amount || 0;
-            const totalPaid = b.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
-            return bookingTotal > 0 && (bookingTotal - totalPaid) > 0;
-        });
-
-        total = outstandingBookings.length;
-        bookings = outstandingBookings.slice(skip, skip + limitNum);
-    } else {
-        const [rawBookings, count] = await Promise.all([
-            Booking.find(query)
-                .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId createdAt')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limitNum)
-                .populate('assignedToUserId', 'name')
-                .populate('createdByUserId', 'name')
-                .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
-                .populate('passengers', 'name')
-                .populate('payments', 'amount')
-                .lean(),
-            Booking.countDocuments(query),
-        ]);
-        bookings = rawBookings;
-        total = count;
-    }
+            .lean(),
+        Booking.countDocuments(query),
+    ]);
+    bookings = rawBookings;
+    total = count;
     console.timeEnd(`getBookingsQuery_${reqId}`);
 
     const mappedBookings = bookings.map(b => {
-        const bookingTotal = b.totalAmount || b.amount || 0;
-        const totalPaid = (b as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-        const outstanding = bookingTotal - totalPaid;
-
         return {
             ...b,
             id: b._id.toString(),
             createdOn: b.createdAt,
-            outstanding,
             contactPerson: (b as any).primaryContact?.contactName,
             contactNumber: (b as any).primaryContact?.contactPhoneNo,
             contactEmail: (b as any).primaryContact?.contactEmail,

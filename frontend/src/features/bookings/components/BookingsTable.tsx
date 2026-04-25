@@ -27,10 +27,9 @@ interface BookingsTableProps {
     isEDTView?: boolean;
     travelDateFilter?: string;
     isInlineView?: boolean;
-    outstandingFilter?: boolean;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -117,7 +116,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -126,7 +125,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (travelDateFilter) params.append('travelDateFilter', travelDateFilter);
             if (isMyBookingsView) params.append('myBookings', 'true');
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
-            if (outstandingFilter) params.append('outstandingOnly', 'true');
+
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
 
@@ -360,11 +359,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             {table.getRowModel().rows.map((row) => (
                                 <tr 
                                     key={row.id} 
-                                    className={`transition-colors cursor-pointer ${
-                                        row.original.outstanding && row.original.outstanding > 0 
-                                            ? 'bg-[#FEF2F2] hover:bg-[#FEE2E2]' 
-                                            : 'bg-white hover:bg-slate-50'
-                                    }`}
+                                    className="transition-colors cursor-pointer bg-white hover:bg-slate-50"
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
                                         sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
