@@ -647,10 +647,17 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     await booking.save();
 
     // Update PrimaryContact fields if provided
-    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
+    if (booking.primaryContactId && (
+        result.data.requirements !== undefined || 
+        result.data.interested !== undefined ||
+        result.data.contactPerson !== undefined ||
+        result.data.contactNumber !== undefined
+    )) {
         const updateData: any = {};
         if (result.data.requirements !== undefined) updateData.requirements = result.data.requirements;
         if (result.data.interested !== undefined) updateData.interested = result.data.interested;
+        if (result.data.contactPerson !== undefined) updateData.contactName = result.data.contactPerson;
+        if (result.data.contactNumber !== undefined) updateData.contactPhoneNo = result.data.contactNumber;
         await PrimaryContact.findByIdAndUpdate(booking.primaryContactId, updateData);
     }
 

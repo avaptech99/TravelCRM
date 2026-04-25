@@ -52,6 +52,8 @@ export const updateBookingSchema = z.object({
     requirements: z.string().optional(),
     interested: z.enum(['Yes', 'No']).optional(),
     bookingType: z.enum(['B2B', 'B2C']).optional(),
+    contactPerson: z.string().min(2).optional(),
+    contactNumber: z.string().min(10).optional(),
     travellers: z.number().int().positive().optional(),
     pricePerTicket: z.number().nonnegative().optional(),
     includesFlight: z.boolean().optional(),
