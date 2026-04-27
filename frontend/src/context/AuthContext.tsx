@@ -33,25 +33,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [token]);
 
-    // Heartbeat + multi-tab aware goodbye signal
+    // Goodbye signal (best-effort instant-offline when last tab closes)
+    // Note: lastSeen is passively updated by the auth middleware on every API call,
+    // so no heartbeat is needed. Users are "online" as long as they make API calls
+    // within the ONLINE_THRESHOLD (5 min). The goodbye just makes offline instant.
     useEffect(() => {
-        if (!token) return;
+        if (!token || !user?.id) return;
 
-        const sendHeartbeat = async () => {
-            try {
-                await api.post('/users/heartbeat');
-            } catch (error) {
-                console.debug('Heartbeat ping');
-            }
-        };
-
-        // Initial heartbeat
-        sendHeartbeat();
-
-        // Every 2 minutes
-        const interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
-
-        // Multi-tab aware goodbye signal
         const TAB_COUNT_KEY = 'crm_active_tabs';
         const currentCount = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '0', 10);
         localStorage.setItem(TAB_COUNT_KEY, String(currentCount + 1));
@@ -73,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.addEventListener('beforeunload', handleGoodbye);
 
         return () => {
-            clearInterval(interval);
             window.removeEventListener('beforeunload', handleGoodbye);
             // Decrement tab count on React cleanup (navigation), but don't send offline signal
             const count = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '1', 10);
