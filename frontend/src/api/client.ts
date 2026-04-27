@@ -4,6 +4,9 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
+// Track when the last real API call happened (used by smart idle-heartbeat)
+export let lastApiCallTime = Date.now();
+
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token && config.headers) {
@@ -13,7 +16,10 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        lastApiCallTime = Date.now();
+        return response;
+    },
     (error) => {
         const isLoginRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/login');
         if (error.response?.status === 401 && !isLoginRequest) {
