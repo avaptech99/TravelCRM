@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import asyncHandler from 'express-async-handler';
 import { verifyToken, JwtPayload } from '../utils/jwt';
+import User from '../models/User';
 
 // Extend the Express Request type to include the user
 declare global {
@@ -10,6 +11,20 @@ declare global {
         }
     }
 }
+
+// Throttle lastSeen updates: max once per 60s per user (in-memory)
+const lastSeenCache = new Map<string, number>();
+const LAST_SEEN_THROTTLE = 60 * 1000; // 60 seconds
+
+const touchLastSeen = (userId: string) => {
+    const now = Date.now();
+    const lastTouch = lastSeenCache.get(userId) || 0;
+    if (now - lastTouch > LAST_SEEN_THROTTLE) {
+        lastSeenCache.set(userId, now);
+        // Fire-and-forget — don't await, don't block the request
+        User.updateOne({ _id: userId }, { $set: { lastSeen: new Date() } }).exec().catch(() => {});
+    }
+};
 
 export const protect = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -29,6 +44,10 @@ export const protect = asyncHandler(
 
                 // Attach user to request
                 req.user = decoded;
+
+                // Passively keep lastSeen fresh (throttled, non-blocking)
+                touchLastSeen(decoded.id);
+
                 next();
             } catch (error) {
                 res.status(401);
