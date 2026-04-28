@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings, setOffline } from '../controllers/userController';
+import { getAgents, getAllUsers, createUser, deleteUser, changePassword, updateProfile, updateUserById, updateStatus, unassignOfflineBookings, unassignUserBookings, heartbeat, setOffline } from '../controllers/userController';
 import { protect, adminGuard } from '../middleware/auth';
 
 const router = express.Router();
@@ -7,8 +7,11 @@ const router = express.Router();
 // Get agents is protected (available to both Admin and Agents)
 router.get('/agents', protect, getAgents);
 
-// Set offline (Goodbye Signal)
-router.post('/offline', protect, setOffline);
+// Heartbeat for online status
+router.post('/heartbeat', protect, heartbeat);
+
+// Goodbye signal — no auth (sendBeacon can't send headers)
+router.post('/offline', setOffline);
 
 // Change password (available to all authenticated users)
 router.put('/change-password', protect, changePassword);
@@ -36,11 +39,5 @@ router.patch('/status', protect, updateStatus);
 
 // Unassign offline bookings (Admin only)
 router.post('/unassign-offline-bookings', protect, adminGuard, unassignOfflineBookings);
-
-// Create user (Admin only)
-router.post('/', protect, adminGuard, createUser);
-
-// Delete user (Admin only)
-router.delete('/:id', protect, adminGuard, deleteUser);
 
 export default router;

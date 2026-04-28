@@ -28,9 +28,10 @@ interface BookingsTableProps {
     isEDTView?: boolean;
     travelDateFilter?: string;
     isInlineView?: boolean;
+    outstandingFilter?: boolean;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -74,7 +75,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             return;
         }
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter]);
+    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter, outstandingFilter]);
 
     const unassignMutation = useMutation({
         mutationFn: async (bookingId: string) => {
@@ -116,7 +117,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -125,6 +126,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (travelDateFilter) params.append('travelDateFilter', travelDateFilter);
             if (isMyBookingsView) params.append('myBookings', 'true');
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
+            if (outstandingFilter) params.append('outstanding', 'true');
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
 

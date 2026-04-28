@@ -143,9 +143,9 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstanding } = req.query;
 
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstanding || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -155,6 +155,10 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const query: any = {};
     const primaryContactQuery: any = {};
+
+    if (outstanding === 'true') {
+        query.outstanding = { $gt: 0 };
+    }
 
     if (req.user?.role === 'MARKETER') {
         query.createdByUserId = req.user.id;

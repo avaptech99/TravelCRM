@@ -74,23 +74,40 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     res.json(mappedUsers);
 });
 
-// @desc    Set user offline (Goodbye Signal)
-// @route   POST /api/users/offline
+// @desc    Update user presence heartbeat
+// @route   POST /api/users/heartbeat
 // @access  Private
-export const setOffline = asyncHandler(async (req: Request, res: Response) => {
+export const heartbeat = asyncHandler(async (req: Request, res: Response) => {
     const user = await User.findById(req.user?.id);
     if (!user) {
         res.status(404);
         throw new Error('User not found');
     }
 
-    user.isOnline = false;
+    user.isOnline = true;
     user.lastSeen = new Date();
     await user.save();
 
-    // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    // No need to invalidate cache every minute, let it expire naturally (30s)
+    res.json({ success: true });
+});
 
+// @desc    Set user offline (Goodbye signal — no auth, used by sendBeacon)
+// @route   POST /api/users/offline
+// @access  Public (sendBeacon can't send auth headers)
+export const setOffline = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.body;
+    if (!userId) {
+        res.status(400);
+        throw new Error('userId is required');
+    }
+
+    await User.findByIdAndUpdate(userId, {
+        isOnline: false,
+        lastSeen: new Date(),
+    });
+
+    appCache.invalidateByPrefix('users_');
     res.json({ success: true });
 });
 

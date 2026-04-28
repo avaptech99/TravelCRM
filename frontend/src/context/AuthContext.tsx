@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User } from '../types';
 import { jwtDecode } from 'jwt-decode';
 import { useQueryClient } from '@tanstack/react-query';
+import api, { lastApiCallTime } from '../api/client';
 
 interface AuthContextType {
     token: string | null;
@@ -32,14 +33,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [token]);
 
-    // Goodbye Signal: Mark offline on tab/browser close (multi-tab aware)
+    // Smart presence tracking:
+    // - Active users: lastSeen updated by auth middleware on every API call (0 extra requests)
+    // - Idle users: if tab is visible & no API call in 4 min, send 1 lightweight ping
+    // - Goodbye: best-effort instant-offline when last tab closes
     useEffect(() => {
-        if (!token) return;
+        if (!token || !user?.id) return;
 
-        // Use a shared counter in localStorage to track how many tabs are open
+        // --- Smart idle heartbeat ---
+        const IDLE_THRESHOLD = 4 * 60 * 1000; // 4 minutes
+        const CHECK_INTERVAL = 60 * 1000;      // Check every 60 seconds
+        const IDLE_PING_KEY = 'crm_last_idle_ping'; // Cross-tab dedup
+
+        const idleCheck = setInterval(() => {
+            // Only ping if: tab is visible + no API call recently + no other tab pinged recently
+            if (document.visibilityState !== 'visible') return;
+
+            const timeSinceLastCall = Date.now() - lastApiCallTime;
+            if (timeSinceLastCall < IDLE_THRESHOLD) return;
+
+            // Cross-tab dedup: don't ping if another tab already did recently
+            const lastPing = parseInt(localStorage.getItem(IDLE_PING_KEY) || '0', 10);
+            if (Date.now() - lastPing < IDLE_THRESHOLD) return;
+
+            // Send lightweight idle ping
+            localStorage.setItem(IDLE_PING_KEY, String(Date.now()));
+            api.post('/users/heartbeat').catch(() => {});
+        }, CHECK_INTERVAL);
+
+        // --- Goodbye signal ---
         const TAB_COUNT_KEY = 'crm_active_tabs';
-
-        // Increment tab count on mount
         const currentCount = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '0', 10);
         localStorage.setItem(TAB_COUNT_KEY, String(currentCount + 1));
 
@@ -48,33 +71,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const newCount = Math.max(0, count - 1);
             localStorage.setItem(TAB_COUNT_KEY, String(newCount));
 
-            // Only send offline signal if this is the LAST tab closing
             if (newCount === 0) {
-                const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/users/offline';
-                
-                fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    keepalive: true,
-                    body: JSON.stringify({})
-                }).catch(() => {
-                    // Silently fail as tab is closing
-                });
+                const payload = JSON.stringify({ userId: user?.id });
+                const blob = new Blob([payload], { type: 'application/json' });
+                const apiBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+                navigator.sendBeacon(`${apiBase}/api/users/offline`, blob);
             }
         };
 
         window.addEventListener('beforeunload', handleGoodbye);
 
         return () => {
+            clearInterval(idleCheck);
             window.removeEventListener('beforeunload', handleGoodbye);
-            // Decrement on cleanup (e.g. React strict mode, SPA navigation)
             const count = parseInt(localStorage.getItem(TAB_COUNT_KEY) || '1', 10);
             localStorage.setItem(TAB_COUNT_KEY, String(Math.max(0, count - 1)));
         };
-    }, [token]);
+    }, [token, user?.id]);
 
     const login = (newToken: string) => {
         setToken(newToken);
