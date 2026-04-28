@@ -34,11 +34,26 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
+const permissionSchema = new mongoose_1.Schema({
+    leadVisibility: { type: String, enum: ['all', 'own', 'none'], default: 'own' },
+    canAssignLeads: { type: Boolean, default: false },
+    canEditActualCost: { type: Boolean, default: false },
+    canVerifyBookings: { type: Boolean, default: false },
+    canManageUsers: { type: Boolean, default: false },
+    canViewReports: { type: Boolean, default: false },
+    featureAccess: {
+        visa: { type: Boolean, default: false },
+        ticketing: { type: Boolean, default: false },
+        operation: { type: Boolean, default: false },
+        account: { type: Boolean, default: false },
+    }
+}, { _id: false });
 const userSchema = new mongoose_1.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
-    role: { type: String, default: 'AGENT' },
+    role: { type: String, default: 'AGENT' }, // Kept for backward compatibility
+    permissions: { type: permissionSchema, default: () => ({}) },
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now },
