@@ -327,7 +327,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [rawBookings, count] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId outstanding createdAt')
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId outstanding createdAt companyName assignedGroup estimatedCosts actualCosts estimatedMargin netMargin')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum)
@@ -358,6 +358,12 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             travelers: b.passengers,
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
+            companyName: b.companyName,
+            assignedGroup: b.assignedGroup,
+            estimatedCosts: b.estimatedCosts,
+            actualCosts: b.actualCosts,
+            estimatedMargin: b.estimatedMargin,
+            netMargin: b.netMargin,
         };
     });
     const result = {
@@ -442,6 +448,12 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         travelers: booking.passengers,
         createdByUser: booking.createdByUserId,
         assignedToUser: booking.assignedToUserId,
+        companyName: booking.companyName,
+        assignedGroup: booking.assignedGroup,
+        estimatedCosts: booking.estimatedCosts,
+        actualCosts: booking.actualCosts,
+        estimatedMargin: booking.estimatedMargin,
+        netMargin: booking.netMargin,
     };
     cache_1.default.set(cacheKey, result, 60);
     res.json(result);
@@ -609,6 +621,16 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.includesAdditionalServices = result.data.includesAdditionalServices;
     if (result.data.additionalServicesDetails !== undefined)
         booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
+    if (result.data.companyName !== undefined)
+        booking.companyName = result.data.companyName || null;
+    if (result.data.assignedGroup !== undefined)
+        booking.assignedGroup = result.data.assignedGroup || null;
+    if (result.data.estimatedCosts !== undefined) {
+        booking.estimatedCosts = result.data.estimatedCosts;
+    }
+    if (result.data.actualCosts !== undefined) {
+        booking.actualCosts = result.data.actualCosts;
+    }
     if (result.data.segments !== undefined) {
         booking.segments = (result.data.segments || []).map(s => ({
             from: s.from || '',
@@ -616,6 +638,12 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
             date: s.date ? new Date(s.date) : null
         }));
     }
+    // Auto-calculate margins based on updated values
+    const totalEstimatedCost = (booking.estimatedCosts || []).reduce((sum, c) => sum + (c.price || 0), 0);
+    const totalActualCost = (booking.actualCosts || []).reduce((sum, c) => sum + (c.price || 0), 0);
+    const income = booking.totalAmount || booking.amount || 0;
+    booking.estimatedMargin = income - totalEstimatedCost;
+    booking.netMargin = income - totalActualCost;
     await booking.save();
     // Recalculate outstanding if amount fields changed
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
@@ -649,6 +677,12 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         travelers: updatedBooking.passengers,
         createdByUser: updatedBooking.createdByUserId,
         assignedToUser: updatedBooking.assignedToUserId,
+        companyName: updatedBooking.companyName,
+        assignedGroup: updatedBooking.assignedGroup,
+        estimatedCosts: updatedBooking.estimatedCosts,
+        actualCosts: updatedBooking.actualCosts,
+        estimatedMargin: updatedBooking.estimatedMargin,
+        netMargin: updatedBooking.netMargin,
     };
     invalidateBookingCaches();
     res.json(resultBooking);

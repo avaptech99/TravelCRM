@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle, List } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, Plane, Edit2, CreditCard, Plus, UserPlus, Building2, UserCircle, List, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { EditModal } from '../features/bookings/components/EditModal';
@@ -621,6 +621,80 @@ export const BookingDetails: React.FC = () => {
                             )}
                         </div>
                     )}
+
+                    {/* Cost Analysis & Margins */}
+                    {!isMarketer && (booking.estimatedCosts?.length > 0 || booking.actualCosts?.length > 0) && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                    <List size={18} className="text-slate-600" /> Cost Analysis & Margins
+                                </span>
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Estimated Costs */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-700 mb-3 border-b border-slate-100 pb-2">Estimated Costs</h3>
+                                    {booking.estimatedCosts && booking.estimatedCosts.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {booking.estimatedCosts.map((cost: any, idx: number) => (
+                                                <div key={idx} className="flex justify-between items-center text-sm p-2 bg-slate-50 rounded border border-slate-100">
+                                                    <div>
+                                                        <span className="font-medium text-slate-800">{cost.costType}</span>
+                                                        {cost.source && <span className="text-slate-400 text-xs ml-2">({cost.source})</span>}
+                                                    </div>
+                                                    <span className="font-bold text-slate-700">{cost.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            ))}
+                                            <div className="flex justify-between items-center text-sm p-2 bg-slate-100 rounded font-bold border-t border-slate-200">
+                                                <span>Total Estimated</span>
+                                                <span>{booking.estimatedCosts.reduce((sum: number, c: any) => sum + (c.price || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            {booking.estimatedMargin !== undefined && (
+                                                <div className="flex justify-between items-center text-sm p-2 mt-2 bg-emerald-50 text-emerald-800 rounded font-bold border border-emerald-100">
+                                                    <span>Estimated Margin</span>
+                                                    <span>{booking.estimatedMargin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-slate-400 italic">No estimated costs recorded.</p>
+                                    )}
+                                </div>
+
+                                {/* Actual Costs */}
+                                {(user?.permissions?.canEditActualCost || user?.role === 'ADMIN') && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-slate-700 mb-3 border-b border-slate-100 pb-2">Actual Costs</h3>
+                                        {booking.actualCosts && booking.actualCosts.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {booking.actualCosts.map((cost: any, idx: number) => (
+                                                    <div key={idx} className="flex justify-between items-center text-sm p-2 bg-emerald-50/30 rounded border border-emerald-100">
+                                                        <div>
+                                                            <span className="font-medium text-slate-800">{cost.costType}</span>
+                                                            {cost.source && <span className="text-slate-400 text-xs ml-2">({cost.source})</span>}
+                                                        </div>
+                                                        <span className="font-bold text-slate-700">{cost.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="flex justify-between items-center text-sm p-2 bg-slate-100 rounded font-bold border-t border-slate-200">
+                                                    <span>Total Actual</span>
+                                                    <span>{booking.actualCosts.reduce((sum: number, c: any) => sum + (c.price || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                {booking.netMargin !== undefined && (
+                                                    <div className="flex justify-between items-center text-sm p-2 mt-2 bg-blue-50 text-blue-800 rounded font-bold border border-blue-100">
+                                                        <span>Net Margin</span>
+                                                        <span>{booking.netMargin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-400 italic">No actual costs recorded.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Sidebar Area */}
@@ -668,14 +742,26 @@ export const BookingDetails: React.FC = () => {
                                     </span>
                                 </div>
                             )}
+                            {booking.companyName && (
+                                <div className="flex items-center space-x-3 text-slate-700">
+                                    <Building2 size={18} className="text-slate-400" />
+                                    <span className="font-medium">{booking.companyName}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-6 pt-6 border-t border-slate-200">
                             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Assignment</h2>
-                            <div className="flex items-center space-x-3 text-slate-700">
+                            <div className="flex items-center space-x-3 text-slate-700 mb-2">
                                 <User size={18} className="text-primary" />
                                 <span>{booking.assignedToUser?.name || <span className="italic text-slate-400">Unassigned</span>}</span>
                             </div>
+                            {booking.assignedGroup && (
+                                <div className="flex items-center space-x-3 text-slate-700">
+                                    <Users size={18} className="text-secondary" />
+                                    <span>Group: {booking.assignedGroup}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

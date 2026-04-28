@@ -1,6 +1,12 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 import Counter from './Counter';
 
+export interface ICostItem {
+    costType: string;
+    price: number;
+    source: string;
+}
+
 export interface IBooking extends Document {
     primaryContactId: mongoose.Types.ObjectId;
     uniqueCode: string;
@@ -18,6 +24,12 @@ export interface IBooking extends Document {
     amount: number;
     totalAmount: number;
     finalQuotation: string | null;
+    companyName: string | null;
+    assignedGroup: string | null;
+    estimatedCosts: ICostItem[];
+    actualCosts: ICostItem[];
+    estimatedMargin: number;
+    netMargin: number;
     travellers: number | null;
     status: 'Pending' | 'Working' | 'Sent' | 'Booked';
     includesFlight: boolean;
@@ -49,6 +61,20 @@ const bookingSchema = new Schema<IBooking>(
         amount: { type: Number, default: 0 },
         totalAmount: { type: Number, default: 0 },
         finalQuotation: { type: String, default: null },
+        companyName: { type: String, default: null },
+        assignedGroup: { type: String, default: null },
+        estimatedCosts: [{
+            costType: { type: String, required: true },
+            price: { type: Number, required: true, default: 0 },
+            source: { type: String, default: '' },
+        }],
+        actualCosts: [{
+            costType: { type: String, required: true },
+            price: { type: Number, required: true, default: 0 },
+            source: { type: String, default: '' },
+        }],
+        estimatedMargin: { type: Number, default: 0 },
+        netMargin: { type: Number, default: 0 },
         travellers: { type: Number, default: null },
         status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
         includesFlight: { type: Boolean, default: true },

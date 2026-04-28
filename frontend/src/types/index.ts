@@ -62,6 +62,13 @@ export interface Payment {
     createdAt: string;
 }
 
+export interface CostItem {
+    _id?: string;
+    costType: string;
+    price: number;
+    source: string;
+}
+
 export interface Booking {
     id: string;
     createdAt: string;
@@ -82,6 +89,12 @@ export interface Booking {
     pricePerTicket?: number;
     totalAmount?: number;
     finalQuotation?: string;
+    companyName?: string | null;
+    assignedGroup?: string | null;
+    estimatedCosts?: CostItem[];
+    actualCosts?: CostItem[];
+    estimatedMargin?: number;
+    netMargin?: number;
     interested?: 'Yes' | 'No';
     uniqueCode?: string;
     fromCity?: string;

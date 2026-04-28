@@ -29,6 +29,14 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
+    const [companyName, setCompanyName] = useState<string>('');
+    const [assignedGroup, setAssignedGroup] = useState<string>('');
+    const [estimatedCosts, setEstimatedCosts] = useState<any[]>([]);
+    const [actualCosts, setActualCosts] = useState<any[]>([]);
+
+    const { user } = useAuth();
+    const isMarketer = user?.role === 'MARKETER';
+    const canEditActualCost = user?.permissions?.canEditActualCost || user?.role === 'ADMIN';
 
     // Reset state when booking changes
     React.useEffect(() => {
@@ -37,10 +45,14 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             setAssignedToUserId(booking.assignedToUserId || '');
             setInterested(booking.interested || 'No');
             setCommentText('');
+            setCompanyName(booking.companyName || '');
+            setAssignedGroup(booking.assignedGroup || '');
+            setEstimatedCosts(booking.estimatedCosts || []);
+            setActualCosts(booking.actualCosts || []);
         }
     }, [booking]);
 
-    const canChangeAgent = true; // Both ADMIN and AGENT can change it now
+    const canChangeAgent = user?.role === 'ADMIN' || user?.permissions?.canAssignLeads; 
 
     const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
 
@@ -65,9 +77,20 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
-            // 3. Update Pricing/Other Details (Interested)
-            if (interested !== (booking.interested || 'No')) {
-                promises.push(api.put(`/bookings/${booking.id}`, { interested }));
+            // 3. Update Pricing/Other Details
+            const putPayload: any = {};
+            if (interested !== (booking.interested || 'No')) putPayload.interested = interested;
+            if (companyName !== (booking.companyName || '')) putPayload.companyName = companyName;
+            if (assignedGroup !== (booking.assignedGroup || '')) putPayload.assignedGroup = assignedGroup;
+            
+            // Always include costs to handle additions/removals
+            putPayload.estimatedCosts = estimatedCosts;
+            if (canEditActualCost) {
+                putPayload.actualCosts = actualCosts;
+            }
+
+            if (Object.keys(putPayload).length > 0) {
+                promises.push(api.put(`/bookings/${booking.id}`, putPayload));
             }
 
             // 4. Add Comment
@@ -128,8 +151,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     if (!booking) return null;
 
-    const { user } = useAuth();
-    const isMarketer = user?.role === 'MARKETER';
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -144,58 +165,212 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-6 py-4">
+                <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
                     {/* Status Update */}
                     {!isMarketer && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Status</label>
-                            <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            >
-                                <option value="Pending">Pending</option>
-                                <option value="Working">Working</option>
-                                <option value="Sent">Sent To Customer</option>
-                                <option value="Booked">Converted to EDT/Booked</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Status</label>
+                                <select
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value)}
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Working">Working</option>
+                                    <option value="Sent">Sent To Customer</option>
+                                    <option value="Booked">Converted to EDT/Booked</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Interested</label>
+                                <select
+                                    value={interested}
+                                    onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                >
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
                         </div>
                     )}
 
-                    {/* Agent Assignment */}
-                    {canChangeAgent && !isMarketer && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Assigned Agent</label>
-                            <select
-                                value={assignedToUserId}
-                                onChange={(e) => setAssignedToUserId(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            >
-                                <option value="" className="italic">-- Unassigned --</option>
-                                {agents.filter(a => a.name !== 'Website Lead').map(agent => (
-                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Interested Selection */}
+                    {/* Agent Assignment & Group */}
                     {!isMarketer && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Interested</label>
-                            <select
-                                value={interested}
-                                onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            >
-                                <option value="Yes">Yes</option>
-                                <option value="No">No</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            {canChangeAgent && (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-medium text-slate-700">Assigned Agent</label>
+                                    <select
+                                        value={assignedToUserId}
+                                        onChange={(e) => setAssignedToUserId(e.target.value)}
+                                        className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                    >
+                                        <option value="" className="italic">-- Unassigned --</option>
+                                        {agents.filter(a => a.name !== 'Website Lead').map(agent => (
+                                            <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Assigned Group</label>
+                                <select
+                                    value={assignedGroup}
+                                    onChange={(e) => setAssignedGroup(e.target.value)}
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                >
+                                    <option value="">-- None --</option>
+                                    <option value="Visa">Visa Team</option>
+                                    <option value="Ticketing">Ticketing Team</option>
+                                    <option value="Operations">Operations Team</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Company Dropdown */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-700">Company Name (If B2B)</label>
+                        <input
+                            type="text"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="Enter Company Name"
+                            className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                        />
+                    </div>
+
+                    {/* Cost Sections */}
+                    {!isMarketer && (
+                        <div className="space-y-4 border-t border-slate-200 pt-4 mt-2">
+                            {/* Estimated Costs */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-sm font-bold text-slate-800">Estimated Costs</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEstimatedCosts([...estimatedCosts, { costType: '', price: 0, source: '' }])}
+                                        className="text-xs text-primary hover:underline font-medium"
+                                    >
+                                        + Add Cost
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {estimatedCosts.map((cost, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                            <input
+                                                type="text"
+                                                placeholder="Type (e.g. Flight)"
+                                                value={cost.costType}
+                                                onChange={(e) => {
+                                                    const newCosts = [...estimatedCosts];
+                                                    newCosts[idx].costType = e.target.value;
+                                                    setEstimatedCosts(newCosts);
+                                                }}
+                                                className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3"
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Amount"
+                                                value={cost.price}
+                                                onChange={(e) => {
+                                                    const newCosts = [...estimatedCosts];
+                                                    newCosts[idx].price = Number(e.target.value);
+                                                    setEstimatedCosts(newCosts);
+                                                }}
+                                                className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Source/Vendor"
+                                                value={cost.source}
+                                                onChange={(e) => {
+                                                    const newCosts = [...estimatedCosts];
+                                                    newCosts[idx].source = e.target.value;
+                                                    setEstimatedCosts(newCosts);
+                                                }}
+                                                className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setEstimatedCosts(estimatedCosts.filter((_, i) => i !== idx))}
+                                                className="text-red-500 hover:text-red-700 font-bold"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Actual Costs (Guarded) */}
+                            {canEditActualCost && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-2 mt-4">
+                                        <h4 className="text-sm font-bold text-slate-800">Actual Costs</h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActualCosts([...actualCosts, { costType: '', price: 0, source: '' }])}
+                                            className="text-xs text-primary hover:underline font-medium"
+                                        >
+                                            + Add Actual Cost
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {actualCosts.map((cost, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Type (e.g. Flight)"
+                                                    value={cost.costType}
+                                                    onChange={(e) => {
+                                                        const newCosts = [...actualCosts];
+                                                        newCosts[idx].costType = e.target.value;
+                                                        setActualCosts(newCosts);
+                                                    }}
+                                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3 border-emerald-200"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Amount"
+                                                    value={cost.price}
+                                                    onChange={(e) => {
+                                                        const newCosts = [...actualCosts];
+                                                        newCosts[idx].price = Number(e.target.value);
+                                                        setActualCosts(newCosts);
+                                                    }}
+                                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3 border-emerald-200"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Source/Vendor"
+                                                    value={cost.source}
+                                                    onChange={(e) => {
+                                                        const newCosts = [...actualCosts];
+                                                        newCosts[idx].source = e.target.value;
+                                                        setActualCosts(newCosts);
+                                                    }}
+                                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 w-1/3 border-emerald-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActualCosts(actualCosts.filter((_, i) => i !== idx))}
+                                                    className="text-red-500 hover:text-red-700 font-bold"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Add Comment */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 mt-2">
                         <label className="text-sm font-medium text-slate-700">Add Remark / Comment (Optional)</label>
                         <textarea
                             value={commentText}

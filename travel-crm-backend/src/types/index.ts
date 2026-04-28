@@ -49,6 +49,18 @@ export const updateBookingSchema = z.object({
     amount: z.number().nonnegative().optional(),
     totalAmount: z.number().nonnegative().optional(),
     finalQuotation: z.string().optional().nullable(),
+    companyName: z.string().optional().nullable(),
+    assignedGroup: z.string().optional().nullable(),
+    estimatedCosts: z.array(z.object({
+        costType: z.string(),
+        price: z.number(),
+        source: z.string().optional(),
+    })).optional(),
+    actualCosts: z.array(z.object({
+        costType: z.string(),
+        price: z.number(),
+        source: z.string().optional(),
+    })).optional(),
     requirements: z.string().optional(),
     interested: z.enum(['Yes', 'No']).optional(),
     bookingType: z.enum(['B2B', 'B2C']).optional(),

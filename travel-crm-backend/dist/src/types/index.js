@@ -48,6 +48,18 @@ exports.updateBookingSchema = zod_1.z.object({
     amount: zod_1.z.number().nonnegative().optional(),
     totalAmount: zod_1.z.number().nonnegative().optional(),
     finalQuotation: zod_1.z.string().optional().nullable(),
+    companyName: zod_1.z.string().optional().nullable(),
+    assignedGroup: zod_1.z.string().optional().nullable(),
+    estimatedCosts: zod_1.z.array(zod_1.z.object({
+        costType: zod_1.z.string(),
+        price: zod_1.z.number(),
+        source: zod_1.z.string().optional(),
+    })).optional(),
+    actualCosts: zod_1.z.array(zod_1.z.object({
+        costType: zod_1.z.string(),
+        price: zod_1.z.number(),
+        source: zod_1.z.string().optional(),
+    })).optional(),
     requirements: zod_1.z.string().optional(),
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
     bookingType: zod_1.z.enum(['B2B', 'B2C']).optional(),
