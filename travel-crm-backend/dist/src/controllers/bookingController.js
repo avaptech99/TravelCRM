@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBookingActivity = exports.getCalendarBookings = exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.bulkAssign = exports.assignBooking = exports.updateBookingStatus = exports.updateBooking = exports.createBooking = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
+exports.getBookingActivity = exports.getCalendarBookings = exports.deletePayment = exports.getPayments = exports.addPayment = exports.updatePassengers = exports.addPassengers = exports.getComments = exports.addComment = exports.bulkAssign = exports.assignBooking = exports.updateBookingStatus = exports.globalSearch = exports.updateBooking = exports.createBooking = exports.bulkDeleteBookings = exports.deleteBooking = exports.getBookingById = exports.getBookings = exports.getRecentBookings = exports.getBookingStats = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
@@ -45,6 +45,7 @@ const Passenger_1 = __importDefault(require("../models/Passenger"));
 const User_1 = __importDefault(require("../models/User"));
 const Payment_1 = __importDefault(require("../models/Payment"));
 const Notification_1 = __importDefault(require("../models/Notification"));
+const MissedCall_1 = __importDefault(require("../models/MissedCall"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
 const types_1 = require("../types");
@@ -152,6 +153,8 @@ exports.getRecentBookings = (0, express_async_handler_1.default)(async (req, res
         travellers: b.travellers,
         travelers: b.passengers,
         assignedToUser: b.assignedToUserId,
+        callDisposition: b.callDisposition,
+        pbxCallId: b.pbxCallId,
     }));
     cache_1.default.set(cacheKey, mapped, 60);
     res.json(mapped);
@@ -358,6 +361,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             travelers: b.passengers,
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
+            callDisposition: b.callDisposition,
+            pbxCallId: b.pbxCallId,
         };
     });
     const result = {
@@ -442,6 +447,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         travelers: booking.passengers,
         createdByUser: booking.createdByUserId,
         assignedToUser: booking.assignedToUserId,
+        callDisposition: booking.callDisposition,
+        pbxCallId: booking.pbxCallId,
     };
     cache_1.default.set(cacheKey, result, 60);
     res.json(result);
@@ -467,11 +474,44 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         Payment_1.default.deleteMany({ bookingId: req.params.id }),
         Notification_1.default.deleteMany({ bookingId: req.params.id }),
         booking.primaryContactId ? PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
+        booking.pbxCallId ? MissedCall_1.default.deleteMany({ uniqueId: booking.pbxCallId }) : Promise.resolve(),
         Booking_1.default.findByIdAndDelete(req.params.id)
     ]);
     console.timeEnd(`deleteBooking_${req.params.id}`);
     invalidateBookingCaches();
     res.json({ message: 'Booking and all related records removed successfully' });
+});
+// @desc    Delete multiple bookings
+// @route   POST /api/bookings/bulk-delete
+// @access  Private (Admin only)
+exports.bulkDeleteBookings = (0, express_async_handler_1.default)(async (req, res) => {
+    const { bookingIds } = req.body;
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        res.status(400);
+        throw new Error('No booking IDs provided');
+    }
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
+    }
+    const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } });
+    if (bookings.length === 0) {
+        res.status(404);
+        throw new Error('No valid bookings found');
+    }
+    const primaryContactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
+    const pbxCallIds = bookings.map(b => b.pbxCallId).filter(Boolean);
+    await Promise.all([
+        Comment_1.default.deleteMany({ bookingId: { $in: bookingIds } }),
+        Passenger_1.default.deleteMany({ bookingId: { $in: bookingIds } }),
+        Payment_1.default.deleteMany({ bookingId: { $in: bookingIds } }),
+        Notification_1.default.deleteMany({ bookingId: { $in: bookingIds } }),
+        primaryContactIds.length > 0 ? PrimaryContact_1.default.deleteMany({ _id: { $in: primaryContactIds } }) : Promise.resolve(),
+        pbxCallIds.length > 0 ? MissedCall_1.default.deleteMany({ uniqueId: { $in: pbxCallIds } }) : Promise.resolve(),
+        Booking_1.default.deleteMany({ _id: { $in: bookingIds } })
+    ]);
+    invalidateBookingCaches();
+    res.json({ message: `${bookings.length} bookings and related records removed successfully` });
 });
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -545,6 +585,8 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         travelers: populatedBooking.passengers,
         createdByUser: populatedBooking.createdByUserId,
         assignedToUser: populatedBooking.assignedToUserId,
+        callDisposition: populatedBooking.callDisposition,
+        pbxCallId: populatedBooking.pbxCallId,
     };
     invalidateBookingCaches();
     res.status(201).json(resultBooking);
@@ -649,9 +691,60 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         travelers: updatedBooking.passengers,
         createdByUser: updatedBooking.createdByUserId,
         assignedToUser: updatedBooking.assignedToUserId,
+        callDisposition: updatedBooking.callDisposition,
+        pbxCallId: updatedBooking.pbxCallId,
     };
     invalidateBookingCaches();
     res.json(resultBooking);
+});
+// @desc    Global search across Bookings and PrimaryContacts
+// @route   GET /api/bookings/search/global
+// @access  Private
+exports.globalSearch = (0, express_async_handler_1.default)(async (req, res) => {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.trim().length < 2) {
+        res.json([]);
+        return;
+    }
+    const searchStr = q.trim();
+    const searchRegex = new RegExp(searchStr, 'i');
+    // 1. Search by Unique Code (TWXXXX)
+    const bookingsByCode = await Booking_1.default.find({ uniqueCode: searchRegex })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(5)
+        .lean();
+    // 2. Search by Contact Name or Phone in PrimaryContact
+    const contacts = await PrimaryContact_1.default.find({
+        $or: [
+            { contactName: searchRegex },
+            { contactPhoneNo: searchRegex },
+            { contactEmail: searchRegex }
+        ]
+    })
+        .select('_id contactName contactPhoneNo')
+        .limit(10)
+        .lean();
+    const contactIds = contacts.map(c => c._id);
+    // 3. Find Bookings associated with these contacts
+    const bookingsByContact = await Booking_1.default.find({ primaryContactId: { $in: contactIds } })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(10)
+        .lean();
+    // Merge and deduplicate by ID
+    const allResults = [...bookingsByCode, ...bookingsByContact];
+    const uniqueResults = Array.from(new Map(allResults.map(item => [item._id.toString(), item])).values());
+    // Map to a clean search result format
+    const formatted = uniqueResults.map(b => ({
+        id: b._id.toString(),
+        uniqueCode: b.uniqueCode,
+        destination: b.destination,
+        status: b.status,
+        contactName: b.primaryContact?.contactName || 'Unknown',
+        contactPhoneNo: b.primaryContact?.contactPhoneNo || 'Unknown',
+    }));
+    res.json(formatted);
 });
 // @desc    Update booking status
 // @route   PATCH /api/bookings/:id/status

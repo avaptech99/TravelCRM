@@ -13,7 +13,9 @@ router.use(auth_1.protect);
 router.get('/stats', bookingController_1.getBookingStats);
 router.get('/recent', bookingController_1.getRecentBookings);
 router.get('/calendar', bookingController_1.getCalendarBookings);
+router.get('/search/global', bookingController_1.globalSearch);
 router.post('/bulk-assign', auth_1.adminGuard, bookingController_1.bulkAssign);
+router.post('/bulk-delete', auth_1.adminGuard, bookingController_1.bulkDeleteBookings);
 router.route('/')
     .get(bookingController_1.getBookings)
     .post(bookingController_1.createBooking);

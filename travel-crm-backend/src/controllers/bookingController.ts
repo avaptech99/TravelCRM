@@ -7,6 +7,7 @@ import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
+import MissedCall from '../models/MissedCall';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import {
@@ -133,6 +134,8 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
         travellers: b.travellers,
         travelers: (b as any).passengers,
         assignedToUser: b.assignedToUserId,
+        callDisposition: (b as any).callDisposition,
+        pbxCallId: (b as any).pbxCallId,
     }));
     appCache.set(cacheKey, mapped, 60);
     res.json(mapped);
@@ -353,6 +356,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             travelers: (b as any).passengers,
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
+            callDisposition: (b as any).callDisposition,
+            pbxCallId: (b as any).pbxCallId,
         };
     });
 
@@ -449,6 +454,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         travelers: (booking as any).passengers,
         createdByUser: booking.createdByUserId,
         assignedToUser: booking.assignedToUserId,
+        callDisposition: (booking as any).callDisposition,
+        pbxCallId: (booking as any).pbxCallId,
     };
     appCache.set(cacheKey, result, 60);
     res.json(result);
@@ -478,12 +485,53 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         Payment.deleteMany({ bookingId: req.params.id }),
         Notification.deleteMany({ bookingId: req.params.id }),
         booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
+        booking.pbxCallId ? MissedCall.deleteMany({ uniqueId: booking.pbxCallId }) : Promise.resolve(),
         Booking.findByIdAndDelete(req.params.id)
     ]);
     console.timeEnd(`deleteBooking_${req.params.id}`);
 
     invalidateBookingCaches();
     res.json({ message: 'Booking and all related records removed successfully' });
+});
+
+// @desc    Delete multiple bookings
+// @route   POST /api/bookings/bulk-delete
+// @access  Private (Admin only)
+export const bulkDeleteBookings = asyncHandler(async (req: Request, res: Response) => {
+    const { bookingIds } = req.body;
+
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        res.status(400);
+        throw new Error('No booking IDs provided');
+    }
+
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
+    }
+
+    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    
+    if (bookings.length === 0) {
+        res.status(404);
+        throw new Error('No valid bookings found');
+    }
+
+    const primaryContactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
+    const pbxCallIds = bookings.map(b => b.pbxCallId).filter(Boolean);
+
+    await Promise.all([
+        Comment.deleteMany({ bookingId: { $in: bookingIds } }),
+        Passenger.deleteMany({ bookingId: { $in: bookingIds } }),
+        Payment.deleteMany({ bookingId: { $in: bookingIds } }),
+        Notification.deleteMany({ bookingId: { $in: bookingIds } }),
+        primaryContactIds.length > 0 ? PrimaryContact.deleteMany({ _id: { $in: primaryContactIds } }) : Promise.resolve(),
+        pbxCallIds.length > 0 ? MissedCall.deleteMany({ uniqueId: { $in: pbxCallIds } }) : Promise.resolve(),
+        Booking.deleteMany({ _id: { $in: bookingIds } })
+    ]);
+
+    invalidateBookingCaches();
+    res.json({ message: `${bookings.length} bookings and related records removed successfully` });
 });
 
 // @desc    Create new booking
@@ -563,6 +611,8 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         travelers: (populatedBooking as any).passengers,
         createdByUser: populatedBooking!.createdByUserId,
         assignedToUser: populatedBooking!.assignedToUserId,
+        callDisposition: (populatedBooking as any).callDisposition,
+        pbxCallId: (populatedBooking as any).pbxCallId,
     };
 
     invalidateBookingCaches();
@@ -664,10 +714,71 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         travelers: (updatedBooking as any).passengers,
         createdByUser: updatedBooking!.createdByUserId,
         assignedToUser: updatedBooking!.assignedToUserId,
+        callDisposition: (updatedBooking as any).callDisposition,
+        pbxCallId: (updatedBooking as any).pbxCallId,
     };
 
     invalidateBookingCaches();
     res.json(resultBooking);
+});
+
+// @desc    Global search across Bookings and PrimaryContacts
+// @route   GET /api/bookings/search/global
+// @access  Private
+export const globalSearch = asyncHandler(async (req: Request, res: Response) => {
+    const { q } = req.query;
+    
+    if (!q || typeof q !== 'string' || q.trim().length < 2) {
+        res.json([]);
+        return;
+    }
+
+    const searchStr = q.trim();
+    const searchRegex = new RegExp(searchStr, 'i');
+
+    // 1. Search by Unique Code (TWXXXX)
+    const bookingsByCode = await Booking.find({ uniqueCode: searchRegex })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(5)
+        .lean();
+
+    // 2. Search by Contact Name or Phone in PrimaryContact
+    const contacts = await PrimaryContact.find({
+        $or: [
+            { contactName: searchRegex },
+            { contactPhoneNo: searchRegex },
+            { contactEmail: searchRegex }
+        ]
+    })
+    .select('_id contactName contactPhoneNo')
+    .limit(10)
+    .lean();
+
+    const contactIds = contacts.map(c => c._id);
+
+    // 3. Find Bookings associated with these contacts
+    const bookingsByContact = await Booking.find({ primaryContactId: { $in: contactIds } })
+        .select('_id uniqueCode destination status primaryContactId')
+        .populate('primaryContact', 'contactName contactPhoneNo')
+        .limit(10)
+        .lean();
+
+    // Merge and deduplicate by ID
+    const allResults = [...bookingsByCode, ...bookingsByContact];
+    const uniqueResults = Array.from(new Map(allResults.map(item => [item._id.toString(), item])).values());
+
+    // Map to a clean search result format
+    const formatted = uniqueResults.map(b => ({
+        id: b._id.toString(),
+        uniqueCode: b.uniqueCode,
+        destination: b.destination,
+        status: b.status,
+        contactName: (b as any).primaryContact?.contactName || 'Unknown',
+        contactPhoneNo: (b as any).primaryContact?.contactPhoneNo || 'Unknown',
+    }));
+
+    res.json(formatted);
 });
 
 // @desc    Update booking status

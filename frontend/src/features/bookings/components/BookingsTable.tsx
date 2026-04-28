@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -198,6 +198,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                         />
                     )}
                     <span>{info.getValue() || '-'}</span>
+                    {info.row.original.createdByUser?.name === 'Phone Lead' && (
+                        <div className="flex items-center ml-1">
+                            {info.row.original.callDisposition === 'ANSWERED' ? (
+                                <span title="Answered Call"><PhoneIncoming className="text-green-500" strokeWidth={2} size={14} /></span>
+                            ) : info.row.original.callDisposition === 'OUTBOUND' ? (
+                                <span title="Outbound Call"><PhoneOutgoing className="text-blue-500" strokeWidth={2} size={14} /></span>
+                            ) : (
+                                <span title="Missed Call"><PhoneMissed className="text-red-500" strokeWidth={2} size={14} /></span>
+                            )}
+                        </div>
+                    )}
                 </div>
             ),
         }),
@@ -435,6 +446,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-bold text-slate-400 tracking-wider">#{booking.uniqueCode || '-'}</span>
+                                                {booking.createdByUser?.name === 'Phone Lead' && (
+                                                    <div className="flex items-center">
+                                                        {booking.callDisposition === 'ANSWERED' ? (
+                                                            <PhoneIncoming className="text-green-500" strokeWidth={2} size={12} />
+                                                        ) : booking.callDisposition === 'OUTBOUND' ? (
+                                                            <PhoneOutgoing className="text-blue-500" strokeWidth={2} size={12} />
+                                                        ) : (
+                                                            <PhoneMissed className="text-red-500" strokeWidth={2} size={12} />
+                                                        )}
+                                                    </div>
+                                                )}
                                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     isBooked ? 'bg-green-50 text-green-700 border border-green-200' :
                                                     booking.status === 'Working' ? 'bg-purple-50 text-purple-700 border border-purple-200' :

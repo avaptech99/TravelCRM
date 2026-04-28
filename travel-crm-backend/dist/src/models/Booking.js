@@ -64,6 +64,9 @@ const bookingSchema = new mongoose_1.Schema({
     outstanding: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
+    callDisposition: { type: String, enum: ['ANSWERED', 'MISSED', 'OUTBOUND', null], default: null },
+    pbxCallId: { type: String, default: null },
+    lastInteractionAt: { type: Date, default: Date.now },
 }, {
     timestamps: true,
     toJSON: { virtuals: true },

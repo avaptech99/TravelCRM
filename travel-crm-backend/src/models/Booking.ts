@@ -27,6 +27,9 @@ export interface IBooking extends Document {
     outstanding: number;
     createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
+    callDisposition: 'ANSWERED' | 'MISSED' | 'OUTBOUND' | null;
+    pbxCallId: string | null;
+    lastInteractionAt: Date;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -58,6 +61,9 @@ const bookingSchema = new Schema<IBooking>(
         outstanding: { type: Number, default: 0 },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        callDisposition: { type: String, enum: ['ANSWERED', 'MISSED', 'OUTBOUND', null], default: null },
+        pbxCallId: { type: String, default: null },
+        lastInteractionAt: { type: Date, default: Date.now },
     },
     {
         timestamps: true,

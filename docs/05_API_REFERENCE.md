@@ -6,7 +6,7 @@
 
 ## Authentication
 
-All endpoints except `/api/auth/login` and `/api/external/lead` require a JWT token in the header:
+All endpoints except `/api/auth/login`, `/api/external/lead`, and `/api/webhook/missed-call` require a JWT token in the header:
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
@@ -506,6 +506,63 @@ X-API-KEY: <value of EXTERNAL_API_KEY env var>
   "uniqueCode": "TW0043"
 }
 ```
+
+---
+
+## 📞 Webhook Routes — `/api/webhook`
+
+### POST `/api/webhook/missed-call`
+**Access:** Public (protected by HTTP Basic Auth)
+
+**Required Header:**
+```
+Authorization: Basic <base64(GDMS_WEBHOOK_USER:GDMS_WEBHOOK_PASS)>
+```
+
+**Request (GDMS CDR format):**
+```json
+{
+  "cdr_root": [
+    {
+      "src": "9876543210",
+      "caller_name": "Customer Name",
+      "dst": "1004",
+      "start": "2026-04-18 12:00:00",
+      "end": "2026-04-18 12:00:15",
+      "duration": "15",
+      "billsec": "0",
+      "disposition": "NO ANSWER",
+      "uniqueid": "1713427200.42",
+      "channel": "PJSIP/1004",
+      "userfield": "Internal"
+    }
+  ]
+}
+```
+
+**Supported payload formats:**
+- `{ "cdr_root": [...] }` — standard GDMS format
+- `[{...}, {...}]` — flat array
+- `{...}` — single CDR object
+- `{ "<any_key>": [...] }` — auto-detected array inside payload
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Processed 1 CDR records",
+  "integrated": 1,
+  "skipped": 0
+}
+```
+
+**Behavior:**
+- Filters out `ANSWERED` calls (only processes missed/busy/failed)
+- Deduplicates by `uniqueid` — same CDR won't be processed twice
+- **Known number**: Adds comment to existing lead + notifies assigned agent
+- **Unknown number**: Creates new lead (status: `Pending`, created by `Phone Lead`)
+
+> ⚠️ Returns `401` if Basic Auth credentials are missing or incorrect.
 
 ---
 
