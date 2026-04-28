@@ -29,6 +29,18 @@ const invalidateBookingCaches = () => {
     appCache.invalidateByPrefix('booking_');
 };
 
+// Helper to recalculate and save outstanding balance on a booking
+const recalcOutstanding = async (bookingId: string) => {
+    const payments = await Payment.find({ bookingId });
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const booking = await Booking.findById(bookingId);
+    if (booking) {
+        const bookingTotal = booking.totalAmount || booking.amount || 0;
+        booking.outstanding = Math.max(bookingTotal - totalPaid, 0);
+        await booking.save();
+    }
+};
+
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
 // @access  Private
@@ -642,9 +654,8 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
             to: s.to || '',
             date: s.date ? new Date(s.date) : null
         }));
-    }
-
     await booking.save();
+    await recalcOutstanding(id);
 
     // Update PrimaryContact fields if provided
     if (booking.primaryContactId && (
@@ -823,82 +834,6 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json(updatedBooking);
 });
 
-// @desc    Bulk assign bookings to an agent (or unassign)
-// @route   POST /api/bookings/bulk-assign
-// @access  Private (Admin only)
-export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
-    // Schema check temporarily removed as bulkAssignSchema is not in types
-    const { bookingIds, assignedToUserId } = req.body;
-
-    if (assignedToUserId) {
-        const agent = await User.findById(assignedToUserId);
-        if (!agent || agent.role !== 'AGENT') {
-            res.status(400);
-            throw new Error('Invalid agent selected');
-        }
-    }
-
-    const newAgentId = assignedToUserId || null;
-    let newAgentName = 'Unassigned';
-    
-    if (newAgentId) {
-        const newAgent = await User.findById(newAgentId);
-        newAgentName = newAgent?.name || 'Unknown Agent';
-    }
-
-    // Process in bulk
-    const bookings = await Booking.find({ _id: { $in: bookingIds } }).populate('primaryContact', 'contactName');
-    
-    // We'll use a for...of loop or map with Promise.all
-    // For each booking, check if assignment changed, then update and create comment
-    const updatePromises = bookings.map(async (booking) => {
-        const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
-        
-        if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
-            booking.assignedToUserId = newAgentId as any;
-            await booking.save();
-
-            let previousAgentName = 'Unassigned';
-            if (previousAssignedUserId) {
-                const prevAgent = await User.findById(previousAssignedUserId);
-                previousAgentName = prevAgent?.name || 'Unknown Agent';
-            }
-
-            const commentText = `${previousAgentName} ➔ ${newAgentName}`;
-
-            await Comment.create({
-                text: commentText,
-                bookingId: booking._id,
-                createdById: req.user!.id,
-            });
-
-            if (newAgentId) {
-                await Notification.create({
-                    userId: newAgentId,
-                    bookingId: booking._id,
-                    message: `Lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
-                });
-
-                // Also notify the marketer who created the lead
-                if (booking.createdByUserId) {
-                    const creator = await User.findById(booking.createdByUserId);
-                    if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
-                        await Notification.create({
-                            userId: booking.createdByUserId,
-                            bookingId: booking._id,
-                            message: `Your lead has been assigned to ${newAgentName}.`,
-                        });
-                    }
-                }
-            }
-        }
-    });
-
-    await Promise.all(updatePromises);
-
-    invalidateBookingCaches();
-    res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
-});
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
 // @access  Private
@@ -1096,6 +1031,7 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         bookingId: id,
     });
 
+    await recalcOutstanding(id);
     invalidateBookingCaches();
     res.status(201).json(payment);
 });
@@ -1149,6 +1085,7 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
 
     await Payment.findByIdAndDelete(paymentId);
 
+    await recalcOutstanding(id);
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });

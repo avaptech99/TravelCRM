@@ -13,7 +13,6 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { BulkAssignAgentModal } from './BulkAssignAgentModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -39,7 +38,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const queryClient = useQueryClient();
     const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
-    const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
@@ -621,12 +619,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 onClose={() => setActiveAssignBooking(null)}
             />
 
-            <BulkAssignAgentModal
-                bookingIds={Object.keys(rowSelection)}
-                isOpen={isBulkAssignOpen}
-                onClose={() => setIsBulkAssignOpen(false)}
-                onSuccess={() => setRowSelection({})}
-            />
         </div>
     );
 };
