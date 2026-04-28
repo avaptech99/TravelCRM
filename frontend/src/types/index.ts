@@ -1,8 +1,24 @@
+export interface UserPermissions {
+    leadVisibility: 'all' | 'own' | 'none';
+    canAssignLeads: boolean;
+    canEditActualCost: boolean;
+    canVerifyBookings: boolean;
+    canManageUsers: boolean;
+    canViewReports: boolean;
+    featureAccess: {
+        visa: boolean;
+        ticketing: boolean;
+        operation: boolean;
+        account: boolean;
+    };
+}
+
 export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'ADMIN' | 'AGENT' | 'MARKETER';
+    role: 'ADMIN' | 'AGENT' | 'MARKETER' | string;
+    permissions?: UserPermissions;
     isOnline?: boolean;
     lastSeen?: string;
 }

@@ -10,17 +10,18 @@ export const Sidebar: React.FC = () => {
     const location = useLocation();
 
     const navItems = [
-        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
-        { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['AGENT', 'MARKETER'] },
-        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },
-        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
-        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, show: () => true },
+        { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.leadVisibility === 'all' },
+        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.leadVisibility === 'own' || user?.permissions?.leadVisibility === 'all' },
+        { label: 'Unassigned Leads', path: '/unassigned-bookings', icon: <Users size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canAssignLeads },
+        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.leadVisibility === 'all' || user?.permissions?.featureAccess?.operation },
+        { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, show: () => true },
+        { label: 'Users', path: '/users', icon: <Users size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canManageUsers },
+        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canViewReports },
+        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, show: () => true },
     ];
 
-    const visibleItems = navItems.filter(item => item.roles.includes(user?.role || ''));
+    const visibleItems = navItems.filter(item => item.show());
 
     return (
         <aside className="hidden md:flex w-64 bg-white text-slate-900 flex-col h-full border-r border-slate-200 shadow-sm relative">

@@ -12,6 +12,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const Bookings = lazy(() => import('./pages/Bookings').then(module => ({ default: module.Bookings })));
 const MyBookings = lazy(() => import('./pages/MyBookings').then(module => ({ default: module.MyBookings })));
+const UnassignedBookings = lazy(() => import('./pages/Bookings').then(module => ({ default: module.Bookings }))); // Point to Bookings for now
 const CalendarView = lazy(() => import('./pages/CalendarView').then(module => ({ default: module.CalendarView })));
 const BookingDetails = lazy(() => import('./pages/BookingDetails').then(module => ({ default: module.BookingDetails })));
 
@@ -53,6 +54,7 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/bookings" element={<Bookings />} />
                   <Route path="/my-bookings" element={<MyBookings />} />
+                  <Route path="/unassigned-bookings" element={<UnassignedBookings />} />
                   <Route path="/calendar" element={<CalendarView />} />
                   <Route path="/bookings/:id" element={<BookingDetails />} />
 
