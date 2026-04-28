@@ -60,39 +60,40 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading 
 );
 
 export const Reports: React.FC = () => {
-    const [dateRange, setDateRange] = useState({
+    const [filters, setFilters] = useState({
         fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
         toDate: dayjs().format('YYYY-MM-DD'),
+        companyName: '',
     });
 
     const { data: bookingStats, isLoading: isBookingsLoading } = useQuery({
-        queryKey: ['analytics-bookings', dateRange],
+        queryKey: ['analytics-bookings', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/bookings', { params: dateRange });
+            const { data } = await api.get('/analytics/bookings', { params: filters });
             return data;
         },
     });
 
     const { data: paymentStats, isLoading: isPaymentsLoading } = useQuery({
-        queryKey: ['analytics-payments', dateRange],
+        queryKey: ['analytics-payments', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/payments', { params: dateRange });
+            const { data } = await api.get('/analytics/payments', { params: filters });
             return data;
         },
     });
 
     const { data: revenueTrends, isLoading: isTrendsLoading } = useQuery({
-        queryKey: ['analytics-revenue-trends'],
+        queryKey: ['analytics-revenue-trends', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month' } });
+            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month', companyName: filters.companyName } });
             return data;
         },
     });
 
     const { data: agentStats, isLoading: isAgentsLoading } = useQuery({
-        queryKey: ['analytics-agents', dateRange],
+        queryKey: ['analytics-agents', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/agents', { params: dateRange });
+            const { data } = await api.get('/analytics/agents', { params: filters });
             return data;
         },
     });
@@ -129,27 +130,37 @@ export const Reports: React.FC = () => {
                     <p className="text-slate-500 text-sm mt-1">Measuring performance and data growth metrics.</p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2">
                         <Calendar size={18} className="text-slate-400 ml-3" />
                         <input
                             type="date"
-                            value={dateRange.fromDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, fromDate: e.target.value }))}
+                            value={filters.fromDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
                             className="text-sm font-medium border-none focus:ring-0 text-slate-800 bg-transparent p-1 cursor-pointer"
                         />
                         <span className="text-slate-400 font-semibold text-[10px]">TO</span>
                         <input
                             type="date"
-                            value={dateRange.toDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, toDate: e.target.value }))}
+                            value={filters.toDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
                             className="text-sm font-medium border-none focus:ring-0 text-slate-800 bg-transparent p-1 cursor-pointer mr-2"
+                        />
+                    </div>
+                    <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
+                    <div className="flex items-center">
+                        <input
+                            type="text"
+                            placeholder="Filter by Company..."
+                            value={filters.companyName}
+                            onChange={(e) => setFilters(prev => ({ ...prev, companyName: e.target.value }))}
+                            className="text-sm font-medium border-none focus:ring-0 text-slate-800 bg-slate-50 rounded-lg px-3 py-1.5 w-40 md:w-auto"
                         />
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 px-2">
                 <StatCard 
                     title="Revenue Collected" 
                     value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
@@ -171,6 +182,12 @@ export const Reports: React.FC = () => {
                 <StatCard 
                     title="Active Bookings" 
                     value={bookingStats?.byStatus?.reduce((acc: number, s: any) => acc + s.count, 0) || 0} 
+                    icon={<Users size={20} />} 
+                    loading={isBookingsLoading}
+                />
+                <StatCard 
+                    title="Unique Leads" 
+                    value={bookingStats?.uniqueLeads?.[0]?.count || 0} 
                     icon={<Users size={20} />} 
                     loading={isBookingsLoading}
                 />

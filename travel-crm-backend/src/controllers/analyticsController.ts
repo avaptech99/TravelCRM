@@ -9,13 +9,16 @@ import mongoose from 'mongoose';
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 export const getBookingAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
     
     const matchQuery: any = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
         if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
+    }
+    if (companyName) {
+        matchQuery.companyName = { $regex: new RegExp(companyName as string, 'i') };
     }
 
     const stats = await Booking.aggregate([
@@ -37,8 +40,12 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                             as: 'contact'
                         }
                     },
-                    { $unwind: '$contact' },
+                    { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
                     { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
+                ],
+                uniqueLeads: [
+                    { $group: { _id: '$primaryContactId' } },
+                    { $count: 'count' }
                 ]
             }
         }
@@ -51,7 +58,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
 // @route   GET /api/analytics/payments
 // @access  Private/Admin
 export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
 
     const matchQuery: any = {};
     if (fromDate || toDate) {
@@ -60,17 +67,34 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         if (toDate) matchQuery.date.$lte = new Date(toDate as string);
     }
 
-    // Total collected from Payments
-    const paymentStats = await Payment.aggregate([
-        { $match: matchQuery },
-        {
-            $group: {
-                _id: null,
-                totalCollected: { $sum: '$amount' },
-                count: { $sum: 1 }
+    const paymentPipeline: any[] = [];
+
+    // If companyName is provided, we need to join Booking to filter Payments by Company
+    if (companyName) {
+        paymentPipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
+        });
+        paymentPipeline.push({ $unwind: '$booking' });
+        paymentPipeline.push({
+            $match: { 'booking.companyName': { $regex: new RegExp(companyName as string, 'i') } }
+        });
+    }
+
+    paymentPipeline.push({ $match: matchQuery });
+    paymentPipeline.push({
+        $group: {
+            _id: null,
+            totalCollected: { $sum: '$amount' },
+            count: { $sum: 1 }
         }
-    ]);
+    });
+
+    const paymentStats = await Payment.aggregate(paymentPipeline);
 
     // Total expected from Bookings (amount)
     const bookingMatch: any = {};
@@ -78,6 +102,9 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         bookingMatch.createdAt = {};
         if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
         if (toDate) bookingMatch.createdAt.$lte = new Date(toDate as string);
+    }
+    if (companyName) {
+        bookingMatch.companyName = { $regex: new RegExp(companyName as string, 'i') };
     }
 
     const bookingStats = await Booking.aggregate([
@@ -102,19 +129,37 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
 // @route   GET /api/analytics/revenue-trends
 // @access  Private/Admin
 export const getRevenueTrends = asyncHandler(async (req: Request, res: Response) => {
-    const { interval = 'month' } = req.query; // 'day' or 'month'
+    const { interval = 'month', companyName } = req.query; // 'day' or 'month'
 
     const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
 
-    const trends = await Payment.aggregate([
-        {
-            $group: {
-                _id: { $dateToString: { format: format, date: '$date' } },
-                revenue: { $sum: '$amount' }
+    const pipeline: any[] = [];
+
+    // If companyName is provided, we need to join Booking to filter Payments by Company
+    if (companyName) {
+        pipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
-        },
-        { $sort: { _id: 1 } }
-    ]);
+        });
+        pipeline.push({ $unwind: '$booking' });
+        pipeline.push({
+            $match: { 'booking.companyName': { $regex: new RegExp(companyName as string, 'i') } }
+        });
+    }
+
+    pipeline.push({
+        $group: {
+            _id: { $dateToString: { format: format, date: '$date' } },
+            revenue: { $sum: '$amount' }
+        }
+    });
+    pipeline.push({ $sort: { _id: 1 } });
+
+    const trends = await Payment.aggregate(pipeline);
 
     res.json(trends);
 });
@@ -123,13 +168,16 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 // @route   GET /api/analytics/agents
 // @access  Private/Admin
 export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
 
     const matchQuery: any = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
         if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
+    }
+    if (companyName) {
+        matchQuery.companyName = { $regex: new RegExp(companyName as string, 'i') };
     }
 
     const agentStats = await Booking.aggregate([

@@ -11,7 +11,7 @@ const Payment_1 = __importDefault(require("../models/Payment"));
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
@@ -19,6 +19,9 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
             matchQuery.createdAt.$gte = new Date(fromDate);
         if (toDate)
             matchQuery.createdAt.$lte = new Date(toDate);
+    }
+    if (companyName) {
+        matchQuery.companyName = { $regex: new RegExp(companyName, 'i') };
     }
     const stats = await Booking_1.default.aggregate([
         { $match: matchQuery },
@@ -39,8 +42,12 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
                             as: 'contact'
                         }
                     },
-                    { $unwind: '$contact' },
+                    { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
                     { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
+                ],
+                uniqueLeads: [
+                    { $group: { _id: '$primaryContactId' } },
+                    { $count: 'count' }
                 ]
             }
         }
@@ -51,7 +58,7 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
 // @route   GET /api/analytics/payments
 // @access  Private/Admin
 exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.date = {};
@@ -60,17 +67,31 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         if (toDate)
             matchQuery.date.$lte = new Date(toDate);
     }
-    // Total collected from Payments
-    const paymentStats = await Payment_1.default.aggregate([
-        { $match: matchQuery },
-        {
-            $group: {
-                _id: null,
-                totalCollected: { $sum: '$amount' },
-                count: { $sum: 1 }
+    const paymentPipeline = [];
+    // If companyName is provided, we need to join Booking to filter Payments by Company
+    if (companyName) {
+        paymentPipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
+        });
+        paymentPipeline.push({ $unwind: '$booking' });
+        paymentPipeline.push({
+            $match: { 'booking.companyName': { $regex: new RegExp(companyName, 'i') } }
+        });
+    }
+    paymentPipeline.push({ $match: matchQuery });
+    paymentPipeline.push({
+        $group: {
+            _id: null,
+            totalCollected: { $sum: '$amount' },
+            count: { $sum: 1 }
         }
-    ]);
+    });
+    const paymentStats = await Payment_1.default.aggregate(paymentPipeline);
     // Total expected from Bookings (amount)
     const bookingMatch = {};
     if (fromDate || toDate) {
@@ -79,6 +100,9 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
             bookingMatch.createdAt.$gte = new Date(fromDate);
         if (toDate)
             bookingMatch.createdAt.$lte = new Date(toDate);
+    }
+    if (companyName) {
+        bookingMatch.companyName = { $regex: new RegExp(companyName, 'i') };
     }
     const bookingStats = await Booking_1.default.aggregate([
         { $match: bookingMatch },
@@ -100,24 +124,39 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
 // @route   GET /api/analytics/revenue-trends
 // @access  Private/Admin
 exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res) => {
-    const { interval = 'month' } = req.query; // 'day' or 'month'
+    const { interval = 'month', companyName } = req.query; // 'day' or 'month'
     const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
-    const trends = await Payment_1.default.aggregate([
-        {
-            $group: {
-                _id: { $dateToString: { format: format, date: '$date' } },
-                revenue: { $sum: '$amount' }
+    const pipeline = [];
+    // If companyName is provided, we need to join Booking to filter Payments by Company
+    if (companyName) {
+        pipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
-        },
-        { $sort: { _id: 1 } }
-    ]);
+        });
+        pipeline.push({ $unwind: '$booking' });
+        pipeline.push({
+            $match: { 'booking.companyName': { $regex: new RegExp(companyName, 'i') } }
+        });
+    }
+    pipeline.push({
+        $group: {
+            _id: { $dateToString: { format: format, date: '$date' } },
+            revenue: { $sum: '$amount' }
+        }
+    });
+    pipeline.push({ $sort: { _id: 1 } });
+    const trends = await Payment_1.default.aggregate(pipeline);
     res.json(trends);
 });
 // @desc    Get agent performance analytics
 // @route   GET /api/analytics/agents
 // @access  Private/Admin
 exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, companyName } = req.query;
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
@@ -125,6 +164,9 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
             matchQuery.createdAt.$gte = new Date(fromDate);
         if (toDate)
             matchQuery.createdAt.$lte = new Date(toDate);
+    }
+    if (companyName) {
+        matchQuery.companyName = { $regex: new RegExp(companyName, 'i') };
     }
     const agentStats = await Booking_1.default.aggregate([
         { $match: matchQuery },
