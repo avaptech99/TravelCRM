@@ -20,7 +20,6 @@ const BookedEDT = lazy(() => import('./pages/BookedEDT').then(module => ({ defau
 const Reports = lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
 const Users = lazy(() => import('./pages/Users').then(module => ({ default: module.Users })));
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
-const MissedCalls = lazy(() => import('./pages/MissedCalls').then(module => ({ default: module.MissedCalls })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +61,6 @@ function App() {
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/users" element={<Users />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/missed-calls" element={<MissedCalls />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
               </Route>

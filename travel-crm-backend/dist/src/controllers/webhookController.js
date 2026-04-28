@@ -3,10 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPbxLogs = exports.receiveMissedCall = void 0;
+exports.receiveMissedCall = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
 const User_1 = __importDefault(require("../models/User"));
@@ -38,14 +36,13 @@ const formatTime = (date) => {
     return `${hours}:${minutes}`;
 };
 // Core: Process a single call into the CRM
-const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, duration, billsec, disposition, pbxCallId, agentExtension) => {
+const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, duration, billsec, disposition, pbxCallId) => {
     const phoneLeadUser = await getPhoneLeadUser();
     // Normalize number for lookup (strip spaces, dashes, + etc.)
     const normalizedNumber = callerNumber.replace(/[\s\-\(\)\+]/g, '');
-    const last10 = normalizedNumber.length >= 10 ? normalizedNumber.slice(-10) : normalizedNumber;
-    // Check CRM for existing contact (Match the suffix - last 10 digits - to handle prefixes like 1 or +1)
+    // Check CRM for existing contact
     let contact = await PrimaryContact_1.default.findOne({
-        contactPhoneNo: { $regex: new RegExp(last10 + '$') },
+        contactPhoneNo: { $regex: new RegExp(normalizedNumber + '$') },
     });
     // Determine name: Prioritize CRM name > caller name from PBX > "Unknown"
     let finalName = 'Unknown';
@@ -68,86 +65,28 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
     const startStr = formatTime(callTime);
     const endStr = endTime ? formatTime(endTime) : 'N/A';
     // Build detailed comment text
-    let extensionInfo = '';
-    if (agentExtension) {
-        if (disposition === 'OUTBOUND') {
-            extensionInfo = ` from Ext: ${agentExtension}`;
-        }
-        else if (disposition === 'ANSWERED') {
-            extensionInfo = ` by Ext: ${agentExtension}`;
-        }
-        // Skip extension for missed calls as requested
-    }
-    const directionPreposition = disposition === 'OUTBOUND' ? 'to' : 'from';
-    const commentText = `${callType} ${directionPreposition} "${finalName}"${extensionInfo} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
-    // Hierarchy check helper to ensure worse durations/missed calls don't overwrite Answered/longer calls
-    const shouldUpdateHierarchy = (existingText) => {
-        const isIncomingAnswered = disposition === 'ANSWERED' && billsec > 0;
-        const isExistingAnswered = existingText.includes('Answered Call');
-        // Extract duration from existing text safely
-        const match = existingText.match(/Duration: (\d+)s/);
-        const oldDuration = match ? parseInt(match[1], 10) : 0;
-        if (isIncomingAnswered && !isExistingAnswered)
-            return true;
-        if (duration > oldDuration)
-            return true;
-        return false;
-    };
+    const commentText = `${callType} from ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
     // Existing contact — add comment to latest booking + notify agent
     if (contact) {
         const latestBooking = await Booking_1.default.findOne({ primaryContactId: contact._id }).sort({ createdAt: -1 });
         if (latestBooking) {
-            // Deduplicate comments for the same call leg (e.g. Ring Groups generate many webhooks)
-            let existingComment = await Comment_1.default.findOne({ bookingId: latestBooking._id, pbxCallId });
-            let commentUpdated = false;
-            let isNewComment = false;
-            if (existingComment) {
-                if (shouldUpdateHierarchy(existingComment.text)) {
-                    existingComment.text = commentText;
-                    await existingComment.save();
-                    commentUpdated = true;
-                }
-            }
-            else {
-                await Comment_1.default.create({
+            await Comment_1.default.create({
+                bookingId: latestBooking._id,
+                createdById: phoneLeadUser._id,
+                text: commentText,
+            });
+            // Notify assigned agent
+            if (latestBooking.assignedToUserId) {
+                await Notification_1.default.create({
+                    userId: latestBooking.assignedToUserId,
                     bookingId: latestBooking._id,
-                    createdById: phoneLeadUser._id,
-                    text: commentText,
-                    pbxCallId, // track this to prevent spam
+                    message: `Missed call from ${finalName} (${contact.contactPhoneNo}) on your lead ${latestBooking.uniqueCode}.`,
                 });
-                commentUpdated = true;
-                isNewComment = true;
+                cache_1.default.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
             }
-            // Update status and interaction time to jump to top and change color
-            const newDisposition = disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED');
-            // Hierarchy lock: only apply "better data wins" for the SAME call (Ring Group spam).
-            // For a genuinely NEW call (different pbxCallId), always update to reflect latest status.
-            const isSameCall = latestBooking.pbxCallId === pbxCallId;
-            if (isSameCall) {
-                // Same call — only upgrade (e.g. MISSED → ANSWERED), never downgrade
-                if (latestBooking.callDisposition !== 'OUTBOUND' &&
-                    (latestBooking.callDisposition !== 'ANSWERED' || newDisposition === 'ANSWERED')) {
-                    latestBooking.callDisposition = newDisposition;
-                }
-            }
-            else {
-                // Different call — always update to show the latest call status
-                latestBooking.callDisposition = newDisposition;
-                latestBooking.pbxCallId = pbxCallId;
-            }
-            if (commentUpdated) {
-                latestBooking.lastInteractionAt = new Date();
-                await latestBooking.save();
-                // Notify assigned agent
-                if (latestBooking.assignedToUserId && isNewComment) {
-                    await Notification_1.default.create({
-                        userId: latestBooking.assignedToUserId,
-                        bookingId: latestBooking._id,
-                        message: `${callType} ${directionPreposition} ${finalName} (${contact.contactPhoneNo}) on your lead ${latestBooking.uniqueCode}.`,
-                    });
-                    cache_1.default.invalidateByPrefix(`notifications_${latestBooking.assignedToUserId}`);
-                }
-            }
+            // Also update the booking's lastInteractionAt to jump to top
+            latestBooking.lastInteractionAt = new Date();
+            await latestBooking.save();
             cache_1.default.invalidateByPrefix('bookings_');
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
         }
@@ -161,9 +100,12 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
             existingBooking.callDisposition = 'ANSWERED';
             updated = true;
         }
-        if (disposition === 'OUTBOUND' && existingBooking.callDisposition !== 'OUTBOUND') {
-            existingBooking.callDisposition = 'OUTBOUND';
+        // Always update requirements/comment if we have a better/longer duration
+        // We'll update the contact requirements if it was a system-generated one
+        if (contact && contact.requirements && contact.requirements.includes('Call from')) {
+            contact.requirements = commentText;
             updated = true;
+            await contact.save();
         }
         if (updated) {
             existingBooking.lastInteractionAt = new Date();
@@ -171,7 +113,10 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
             cache_1.default.invalidateByPrefix('bookings_');
             return { action: 'lead_updated', contactId: contact?._id, bookingId: existingBooking._id };
         }
-        return { action: 'lead_skipped', reason: 'already_exists_and_newer_duration_not_found' };
+        // Even if no visual update, refresh interaction time to jump to top
+        existingBooking.lastInteractionAt = new Date();
+        await existingBooking.save();
+        return { action: 'lead_exists_no_update', contactId: contact?._id, bookingId: existingBooking._id };
     }
     // New contact — create lead
     if (!contact) {
@@ -179,7 +124,7 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
             contactName: finalName,
             contactPhoneNo: callerNumber,
             bookingType: 'Direct (B2C)',
-            requirements: '',
+            requirements: commentText,
         });
     }
     const booking = await Booking_1.default.create({
@@ -219,15 +164,7 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         throw new Error('Unauthorized: Invalid credentials');
     }
     // ---- Parse CDR payload (flexible format detection) ----
-    try {
-        const logFilePath = path_1.default.join(__dirname, '../../../pbx-logs.txt');
-        const timestamp = new Date().toISOString();
-        const logData = `\n--- [${timestamp}] [GDMS Webhook] Raw payload received ---\n${JSON.stringify(req.body, null, 2)}\n`;
-        fs_1.default.appendFileSync(logFilePath, logData, 'utf-8');
-    }
-    catch (err) {
-        console.error('Failed to write PBX log to file:', err);
-    }
+    console.log('[GDMS Webhook] Raw payload received:', JSON.stringify(req.body, null, 2));
     let cdrRoot = [];
     if (req.body.cdr_root && Array.isArray(req.body.cdr_root)) {
         cdrRoot = req.body.cdr_root;
@@ -269,14 +206,11 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         let finalCallerNumber = (cdr.src || '').toString();
         let finalCallerName = cdr.caller_name || cdr.src || '';
         let finalDisposition = (cdr.disposition || '').toUpperCase();
-        let agentExtension = '';
-        const userField = (cdr.userfield || '').toLowerCase();
-        if (userField === 'outbound') {
+        if (cdr.userfield === 'Outbound') {
             console.log(`[GDMS Webhook] Processing outbound call to ${cdr.dst}`);
             finalCallerNumber = (cdr.dst || '').toString();
-            finalCallerName = 'Unknown';
+            finalCallerName = 'Outbound Customer';
             finalDisposition = 'OUTBOUND';
-            agentExtension = (cdr.src || '').toString();
         }
         else {
             // Filtering for Inbound: Ignore internal extensions (4 digits or fewer)
@@ -285,7 +219,6 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
                 skippedCount++;
                 continue;
             }
-            agentExtension = (cdr.dstchannel_ext || cdr.dstanswer || cdr.dst || '').toString();
         }
         const callerNumber = finalCallerNumber;
         const callerName = finalCallerName;
@@ -299,40 +232,24 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         }
         try {
             // 1. Process into CRM (add comment or create lead)
-            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, agentExtension);
+            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
-            // 2. Save/update MissedCall log and mark as processed (with Hierarchy Lock)
-            const incomingDuration = parseInt(cdr.duration || '0', 10);
-            const existingMissedCall = await MissedCall_1.default.findOne({ uniqueId });
-            if (existingMissedCall) {
-                const isIncomingAnswered = cdr.disposition === 'ANSWERED';
-                const isExistingAnswered = existingMissedCall.disposition === 'ANSWERED';
-                const hasLongerDuration = incomingDuration > existingMissedCall.duration;
-                if ((isIncomingAnswered && !isExistingAnswered) || hasLongerDuration) {
-                    existingMissedCall.duration = incomingDuration;
-                    existingMissedCall.billsec = billsec;
-                    existingMissedCall.disposition = cdr.disposition || 'UNKNOWN';
-                    existingMissedCall.rawPayload = cdr;
-                    await existingMissedCall.save();
-                }
-            }
-            else {
-                await MissedCall_1.default.create({
-                    callerNumber,
-                    callerName,
-                    calledNumber: cdr.dst || '',
-                    callTime,
-                    endTime,
-                    duration: incomingDuration,
-                    billsec,
-                    disposition: cdr.disposition || 'UNKNOWN',
-                    uniqueId,
-                    channel: cdr.channel || '',
-                    userfield: cdr.userfield || '',
-                    rawPayload: cdr,
-                    isProcessed: true,
-                });
-            }
+            // 2. Save/update MissedCall log and mark as processed
+            await MissedCall_1.default.findOneAndUpdate({ uniqueId }, {
+                callerNumber,
+                callerName,
+                calledNumber: cdr.dst || '',
+                callTime,
+                endTime,
+                duration: parseInt(cdr.duration || '0', 10),
+                billsec,
+                disposition: cdr.disposition || 'UNKNOWN',
+                uniqueId,
+                channel: cdr.channel || '',
+                userfield: cdr.userfield || '',
+                rawPayload: cdr,
+                isProcessed: true,
+            }, { upsert: true, new: true });
             processedCount++;
         }
         catch (err) {
@@ -346,16 +263,4 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         integrated: processedCount,
         skipped: skippedCount,
     });
-});
-// @desc    Download PBX logs file
-// @route   GET /api/webhook/pbx-logs
-// @access  Public (Hidden endpoint for debugging)
-exports.getPbxLogs = (0, express_async_handler_1.default)(async (req, res) => {
-    const logFilePath = path_1.default.join(__dirname, '../../../pbx-logs.txt');
-    if (fs_1.default.existsSync(logFilePath)) {
-        res.download(logFilePath);
-    }
-    else {
-        res.status(404).send('No logs found yet.');
-    }
 });

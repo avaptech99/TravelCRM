@@ -4,7 +4,6 @@ export interface IComment extends Document {
     bookingId: mongoose.Types.ObjectId;
     createdById: mongoose.Types.ObjectId;
     text: string;
-    pbxCallId?: string | null;
     createdAt: Date;
 }
 
@@ -13,7 +12,6 @@ const commentSchema = new Schema<IComment>(
         bookingId: { type: Schema.Types.ObjectId, ref: 'Booking', required: true },
         createdById: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         text: { type: String, required: true },
-        pbxCallId: { type: String, default: null },
         createdAt: { type: Date, default: Date.now },
     },
     {

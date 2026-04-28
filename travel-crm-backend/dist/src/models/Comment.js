@@ -38,7 +38,6 @@ const commentSchema = new mongoose_1.Schema({
     bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true },
     createdById: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true },
-    pbxCallId: { type: String, default: null },
     createdAt: { type: Date, default: Date.now },
 }, {
     toJSON: { virtuals: true },

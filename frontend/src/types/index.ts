@@ -87,8 +87,6 @@ export interface Booking {
     duration?: string;
     amount?: number;
     outstanding?: number;
-    callDisposition?: 'ANSWERED' | 'MISSED' | 'OUTBOUND' | null;
-    pbxCallId?: string | null;
 }
 
 export interface PaginatedResponse<T> {

@@ -19,8 +19,6 @@ import {
     getCalendarBookings,
     getBookingActivity,
     bulkAssign,
-    bulkDeleteBookings,
-    globalSearch,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -33,9 +31,7 @@ router.use(protect);
 router.get('/stats', getBookingStats);
 router.get('/recent', getRecentBookings);
 router.get('/calendar', getCalendarBookings);
-router.get('/search/global', globalSearch);
 router.post('/bulk-assign', adminGuard, bulkAssign);
-router.post('/bulk-delete', adminGuard, bulkDeleteBookings);
 
 router.route('/')
     .get(getBookings)

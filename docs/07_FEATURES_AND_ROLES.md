@@ -130,25 +130,14 @@ Automatic notifications are created for workflows without being generic:
 - Generates formatted requirements text matching professional flight itinerary format
 - Sequential booking codes (TW0001, TW0002...)
 
-### 13. 📞 GDMS PBX Integration (Grandstream Missed Calls)
-- Webhook endpoint receives CDR (Call Detail Records) from Grandstream PBX in real-time
-- Protected by HTTP Basic Auth (credentials in env vars: `GDMS_WEBHOOK_USER`, `GDMS_WEBHOOK_PASS`)
-- Automatically filters for missed/unanswered calls only
-- **Known callers**: Adds a formatted comment to the caller's latest booking (e.g., `Miss Call from Anmoldeep , 14:15 18/4/2026`)
-- **Unknown callers**: Creates a new lead with status `Pending`, created by the `Phone Lead` system user
-- **Agent notification**: If the lead is assigned to an agent, that agent receives a real-time notification
-- Deduplication by PBX `uniqueId` prevents double-processing
-- All CDRs are stored in the `MissedCall` collection as an audit trail
-- System user `Phone Lead` (`phone-lead@system.internal`) is auto-created on first webhook hit
-
-### 14. 🔄 Global Sync (Live Updates)
+### 13. 🔄 Global Sync (Live Updates)
 - Single `/api/sync` endpoint returns all dashboard data
 - Frontend polls every 20 seconds
 - Replaces multiple separate API calls
 - Server-side caching (30s TTL) reduces database load
 - Near-real-time feel without WebSocket complexity
 
-### 15. 🔍 Search & Filtering
+### 14. 🔍 Search & Filtering
 Booking list supports:
 - **Text search**: Contact name, phone, requirements text, flight from/to cities
 - **Status filter**: Multiple statuses, plus "Interested" / "Not Interested"
@@ -158,7 +147,7 @@ Booking list supports:
 - **My bookings**: Show only user's own bookings
 - **Pagination**: Configurable page size
 
-### 16. 🛡️ Security Features
+### 15. 🛡️ Security Features
 - JWT token authentication on all API routes
 - Role-based middleware guards (`protect`, `adminGuard`)
 - Password hashing with bcrypt
@@ -167,7 +156,7 @@ Booking list supports:
 - CORS configuration
 - 401 auto-logout on token expiry
 
-### 17. ⚡ Performance Optimizations
+### 16. ⚡ Performance Optimizations
 - **In-memory caching**: TTL-based cache on all read endpoints
 - **Lazy loading**: All pages except Login are code-split
 - **Gzip compression**: ~70% smaller API responses
@@ -177,7 +166,7 @@ Booking list supports:
 - **Selective field loading**: `.select()` to fetch only needed fields
 - **Self-ping**: Keeps Render free-tier server awake
 
-### 18. 📱 Mobile Responsive Design
+### 17. 📱 Mobile Responsive Design
 - Desktop: Sidebar navigation
 - Mobile: Bottom tab navigation
 - Responsive tables and forms

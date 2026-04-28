@@ -29,8 +29,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
-    const [contactPerson, setContactPerson] = useState<string>('');
-    const [contactNumber, setContactNumber] = useState<string>('');
 
     // Reset state when booking changes
     React.useEffect(() => {
@@ -38,8 +36,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             setStatus(booking.status);
             setAssignedToUserId(booking.assignedToUserId || '');
             setInterested(booking.interested || 'No');
-            setContactPerson(booking.contactPerson || '');
-            setContactNumber(booking.contactNumber || '');
             setCommentText('');
         }
     }, [booking]);
@@ -69,14 +65,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
-            // 3. Update Pricing/Other Details (Interested, Contact Info)
-            const otherUpdates: any = {};
-            if (interested !== (booking.interested || 'No')) otherUpdates.interested = interested;
-            if (contactPerson !== (booking.contactPerson || '')) otherUpdates.contactPerson = contactPerson;
-            if (contactNumber !== (booking.contactNumber || '')) otherUpdates.contactNumber = contactNumber;
-
-            if (Object.keys(otherUpdates).length > 0) {
-                promises.push(api.put(`/bookings/${booking.id}`, otherUpdates));
+            // 3. Update Pricing/Other Details (Interested)
+            if (interested !== (booking.interested || 'No')) {
+                promises.push(api.put(`/bookings/${booking.id}`, { interested }));
             }
 
             // 4. Add Comment
@@ -133,8 +124,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const isDirty = (booking && status !== booking.status) ||
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
         (booking && interested !== (booking.interested || 'No')) ||
-        (booking && contactPerson !== (booking.contactPerson || '')) ||
-        (booking && contactNumber !== (booking.contactNumber || '')) ||
         commentText.trim().length > 0;
 
     if (!booking) return null;
@@ -155,32 +144,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-6 py-4 max-h-[60vh] overflow-y-auto px-1">
-                    {/* Contact Information */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Contact Person</label>
-                            <input
-                                type="text"
-                                value={contactPerson}
-                                onChange={(e) => setContactPerson(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                placeholder="Enter name"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Contact Number</label>
-                            <input
-                                type="text"
-                                value={contactNumber}
-                                onChange={(e) => setContactNumber(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                placeholder="Enter phone"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid gap-6">
+                <div className="grid gap-6 py-4">
                     {/* Status Update */}
                     {!isMarketer && (
                         <div className="flex flex-col gap-2">
@@ -241,9 +205,8 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         />
                     </div>
                 </div>
-            </div>
 
-            <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
+                <DialogFooter className={`sm:justify-between items-center ${isMarketer ? 'justify-end' : ''}`}>
                     {user?.role === 'ADMIN' && (
                         <button
                             type="button"
