@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LogOut, Bell, Settings, X, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { GlobalSearch } from './GlobalSearch';
 import api from '../../api/client';
 import type { Notification } from '../../types';
 import { toast } from 'sonner';
@@ -114,7 +115,10 @@ export const Topbar: React.FC = () => {
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-30 relative">
             <div className="flex items-center flex-1">
-                <h1 className="text-xl font-semibold text-slate-800 truncate">Dashboard</h1>
+                <h1 className="text-xl font-semibold text-slate-800 truncate mr-8">Dashboard</h1>
+                <div className="hidden md:block flex-1 max-w-md">
+                    <GlobalSearch />
+                </div>
             </div>
             <div className="flex items-center space-x-6">
 

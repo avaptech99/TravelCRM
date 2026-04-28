@@ -13,7 +13,8 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight, Trash2, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, PhoneIncoming, PhoneOutgoing, PhoneMissed, Users } from 'lucide-react';
+import { BulkAssignAgentModal } from './BulkAssignAgentModal';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -40,6 +41,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     const [activeAssignBooking, setActiveAssignBooking] = useState<Booking | null>(null);
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
 
     const initialPage = isInlineView ? 1 : parseInt(searchParams.get('page') || '1', 10);
 
@@ -201,11 +203,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     {info.row.original.createdByUser?.name === 'Phone Lead' && (
                         <div className="flex items-center ml-1">
                             {info.row.original.callDisposition === 'ANSWERED' ? (
-                                <span title="Answered Call"><PhoneIncoming className="text-green-500" strokeWidth={2} size={14} /></span>
+                                <img src="/icons/answered-call.png" alt="Answered" className="w-4 h-4" title="Answered Call" />
                             ) : info.row.original.callDisposition === 'OUTBOUND' ? (
-                                <span title="Outbound Call"><PhoneOutgoing className="text-blue-500" strokeWidth={2} size={14} /></span>
+                                <img src="/icons/attended-call.png" alt="Outbound" className="w-4 h-4" title="Outbound Call" />
                             ) : (
-                                <span title="Missed Call"><PhoneMissed className="text-red-500" strokeWidth={2} size={14} /></span>
+                                <img src="/icons/missed-call.png" alt="Missed" className="w-4 h-4" title="Missed Call" />
                             )}
                         </div>
                     )}
@@ -333,14 +335,23 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                     {Object.keys(rowSelection).length} leads selected
                                 </span>
                                 {user?.role === 'ADMIN' && (
-                                    <button 
-                                        onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
-                                        disabled={bulkDeleteMutation.isPending}
-                                        className="p-2 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50"
-                                        title="Delete Selected"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setIsBulkAssignOpen(true)}
+                                            className="p-2 rounded-lg text-primary hover:bg-primary/20 transition-colors"
+                                            title="Assign Selected"
+                                        >
+                                            <Users size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => bulkDeleteMutation.mutate(Object.keys(rowSelection))}
+                                            disabled={bulkDeleteMutation.isPending}
+                                            className="p-2 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50"
+                                            title="Delete Selected"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -449,11 +460,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 {booking.createdByUser?.name === 'Phone Lead' && (
                                                     <div className="flex items-center">
                                                         {booking.callDisposition === 'ANSWERED' ? (
-                                                            <PhoneIncoming className="text-green-500" strokeWidth={2} size={12} />
+                                                            <img src="/icons/answered-call.png" alt="Answered" className="w-4 h-4" />
                                                         ) : booking.callDisposition === 'OUTBOUND' ? (
-                                                            <PhoneOutgoing className="text-blue-500" strokeWidth={2} size={12} />
+                                                            <img src="/icons/attended-call.png" alt="Outbound" className="w-4 h-4" />
                                                         ) : (
-                                                            <PhoneMissed className="text-red-500" strokeWidth={2} size={12} />
+                                                            <img src="/icons/missed-call.png" alt="Missed" className="w-4 h-4" />
                                                         )}
                                                     </div>
                                                 )}
@@ -602,6 +613,13 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 booking={activeAssignBooking}
                 isOpen={!!activeAssignBooking}
                 onClose={() => setActiveAssignBooking(null)}
+            />
+
+            <BulkAssignAgentModal
+                bookingIds={Object.keys(rowSelection)}
+                isOpen={isBulkAssignOpen}
+                onClose={() => setIsBulkAssignOpen(false)}
+                onSuccess={() => setRowSelection({})}
             />
         </div>
     );

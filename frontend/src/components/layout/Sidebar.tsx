@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as SettingsIcon, UserSquare, BarChart3, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as SettingsIcon, UserSquare, BarChart3, Calendar, Phone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import logo from '../../assets/logo.png';
@@ -17,6 +17,7 @@ export const Sidebar: React.FC = () => {
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
+        { label: 'Missed Calls', path: '/missed-calls', icon: <Phone size={20} />, roles: ['ADMIN'] },
         { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
     ];
 
