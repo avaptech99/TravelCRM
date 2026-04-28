@@ -658,6 +658,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
             to: s.to || '',
             date: s.date ? new Date(s.date) : null
         }));
+    }
     await booking.save();
     await recalcOutstanding(id);
 
