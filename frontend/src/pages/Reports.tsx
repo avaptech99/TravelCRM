@@ -15,6 +15,7 @@ import {
     Cell,
     AreaChart,
     Area,
+    LabelList,
 } from 'recharts';
 import { 
     Calendar, 
@@ -169,8 +170,8 @@ export const Reports: React.FC = () => {
                     loading={isPaymentsLoading}
                 />
                 <StatCard 
-                    title="Active Bookings" 
-                    value={bookingStats?.byStatus?.reduce((acc: number, s: any) => acc + s.count, 0) || 0} 
+                    title="Booked" 
+                    value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
                     icon={<Users size={20} />} 
                     loading={isBookingsLoading}
                 />
@@ -220,15 +221,47 @@ export const Reports: React.FC = () => {
                             <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                                <BarChart data={agentStats?.slice(0, 5)} layout="vertical" margin={{ left: 20 }}>
+                                <BarChart 
+                                    data={agentStats?.slice(0, 5)} 
+                                    layout="vertical" 
+                                    margin={{ left: 20, right: 40 }}
+                                >
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                                     <XAxis type="number" hide />
-                                    <YAxis dataKey="agentName" type="category" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600, fill: '#334155'}} width={100} />
+                                    <YAxis 
+                                        dataKey="agentName" 
+                                        type="category" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{fontSize: 11, fontWeight: 600, fill: '#334155'}} 
+                                        width={100} 
+                                    />
                                     <Tooltip 
                                         cursor={{fill: '#f8fafc'}}
                                         contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                                        formatter={(value: any, name: any, props: any) => {
+                                            if (name === 'totalRevenue') {
+                                                return [
+                                                    <div key="custom-tooltip">
+                                                        <div className="text-slate-900 font-bold mb-1">₹{value.toLocaleString()}</div>
+                                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
+                                                            {props.payload.convertedBookings} Booked Queries
+                                                        </div>
+                                                    </div>,
+                                                    'Revenue'
+                                                ];
+                                            }
+                                            return [value, name];
+                                        }}
                                     />
-                                    <Bar dataKey="totalRevenue" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24} />
+                                    <Bar dataKey="totalRevenue" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24}>
+                                        <LabelList 
+                                            dataKey="convertedBookings" 
+                                            position="right" 
+                                            style={{ fill: '#64748b', fontSize: '10px', fontWeight: 'bold' }}
+                                            formatter={(value: any) => `${value} Booked`}
+                                        />
+                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
