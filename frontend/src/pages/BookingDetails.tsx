@@ -740,25 +740,54 @@ export const BookingDetails: React.FC = () => {
                         </div>
 
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                            {booking.comments && booking.comments.length > 0 ? (
-                                booking.comments.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment: any) => (
-                                    <div key={comment.id} className="relative pl-4 border-l-2 border-secondary/20">
-                                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-xs font-semibold text-slate-900">{comment.createdBy?.name}</span>
-                                            <span className="text-[10px] text-slate-400 flex items-center">
-                                                <Clock size={10} className="mr-1" />
-                                                {dayjs(comment.createdAt).format('MMM DD, h:mm A')}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
-                                            {comment.text}
-                                        </p>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-slate-400 italic">No comments yet.</p>
-                            )}
+                            {(() => {
+                                const combined = [
+                                    ...(booking.comments || []).map((c: any) => ({ ...c, type: 'comment' })),
+                                    ...(booking.activities || []).map((a: any) => ({ ...a, type: 'activity' }))
+                                ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+                                if (combined.length === 0) {
+                                    return <p className="text-sm text-slate-400 italic">No history yet.</p>;
+                                }
+
+                                return combined.map((item: any) => {
+                                    if (item.type === 'comment') {
+                                        return (
+                                            <div key={`comment-${item.id || item._id}`} className="relative pl-4 border-l-2 border-secondary/20">
+                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-xs font-semibold text-slate-900">{item.createdBy?.name || 'User'}</span>
+                                                    <span className="text-[10px] text-slate-400 flex items-center">
+                                                        <Clock size={10} className="mr-1" />
+                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
+                                                    {item.text}
+                                                </p>
+                                            </div>
+                                        );
+                                    } else {
+                                        return (
+                                            <div key={`activity-${item.id || item._id}`} className="relative pl-4 border-l-2 border-slate-200">
+                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300"></div>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight flex items-center gap-1">
+                                                        <Activity size={10} /> {item.action.replace(/_/g, ' ')}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 flex items-center">
+                                                        <Clock size={10} className="mr-1" />
+                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100">
+                                                    <span className="font-medium">{item.userId?.name || 'System'}</span>: {item.details}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                });
+                            })()}
                         </div>
                     </div>
 

@@ -417,6 +417,11 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         })
         .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
+        .populate({
+            path: 'activities',
+            populate: { path: 'userId', select: 'name role' },
+            options: { sort: { createdAt: -1 } }
+        })
         .lean();
 
     if (!booking) {

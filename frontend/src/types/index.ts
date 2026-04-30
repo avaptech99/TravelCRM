@@ -88,6 +88,16 @@ export interface Booking {
     duration?: string;
     amount?: number;
     outstanding?: number;
+    activities?: Activity[];
+}
+
+export interface Activity {
+    id: string;
+    bookingId: string;
+    userId?: User;
+    action: string;
+    details?: string;
+    createdAt: string;
 }
 
 export interface PaginatedResponse<T> {

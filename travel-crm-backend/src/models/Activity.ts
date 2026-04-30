@@ -18,7 +18,7 @@ const activitySchema: Schema = new Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
-            required: true,
+            required: false,
         },
         action: {
             type: String, // e.g., 'STATUS_CHANGE', 'ASSIGNED', 'TRAVELER_ADDED'

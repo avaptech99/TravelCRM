@@ -135,6 +135,12 @@ bookingSchema.virtual('passengers', {
     foreignField: 'bookingId',
 });
 
+bookingSchema.virtual('activities', {
+    ref: 'Activity',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
+
 const Booking: Model<IBooking> = mongoose.model<IBooking>('Booking', bookingSchema);
 
 export default Booking;
