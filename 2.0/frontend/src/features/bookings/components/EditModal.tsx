@@ -34,7 +34,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     const { user } = useAuth();
     const isMarketer = user?.role === 'MARKETER';
-    const canEditActualCost = user?.permissions?.canEditActualCost || user?.role === 'ADMIN';
 
     const { data: dropdownSettings } = useQuery({
         queryKey: ['dropdown-settings'],

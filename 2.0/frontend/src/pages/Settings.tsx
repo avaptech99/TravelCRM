@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { toast } from 'sonner';
-import { User, Lock, Mail, Shield, Eye, EyeOff, Plus, X, Settings2, Building, Tag, Bookmark, FolderTree, Trash2, Check, ChevronDown } from 'lucide-react';
+import { User, Lock, Mail, Shield, Eye, EyeOff, Plus, Settings2, Building, Tag, Bookmark, FolderTree, Trash2, Check, ChevronDown } from 'lucide-react';
 
 const DROPDOWN_LABELS: Record<string, string> = {
     'companies': 'Companies',
