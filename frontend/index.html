@@ -21,11 +21,24 @@
           }
         });
       }
+<<<<<<< Updated upstream
       // Force reload if a specific version cookie or localStorage key is missing/old
       const APP_VERSION = '1.0.3'; // Increment this to force one-time reload
       if (localStorage.getItem('app_version') !== APP_VERSION) {
+=======
+      // Only force reload ONCE when a new version is detected to keep performance high
+      const APP_VERSION = '1.0.5'; 
+      const currentVersion = localStorage.getItem('app_version');
+      if (currentVersion !== APP_VERSION) {
+>>>>>>> Stashed changes
         localStorage.setItem('app_version', APP_VERSION);
-        window.location.reload(true);
+        // Clear only the cache for the current page and reload
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+          });
+        }
+        window.location.reload();
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>
