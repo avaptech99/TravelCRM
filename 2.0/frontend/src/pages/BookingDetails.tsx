@@ -7,6 +7,7 @@ import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, MessageSquare, Clock, P
 import { useNavigate } from 'react-router-dom';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { EditModal } from '../features/bookings/components/EditModal';
+import { ContactEditModal } from '../features/bookings/components/ContactEditModal';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -26,6 +27,7 @@ export const BookingDetails: React.FC = () => {
     const [isEditingReqs, setIsEditingReqs] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isContactEditModalOpen, setIsContactEditModalOpen] = useState(false);
     const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
@@ -381,7 +383,7 @@ export const BookingDetails: React.FC = () => {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-slate-900">
-                                Travelers ({booking.travelers?.length || 0})
+                                Travelers
                             </h2>
                             {!isReadOnly && !isMarketer && (
                                 <button
@@ -540,7 +542,7 @@ export const BookingDetails: React.FC = () => {
                                 {/* Passenger Details */}
                                 <div>
                                     <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                                        <User size={15} className="text-slate-400" /> Passengers
+                                        <User size={15} className="text-slate-400" /> Passengers ({booking.travelers?.length || 0})
                                     </h3>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         {booking.travelers.map((traveler: any, idx: number) => (
@@ -725,7 +727,7 @@ export const BookingDetails: React.FC = () => {
                 {/* Sidebar Area */}
                 <div className="space-y-6">
                     {/* Verification Status Card */}
-                    {(user?.role === 'ADMIN' || user?.permissions?.canVerifyBookings || booking.verified) && (
+                    {booking.status === 'Booked' && (user?.role === 'ADMIN' || user?.permissions?.canVerifyBookings || booking.verified) && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-hidden relative">
                             <div className={`absolute top-0 left-0 w-1 h-full ${booking.verified ? 'bg-teal-500' : 'bg-slate-200'}`}></div>
                             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -794,7 +796,7 @@ export const BookingDetails: React.FC = () => {
                             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">Contact Person</h2>
                             {!isReadOnly && (
                                 <button
-                                    onClick={() => setIsEditModalOpen(true)}
+                                    onClick={() => setIsContactEditModalOpen(true)}
                                     className="text-slate-400 hover:text-primary transition-colors p-1 rounded-md hover:bg-slate-50"
                                     title="Edit Lead Details"
                                 >
@@ -927,6 +929,13 @@ export const BookingDetails: React.FC = () => {
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
                     onStatusChangeToBooked={() => {}}
+                />
+            )}
+            {booking && (
+                <ContactEditModal
+                    booking={booking}
+                    isOpen={isContactEditModalOpen}
+                    onClose={() => setIsContactEditModalOpen(false)}
                 />
             )}
 
