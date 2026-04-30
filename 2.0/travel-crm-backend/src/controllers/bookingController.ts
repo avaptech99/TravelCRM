@@ -699,16 +699,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Not authorized to update this booking');
     }
 
-    // Detect changes for activity logging
-    const changes: string[] = [];
-    if (result.data.destination !== undefined && result.data.destination !== booking.destination) changes.push(`Destination: ${booking.destination || 'None'} ➔ ${result.data.destination || 'None'}`);
-    if (result.data.amount !== undefined && result.data.amount !== booking.amount) changes.push(`Price: ${booking.amount} ➔ ${result.data.amount}`);
-    if (result.data.travelDate !== undefined) {
-        const oldDate = booking.travelDate ? new Date(booking.travelDate).toLocaleDateString() : 'None';
-        const newDate = result.data.travelDate ? new Date(result.data.travelDate).toLocaleDateString() : 'None';
-        if (oldDate !== newDate) changes.push(`Travel Date: ${oldDate} ➔ ${newDate}`);
-    }
-    if (result.data.travellers !== undefined && result.data.travellers !== booking.travellers) changes.push(`Travellers: ${booking.travellers || 0} ➔ ${result.data.travellers}`);
+
 
     // Update booking-level fields
     if (result.data.destination !== undefined) booking.destination = result.data.destination || null;
@@ -750,9 +741,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     booking.estimatedMargin = income - totalEstimatedCost;
     booking.netMargin = income - totalActualCost;
 
-    if (changes.length > 0) {
-        await logActivity(id, req.user!.id, 'BOOKING_UPDATED', `Modified: ${changes.join(', ')}`);
-    }
+
 
     await booking.save();
 
