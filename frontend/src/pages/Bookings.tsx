@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 
-const STATUS_OPTIONS = ['Pending', 'Working', 'Booked', 'Interested', 'Not Interested'];
+const STATUS_OPTIONS = ['Pending', 'Working', 'Booked', 'Interested', 'Not Interested', 'Follow Up'];
 
 const STATUS_COLORS: Record<string, string> = {
     Pending: 'bg-blue-50 text-blue-700 border-blue-200 peer-checked:bg-blue-100 peer-checked:border-blue-500',
@@ -15,6 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
     Booked: 'bg-green-50 text-green-700 border-green-200 peer-checked:bg-green-100 peer-checked:border-green-500',
     Interested: 'bg-amber-50 text-amber-700 border-amber-200 peer-checked:bg-amber-100 peer-checked:border-amber-500',
     'Not Interested': 'bg-slate-50 text-slate-700 border-slate-200 peer-checked:bg-slate-100 peer-checked:border-slate-500',
+    'Follow Up': 'bg-[#efebe9] text-[#5d4037] border-[#d7ccc8] peer-checked:bg-[#d7ccc8] peer-checked:border-[#5d4037]',
 };
 
 export const Bookings: React.FC = () => {

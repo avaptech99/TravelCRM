@@ -19,7 +19,8 @@ export interface IBooking extends Document {
     totalAmount: number;
     finalQuotation: string | null;
     travellers: number | null;
-    status: 'Pending' | 'Working' | 'Sent' | 'Booked';
+    status: 'Pending' | 'Working' | 'Sent' | 'Booked' | 'Follow Up';
+    followUpDate: Date | null;
     includesFlight: boolean;
     includesAdditionalServices: boolean;
     additionalServicesDetails: string | null;
@@ -50,7 +51,8 @@ const bookingSchema = new Schema<IBooking>(
         totalAmount: { type: Number, default: 0 },
         finalQuotation: { type: String, default: null },
         travellers: { type: Number, default: null },
-        status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
+        status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked', 'Follow Up'], default: 'Pending' },
+        followUpDate: { type: Date, default: null },
         includesFlight: { type: Boolean, default: true },
         includesAdditionalServices: { type: Boolean, default: false },
         additionalServicesDetails: { type: String, default: null },

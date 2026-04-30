@@ -3,7 +3,7 @@ import { BookingsTable } from '../features/bookings/components/BookingsTable';
 import { Plus, Search, Filter } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
 
-const STATUS_OPTIONS = ['Pending', 'Working', 'Booked', 'Interested', 'Not Interested'];
+const STATUS_OPTIONS = ['Pending', 'Working', 'Booked', 'Interested', 'Not Interested', 'Follow Up'];
 
 const STATUS_COLORS: Record<string, string> = {
     Pending: 'bg-blue-50 text-blue-700 border-blue-200 peer-checked:bg-blue-100 peer-checked:border-blue-500',
@@ -11,6 +11,7 @@ const STATUS_COLORS: Record<string, string> = {
     Booked: 'bg-green-50 text-green-700 border-green-200 peer-checked:bg-green-100 peer-checked:border-green-500',
     Interested: 'bg-amber-50 text-amber-700 border-amber-200 peer-checked:bg-amber-100 peer-checked:border-amber-500',
     'Not Interested': 'bg-red-50 text-red-700 border-red-200 peer-checked:bg-red-100 peer-checked:border-red-500',
+    'Follow Up': 'bg-[#efebe9] text-[#5d4037] border-[#d7ccc8] peer-checked:bg-[#d7ccc8] peer-checked:border-[#5d4037]',
 };
 
 export const MyBookings: React.FC = () => {

@@ -18,6 +18,7 @@ import syncRoutes from './routes/syncRoutes';
 import externalRoutes from './routes/externalRoutes';
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
+import { startFollowUpCron } from './utils/followUpCron';
 // Socket.io is available in ./socket.ts for future real-time upgrades
 import User from './models/User';
 import Booking from './models/Booking';
@@ -144,6 +145,9 @@ mongoose.connection.once('open', async () => {
     } catch (error) {
         console.error('Startup tasks error:', error);
     }
+
+    // Start the follow-up reminder cron job
+    startFollowUpCron();
 });
 
 app.listen(Number(PORT), '0.0.0.0', () => {

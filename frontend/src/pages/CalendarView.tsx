@@ -99,6 +99,7 @@ export const CalendarView: React.FC = () => {
             case 'Working': return { backgroundColor: '#8b5cf6', color: 'white' }; // purple-500
             case 'Sent': return { backgroundColor: '#f59e0b', color: 'white' }; // amber-500
             case 'Pending': return { backgroundColor: '#3b82f6', color: 'white' }; // blue-500
+            case 'Follow Up': return { backgroundColor: '#5d4037', color: 'white' }; // chocolate brown
             default: return { backgroundColor: '#64748b', color: 'white' }; // slate-500
         }
     };
@@ -219,7 +220,7 @@ export const CalendarView: React.FC = () => {
                                         {dayEvents.length > 0 && (
                                             <div className="mt-auto pb-0.5">
                                                 <div className="flex flex-wrap gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                                                    {['Booked', 'Working', 'Sent', 'Pending'].map(status => {
+                                                    {['Booked', 'Working', 'Sent', 'Pending', 'Follow Up'].map(status => {
                                                         const count = dayEvents.filter(e => e.status === status).length;
                                                         if (count === 0) return null;
                                                         const style = getStatusStyle(status);
@@ -262,6 +263,10 @@ export const CalendarView: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#3b82f6' }}></span>
                         <span>Pending</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#5d4037' }}></span>
+                        <span>Follow Up</span>
                     </div>
                 </div>
             </div>

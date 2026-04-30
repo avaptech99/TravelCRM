@@ -257,7 +257,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'Booked' ? 'bg-green-100 text-green-800' :
                         status === 'Working' ? 'bg-purple-100 text-purple-800' :
                             status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-blue-100 text-blue-800'
+                                status === 'Follow Up' ? 'bg-[#efebe9] text-[#5d4037] border border-[#d7ccc8]' :
+                                    'bg-blue-100 text-blue-800'
                         }`}>
                         {status}
                     </span>
@@ -362,9 +363,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <tr 
                                     key={row.id} 
                                     className={`transition-colors cursor-pointer ${
-                                        row.original.outstanding && row.original.outstanding > 0 
-                                            ? 'bg-[#FEF2F2] hover:bg-[#FEE2E2]' 
-                                            : 'bg-white hover:bg-slate-50'
+                                        row.original.status === 'Follow Up' && row.original.followUpDate && dayjs(row.original.followUpDate).isAfter(dayjs(), 'day')
+                                            ? 'bg-gray-50 opacity-60 hover:opacity-80 hover:bg-gray-100'
+                                            : row.original.outstanding && row.original.outstanding > 0 
+                                                ? 'bg-[#FEF2F2] hover:bg-[#FEE2E2]' 
+                                                : 'bg-white hover:bg-slate-50'
                                     }`}
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
@@ -416,9 +419,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             navigate(`/bookings/${booking.id}`);
                                         }}
                                         className={`rounded-xl p-4 border flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative ${
-                                            (booking as any).outstanding > 0 
-                                                ? 'bg-red-50 border-red-200' 
-                                                : 'bg-white border-slate-200'
+                                            booking.status === 'Follow Up' && (booking as any).followUpDate && dayjs((booking as any).followUpDate).isAfter(dayjs(), 'day')
+                                                ? 'bg-gray-50 border-gray-200 opacity-60'
+                                                : (booking as any).outstanding > 0 
+                                                    ? 'bg-red-50 border-red-200' 
+                                                    : 'bg-white border-slate-200'
                                         }`}
                                     >
                                         <div className="flex justify-between items-start">
@@ -439,6 +444,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                     isBooked ? 'bg-green-50 text-green-700 border border-green-200' :
                                                     booking.status === 'Working' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
                                                     booking.status === 'Sent' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                                                    booking.status === 'Follow Up' ? 'bg-[#efebe9] text-[#5d4037] border border-[#d7ccc8]' :
                                                     'bg-blue-50 text-blue-700 border border-blue-200'
                                                 }`}>
                                                     {booking.status}

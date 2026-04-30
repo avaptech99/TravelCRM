@@ -110,6 +110,7 @@ export const Reports: React.FC = () => {
             case 'Sent': return '#f59e0b';   // Yellow
             case 'Working': return '#8b5cf6'; // Purple
             case 'Pending': return '#6366f1'; // Blue
+            case 'Follow Up': return '#5d4037'; // Chocolate Brown
             default: return '#94a3b8';        // Slate
         }
     };

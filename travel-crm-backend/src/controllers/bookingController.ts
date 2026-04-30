@@ -618,6 +618,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.finalQuotation !== undefined) booking.finalQuotation = result.data.finalQuotation;
     if (result.data.travellers !== undefined) booking.travellers = result.data.travellers || null;
     if (result.data.pricePerTicket !== undefined) booking.pricePerTicket = result.data.pricePerTicket;
+    if (result.data.followUpDate !== undefined) booking.followUpDate = result.data.followUpDate ? new Date(result.data.followUpDate) : null;
     if (result.data.includesFlight !== undefined) booking.includesFlight = result.data.includesFlight;
     if (result.data.includesAdditionalServices !== undefined) booking.includesAdditionalServices = result.data.includesAdditionalServices;
     if (result.data.additionalServicesDetails !== undefined) booking.additionalServicesDetails = result.data.additionalServicesDetails || null;

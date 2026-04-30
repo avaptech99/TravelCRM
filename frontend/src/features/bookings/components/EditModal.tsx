@@ -29,6 +29,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
+    const [followUpDate, setFollowUpDate] = useState<string | null>(null);
 
     // Reset state when booking changes
     React.useEffect(() => {
@@ -37,6 +38,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             setAssignedToUserId(booking.assignedToUserId || '');
             setInterested(booking.interested || 'No');
             setCommentText('');
+            setFollowUpDate(booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null);
         }
     }, [booking]);
 
@@ -65,9 +67,17 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
-            // 3. Update Pricing/Other Details (Interested)
+            // 3. Update Pricing/Other Details (Interested, Follow Up Date)
+            const updates: any = {};
             if (interested !== (booking.interested || 'No')) {
-                promises.push(api.put(`/bookings/${booking.id}`, { interested }));
+                updates.interested = interested;
+            }
+            const currentBookingFollowUp = booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null;
+            if (status === 'Follow Up' && followUpDate !== currentBookingFollowUp) {
+                updates.followUpDate = followUpDate || null;
+            }
+            if (Object.keys(updates).length > 0) {
+                promises.push(api.put(`/bookings/${booking.id}`, updates));
             }
 
             // 4. Add Comment
@@ -124,6 +134,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const isDirty = (booking && status !== booking.status) ||
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
         (booking && interested !== (booking.interested || 'No')) ||
+        (booking && status === 'Follow Up' && followUpDate !== (booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null)) ||
         commentText.trim().length > 0;
 
     if (!booking) return null;
@@ -158,7 +169,20 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                                 <option value="Working">Working</option>
                                 <option value="Sent">Sent To Customer</option>
                                 <option value="Booked">Converted to EDT/Booked</option>
+                                <option value="Follow Up">Follow Up</option>
                             </select>
+                        </div>
+                    )}
+
+                    {status === 'Follow Up' && !isMarketer && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-700">Follow-up Date</label>
+                            <input
+                                type="date"
+                                value={followUpDate || ''}
+                                onChange={(e) => setFollowUpDate(e.target.value)}
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                            />
                         </div>
                     )}
 

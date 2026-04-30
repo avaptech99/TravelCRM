@@ -57,10 +57,11 @@ export const updateBookingSchema = z.object({
     includesFlight: z.boolean().optional(),
     includesAdditionalServices: z.boolean().optional(),
     additionalServicesDetails: z.string().optional().nullable(),
+    followUpDate: z.string().optional().nullable(),
 });
 
 export const updateBookingStatusSchema = z.object({
-    status: z.enum(['Pending', 'Working', 'Sent', 'Booked']),
+    status: z.enum(['Pending', 'Working', 'Sent', 'Booked', 'Follow Up']),
 });
 
 export const assignBookingSchema = z.object({

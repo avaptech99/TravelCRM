@@ -99,6 +99,19 @@ export const BookingDetails: React.FC = () => {
         },
     });
 
+    const updateFollowUpDateMutation = useMutation({
+        mutationFn: async (followUpDate: string | null) => {
+            await api.put(`/bookings/${id}`, { followUpDate });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['booking', id] });
+            toast.success('Follow-up date saved');
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to save follow-up date');
+        },
+    });
+
     const updateInterestMutation = useMutation({
         mutationFn: async (interested: string) => {
             await api.put(`/bookings/${id}`, { interested });
@@ -246,19 +259,33 @@ export const BookingDetails: React.FC = () => {
                             className={`px-3 py-1.5 rounded-full text-sm font-bold border-2 focus:outline-none focus:ring-opacity-50 transition-colors cursor-pointer disabled:opacity-50 ${booking.status === 'Booked' ? 'bg-green-100 text-green-800 border-green-200 focus:ring-green-500' :
                                 booking.status === 'Working' ? 'bg-purple-100 text-purple-800 border-purple-200 focus:ring-purple-500' :
                                     booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 focus:ring-yellow-500' :
-                                        'bg-blue-100 text-blue-800 border-blue-200 focus:ring-blue-500'
+                                        booking.status === 'Follow Up' ? 'bg-[#efebe9] text-[#5d4037] border-[#d7ccc8] focus:ring-[#5d4037]' :
+                                            'bg-blue-100 text-blue-800 border-blue-200 focus:ring-blue-500'
                                 }`}
                         >
                             <option value="Pending" className="bg-white text-slate-800">Pending</option>
                             <option value="Working" className="bg-white text-slate-800">Working</option>
                             <option value="Sent" className="bg-white text-slate-800">Sent</option>
                             <option value="Booked" className="bg-white text-slate-800">Booked</option>
+                            <option value="Follow Up" className="bg-white text-slate-800">Follow Up</option>
                         </select>
+                        {booking.status === 'Follow Up' && (
+                            <input
+                                type="date"
+                                value={booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : ''}
+                                onChange={(e) => {
+                                    updateFollowUpDateMutation.mutate(e.target.value || null);
+                                }}
+                                className="ml-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 cursor-pointer"
+                                title="Follow-up date"
+                            />
+                        )}
                     ) : (
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${booking.status === 'Booked' ? 'bg-green-100 text-green-800' :
                             booking.status === 'Working' ? 'bg-purple-100 text-purple-800' :
                                 booking.status === 'Sent' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-blue-100 text-blue-800'
+                                    booking.status === 'Follow Up' ? 'bg-[#efebe9] text-[#5d4037]' :
+                                        'bg-blue-100 text-blue-800'
                             }`}>
                             {booking.status}
                         </span>
