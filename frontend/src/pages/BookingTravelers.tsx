@@ -169,7 +169,6 @@ export const BookingTravelers: React.FC = () => {
     });
 
     const isInitialized = useRef(false);
-    const todayString = new Date().toISOString().slice(0, 16);
 
     const { data: booking, isLoading } = useQuery({
         queryKey: ['booking', id],
@@ -704,7 +703,7 @@ export const BookingTravelers: React.FC = () => {
                                                     <button
                                                         key={type.id}
                                                         type="button"
-                                                        onClick={() => setValue('travelers.0.tripType', type.id)}
+                                                        onClick={() => setValue('travelers.0.tripType', type.id as any)}
                                                         className={`flex-1 text-[10px] font-bold rounded-md transition-all ${
                                                             isActive 
                                                                 ? 'bg-white text-secondary shadow-sm ring-1 ring-slate-200' 
@@ -759,7 +758,7 @@ export const BookingTravelers: React.FC = () => {
                                                         render={({ field }) => (
                                                             <DatePicker
                                                                 selected={field.value ? dayjs(field.value).toDate() : null}
-                                                                onChange={(date) => field.onChange(date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                                                onChange={(date: Date | null) => field.onChange(date ? dayjs(date).format('YYYY-MM-DD') : '')}
                                                                 minDate={dayjs().startOf('day').toDate()}
                                                                 dateFormat="dd/MM/yyyy"
                                                                 placeholderText="Select Date"
@@ -823,7 +822,7 @@ export const BookingTravelers: React.FC = () => {
                                                                 <div className="relative">
                                                                     <DatePicker
                                                                         selected={segment.date ? dayjs(segment.date).toDate() : null}
-                                                                        onChange={(date) => {
+                                                                        onChange={(date: Date | null) => {
                                                                             const newSegments = [...segments];
                                                                             newSegments[sIdx].date = date ? dayjs(date).format('YYYY-MM-DD') : '';
                                                                             setSegments(newSegments);
@@ -899,7 +898,7 @@ export const BookingTravelers: React.FC = () => {
                                                         render={({ field }) => (
                                                             <DatePicker
                                                                 selected={field.value ? dayjs(field.value).toDate() : null}
-                                                                onChange={(date) => field.onChange(date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                                                onChange={(date: Date | null) => field.onChange(date ? dayjs(date).format('YYYY-MM-DD') : '')}
                                                                 minDate={watch('travelers.0.departureTime') ? dayjs(watch('travelers.0.departureTime') as string).toDate() : dayjs().startOf('day').toDate()}
                                                                 dateFormat="dd/MM/yyyy"
                                                                 placeholderText="Select Date"
