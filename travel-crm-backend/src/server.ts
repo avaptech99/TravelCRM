@@ -23,6 +23,7 @@ import { startFollowUpCron } from './utils/followUpCron';
 import User from './models/User';
 import Booking from './models/Booking';
 import Payment from './models/Payment';
+import Activity from './models/Activity';
 import bcrypt from 'bcrypt';
 
 const app: Express = express();
