@@ -1,0 +1,19 @@
+DEVELOPER_DOCS.md
+pbx-logs.txt
+README.md
+wordpress_integration_flow.md
+docs\01_PROJECT_OVERVIEW.md
+docs\02_FOLDER_STRUCTURE.md
+docs\03_BACKEND_GUIDE.md
+docs\04_FRONTEND_GUIDE.md
+docs\05_API_REFERENCE.md
+docs\06_DATABASE_SCHEMA.md
+docs\07_FEATURES_AND_ROLES.md
+docs\08_DEPLOYMENT_GUIDE.md
+docs\09_COMMON_BUGS_AND_GOTCHAS.md
+frontend\README.md
+logs and pbx payload\logs.md
+logs and pbx payload\pbx-logs.txt
+frontend\public\vite.svg
+frontend\src\assets\logo.png
+frontend\src\assets\react.svg
