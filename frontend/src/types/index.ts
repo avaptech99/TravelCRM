@@ -53,7 +53,7 @@ export interface Booking {
     contactNumber: string;
     contactEmail?: string;
     requirements?: string;
-    status: 'Pending' | 'Working' | 'Sent' | 'Booked';
+    status: 'Pending' | 'Working' | 'Sent' | 'Booked' | 'Follow Up';
     assignedToUser?: User;
     assignedToUserId?: string;
     createdByUser: User;
@@ -73,6 +73,7 @@ export interface Booking {
     flightFrom?: string;
     flightTo?: string;
     tripType?: 'one-way' | 'round-trip' | 'multi-city';
+    followUpDate?: string | null;
     segments?: {
         from: string;
         to: string;
