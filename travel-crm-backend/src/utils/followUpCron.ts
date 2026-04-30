@@ -51,6 +51,10 @@ export async function processFollowUpReminders(): Promise<void> {
                 isDismissed: false,
             });
 
+            // Log activity
+            const { logActivity } = await import('./activityLogger');
+            await logActivity(booking._id, null, 'FOLLOW_UP_REMINDER', `Automatic reminder sent for booking ${booking.uniqueCode}`);
+
             console.log(`[FollowUp Cron] Notified agent for booking ${booking.uniqueCode}`);
         }
     } catch (error) {

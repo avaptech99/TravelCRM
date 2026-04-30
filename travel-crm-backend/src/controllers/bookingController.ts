@@ -632,6 +632,14 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     await booking.save();
 
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    if (result.data.followUpDate !== undefined) {
+        await logActivity(id, req.user?.id, 'BOOKING_UPDATED', `Follow-up date set to ${result.data.followUpDate || 'none'}`);
+    } else {
+        await logActivity(id, req.user?.id, 'BOOKING_UPDATED', 'Booking details were modified.');
+    }
+
     // Recalculate outstanding if amount fields changed
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
         await recalcOutstanding(id);
@@ -701,8 +709,13 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     const { status } = result.data;
+    const oldStatus = existingBooking.status;
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
+    
+    // Log status change activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'STATUS_CHANGE', `Status updated from ${oldStatus} to ${status}`);
     
     // Notify Marketer if their lead status changed
     if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
