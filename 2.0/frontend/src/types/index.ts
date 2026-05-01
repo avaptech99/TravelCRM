@@ -126,9 +126,11 @@ export interface Booking {
     additionalServicesDetails?: string | null;
     duration?: string;
     amount?: number;
+    lumpSumAmount?: number;
     outstanding?: number;
     verified?: boolean;
     verifiedBy?: string;
+    contactName?: string;
 }
 
 export interface PaginatedResponse<T> {
