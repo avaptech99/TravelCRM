@@ -1058,7 +1058,7 @@ export const BookingDetails: React.FC = () => {
                                                         <div className="flex justify-between items-start mb-2">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-6 h-6 rounded-full bg-secondary/10 flex items-center justify-center text-[10px] font-bold text-secondary uppercase">
-                                                                    {item.createdBy?.name?.charAt(0)}
+                                                                    {item.createdBy?.name?.charAt(0) ?? '?'}
                                                                 </div>
                                                                 <span className="text-sm font-bold text-slate-800">{item.createdBy?.name}</span>
                                                             </div>

@@ -223,7 +223,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             id: 'createdBy',
             header: 'Created By',
         }),
-        columnHelper.accessor('contactPerson', {
+        columnHelper.accessor((row) => row.contactPerson || row.contactName || '-', {
+            id: 'contactPerson',
             header: 'Contact Person',
         }),
         columnHelper.accessor('contactNumber', {
@@ -429,10 +430,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         <div className="flex justify-between items-start">
                                             <div className="flex flex-1 items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 font-bold border border-slate-100">
-                                                    {booking.contactPerson?.charAt(0) || 'U'}
+                                                    {booking.contactPerson?.charAt(0) || booking.contactName?.charAt(0) || '?'}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-slate-900 leading-tight">{booking.contactPerson || 'Unknown'}</h3>
+                                                    <h3 className="font-bold text-slate-900 leading-tight">{booking.contactPerson || booking.contactName || 'Unknown'}</h3>
                                                     <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500">
                                                         <span>{booking.contactNumber || 'No Phone'}</span>
                                                     </div>
@@ -472,7 +473,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         <div className="flex items-center justify-between pt-1">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
-                                                    {(booking.assignedToUser?.name || 'U').charAt(0).toUpperCase()}
+                                                    {booking.assignedToUser?.name?.charAt(0) ?? '?'}
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Assignee</span>

@@ -270,7 +270,7 @@ export const Dashboard: React.FC = () => {
                                 {recentBookings?.map((booking: any) => (
                                     <tr key={booking.id || booking._id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
-                                            {booking.contactPerson}
+                                            {booking.contactPerson || booking.contactName || 'Unknown'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
@@ -304,10 +304,10 @@ export const Dashboard: React.FC = () => {
                                 <div className="flex justify-between items-start pr-20">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center font-bold text-lg border border-slate-100">
-                                            {(booking.contactPerson || 'U').charAt(0).toUpperCase()}
+                                            {booking.contactPerson?.charAt(0) || booking.contactName?.charAt(0) || '?'}
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-semibold text-slate-800 leading-tight">{booking.contactPerson || 'Unknown Contact'}</h3>
+                                            <h3 className="text-sm font-semibold text-slate-800 leading-tight">{booking.contactPerson || booking.contactName || 'Unknown Contact'}</h3>
                                             <p className="text-xs font-medium text-slate-500 mt-0.5">
                                                 Assigned: {booking.assignedToUser?.name?.split(' ')[0] || 'Unassigned'}
                                             </p>

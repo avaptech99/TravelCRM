@@ -250,7 +250,7 @@ export const Users: React.FC = () => {
                                                 }}
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-primary font-bold border border-slate-100 shadow-sm">
-                                                    {(user.name || 'U').charAt(0).toUpperCase()}
+                                                    {user.name?.charAt(0) ?? '?'}
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">

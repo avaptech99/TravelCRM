@@ -227,7 +227,7 @@ export const Topbar: React.FC = () => {
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                         className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors focus:outline-none"
                     >
-                        <span className="font-bold text-xs uppercase">{user?.name?.charAt(0) || 'U'}</span>
+                        <span className="font-bold text-xs uppercase">{user?.name?.charAt(0) ?? '?'}</span>
                     </button>
 
                     {isProfileOpen && (
