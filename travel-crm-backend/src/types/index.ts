@@ -117,6 +117,11 @@ export const passengerSchema = z.object({
 
 export const createPassengersSchema = z.array(passengerSchema);
 
+export const bulkAssignSchema = z.object({
+    bookingIds: z.array(z.string()),
+    assignedToUserId: z.string().nullable().optional(),
+});
+
 export const createPaymentSchema = z.object({
     amount: z.number().positive(),
     paymentMethod: z.string().min(1),

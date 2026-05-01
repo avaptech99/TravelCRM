@@ -20,6 +20,7 @@ import {
     createCommentSchema,
     createPassengersSchema,
     updateBookingSchema,
+    bulkAssignSchema,
     createPaymentSchema,
 } from '../types';
 import { extractTravelInfo } from '../utils/extractTravelInfo';
@@ -921,8 +922,14 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 // @route   POST /api/bookings/bulk-assign
 // @access  Private (Admin only)
 export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
-    // Schema check temporarily removed as bulkAssignSchema is not in types
-    const { bookingIds, assignedToUserId } = req.body;
+    const result = bulkAssignSchema.safeParse(req.body);
+
+    if (!result.success) {
+        res.status(400);
+        throw new Error('Invalid input data');
+    }
+
+    const { bookingIds, assignedToUserId } = result.data;
 
     if (assignedToUserId) {
         const agent = await User.findById(assignedToUserId);
@@ -1247,6 +1254,56 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     await recalcOutstanding(id);
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
+});
+
+// @desc    Verify a booking (Account/Admin only)
+// @route   PATCH /api/bookings/:id/verify
+// @access  Private (canVerifyBookings or ADMIN)
+export const verifyBooking = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (booking.status !== 'Booked') {
+        res.status(400);
+        throw new Error('Only booked queries can be verified');
+    }
+
+    booking.verified = true;
+    booking.verifiedBy = new mongoose.Types.ObjectId(req.user!.id);
+    await booking.save();
+
+    invalidateBookingCaches();
+    res.json({ message: 'Booking verified successfully', verified: true, verifiedBy: req.user!.id });
+});
+
+// @desc    Unverify a booking (Admin only)
+// @route   DELETE /api/bookings/:id/verify
+// @access  Private (ADMIN only)
+export const unverifyBooking = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Only administrators can unverify bookings');
+    }
+
+    booking.verified = false;
+    booking.verifiedBy = null;
+    await booking.save();
+
+    invalidateBookingCaches();
+    res.json({ message: 'Booking unverified successfully', verified: false });
 });
 
 // @desc    Get calendar bookings for a given month
