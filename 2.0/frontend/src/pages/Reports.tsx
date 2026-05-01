@@ -57,7 +57,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading 
         {loading ? (
             <div className="h-10 w-32 bg-slate-100 animate-pulse rounded-lg"></div>
         ) : (
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{value}</div>
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight overflow-hidden text-ellipsis whitespace-nowrap" title={value.toString()}>{value}</div>
         )}
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-2">{title}</div>
     </div>
@@ -187,7 +187,7 @@ export const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 px-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
                 <StatCard 
                     title="Revenue Collected" 
                     value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
@@ -209,12 +209,6 @@ export const Reports: React.FC = () => {
                 <StatCard 
                     title="Booked" 
                     value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
-                    icon={<Users size={20} />} 
-                    loading={isBookingsLoading}
-                />
-                <StatCard 
-                    title="Unique Leads" 
-                    value={bookingStats?.uniqueLeads?.[0]?.count || 0} 
                     icon={<Users size={20} />} 
                     loading={isBookingsLoading}
                 />
