@@ -9,8 +9,8 @@
 const { MongoClient } = require('mongodb');
 
 // Set this to the production URI before running!
-const MONGO_URI = "mongodb+srv://Harman:z7Vi5vkJ71FsjIbi@project-o.31xmkrx.mongodb.net/?appName=project-o";
-const DB_NAME = "test";
+const MONGO_URI = "mongodb+srv://ca_db_user:PASSWORD@travelcrm.wxmise3.mongodb.net/travelCRM";
+const DB_NAME = "travelCRM";
 
 async function migrate() {
     console.log('Connecting to MongoDB...');
