@@ -16,8 +16,8 @@ export const Sidebar: React.FC = () => {
         { label: 'Unassigned Leads', path: '/unassigned-bookings', icon: <Users size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canAssignLeads },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.leadVisibility === 'all' || user?.permissions?.featureAccess?.operation },
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, show: () => true },
-        { label: 'Users', path: '/users', icon: <Users size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canManageUsers },
-        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, show: () => user?.role === 'ADMIN' || user?.permissions?.canViewReports },
+        { label: 'Users', path: '/users', icon: <Users size={20} />, show: () => user?.role === 'ADMIN' },
+        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, show: () => user?.role === 'ADMIN' },
         { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, show: () => true },
     ];
 

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
-import PrimaryContact from '../models/PrimaryContact';
+import Contact from '../models/Contact';
+import Segment from '../models/Segment';
 import User from '../models/User';
 import appCache from '../utils/cache';
 
@@ -32,7 +33,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     }
 
     // Helper: Parse European date (DD/MM/YYYY)
-    const parseDate = (dateStr: any): Date | null => {
+    const parseDate = (dateStr: any): string | null => {
         if (!dateStr || typeof dateStr !== 'string') return null;
         const trimmed = dateStr.trim();
         let parsed: Date | null = null;
@@ -51,12 +52,9 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         } else {
             parsed = new Date(trimmed);
         }
-        return (parsed && !isNaN(parsed.getTime())) ? parsed : null;
+        return (parsed && !isNaN(parsed.getTime())) ? parsed.toISOString() : null;
     };
 
-    // ============================================================
-    // NEW: Handle raw_fields from simplified WordPress v4.0 script
-    // ============================================================
     const rawFields: Array<{key: string; label: string; value: any}> = req.body.raw_fields || [];
 
     let contactPerson = '';
@@ -72,31 +70,20 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     let infants = 0;
     let travelClass = 'Economy';
 
-    // Additional legs from repeater fields
     const additionalLegs: Array<{from: string; to: string; date: string}> = [];
 
     if (rawFields.length > 0) {
-        // ---- PARSE RAW FIELDS ----
         for (const field of rawFields) {
             const label = (field.label || '').trim();
             const lLow = label.toLowerCase();
             const val = field.value;
 
-            // Skip empty, submit buttons, internal IDs
             if (!val) continue;
             if (typeof val === 'string' && lLow.includes('submit')) continue;
 
-            // ---- REPEATER / ADD CITY DATA ----
-            // Ninja Forms sends repeater data as a FLAT OBJECT like:
-            // { "37.1_0": {"value":"tronto","id":"..."}, "37.2_0": {"value":"Dubai","id":"..."}, "37.3_0": {"value":"30/03/2026","id":"..."}, 
-            //   "37.1_1": {"value":"dubai","id":"..."}, "37.2_1": {"value":"Singapore","id":"..."}, "37.3_1": {"value":"31/03/2026","id":"..."} }
-            // Pattern: X.Y_Z  where Y=field position (1=from, 2=to, 3=date), Z=row index
             if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-                // Group entries by row index (the _Z suffix)
                 const rows: Record<string, Array<{pos: string; value: string}>> = {};
-                
                 for (const [k, v] of Object.entries(val)) {
-                    // Extract the value string from {value: "...", id: "..."}
                     let extractedVal = '';
                     if (typeof v === 'object' && v !== null && 'value' in v) {
                         extractedVal = String((v as any).value).trim();
@@ -105,21 +92,18 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
                     }
                     if (!extractedVal) continue;
                     
-                    // Parse key like "37.1_0" -> pos="37.1", rowIdx="0"
                     const match = k.match(/^(\d+\.\d+)_(\d+)$/);
                     if (match) {
-                        const pos = match[1];  // e.g. "37.1"
-                        const rowIdx = match[2]; // e.g. "0"
+                        const pos = match[1]; 
+                        const rowIdx = match[2]; 
                         if (!rows[rowIdx]) rows[rowIdx] = [];
                         rows[rowIdx].push({ pos, value: extractedVal });
                     }
                 }
 
-                // Sort rows by index and extract From, To, Date for each
                 const sortedRowKeys = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
                 for (const rowIdx of sortedRowKeys) {
                     const rowFields = rows[rowIdx].sort((a, b) => a.pos.localeCompare(b.pos));
-                    // Fields come in order: .1 = From, .2 = To, .3 = Date
                     if (rowFields.length >= 2) {
                         additionalLegs.push({
                             from: rowFields[0]?.value || '',
@@ -131,7 +115,6 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
                 continue;
             }
 
-            // Also handle if it comes as an actual array (safety fallback)
             if (Array.isArray(val)) {
                 for (const row of val) {
                     if (typeof row === 'object' && row !== null) {
@@ -148,7 +131,6 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
                 continue;
             }
 
-            // ---- STANDARD SINGLE FIELDS ----
             const strVal = String(val).trim();
             if (!strVal) continue;
 
@@ -166,7 +148,6 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
             else if (lLow.includes('name') && !lLow.includes('user')) { contactPerson = strVal; }
         }
     } else {
-        // Legacy: direct key-value payload (old WordPress scripts)
         contactPerson = req.body.contactPerson || '';
         contactNumber = req.body.contactNumber || '';
         contactEmail = req.body.contactEmail || '';
@@ -179,11 +160,6 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         children = Number(req.body.children) || 0;
         infants = Number(req.body.infants) || 0;
         travelClass = req.body.class || 'Economy';
-
-        // Check for pre-formatted detailedRequirements
-        if (req.body.detailedRequirements) {
-            // Use it as-is (legacy path)
-        }
     }
 
     if (!contactNumber) {
@@ -191,17 +167,13 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         throw new Error('Contact number is required');
     }
 
-    // Extract name from email if contactPerson not provided
     let finalName = contactPerson || 'Website Lead';
     if ((!contactPerson || contactPerson === 'Website Lead') && contactEmail) {
         const emailPart = contactEmail.split('@')[0];
         finalName = emailPart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     }
 
-    // Calculate total travellers
     const totalTravellers = (adults || 0) + (children || 0) + (infants || 0);
-
-    // Normalize trip type
     const normalizedTripType = (tripType || '').toLowerCase().replace(/[^a-z]/g, '');
     let finalTripType: 'one-way' | 'round-trip' | 'multi-city' = 'one-way';
     if (normalizedTripType.includes('round')) {
@@ -210,13 +182,6 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         finalTripType = 'multi-city';
     }
 
-    // ============================================================
-    // BUILD DETAILED REQUIREMENTS IN THE EXACT FORMAT REQUESTED
-    // Format differs by trip type:
-    //   One-Way:    No leg prefix, no return
-    //   Round-Trip: Departure + "Return" block
-    //   Multi-City: Leg-1, Leg-2, Leg-3...
-    // ============================================================
     let detailedRequirements = req.body.detailedRequirements || '';
 
     if (!detailedRequirements) {
@@ -227,20 +192,15 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         log += `Trip Type: ${tripLabel}\n\n`;
 
         if (finalTripType === 'one-way') {
-            // ONE-WAY FORMAT (no leg prefix)
             log += `flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
             log += `Travel Date: ${travelDate}\n\n`;
-
         } else if (finalTripType === 'round-trip') {
-            // ROUND-TRIP FORMAT (departure + return block)
             log += `flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
             log += `Travel Date: ${travelDate}\n\n`;
             log += `Return\n`;
             log += `Flight from: ${flightTo} --> Flight to: ${flightFrom}\n`;
             log += `Travel Date : ${returnDate}\n\n`;
-
         } else {
-            // MULTI-CITY FORMAT (Leg-1, Leg-2, Leg-3...)
             log += `Leg-1 flight from: ${flightFrom}  -->  Flight to: ${flightTo}\n`;
             log += `Travel Date: ${travelDate}\n\n`;
 
@@ -258,28 +218,14 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         detailedRequirements = log;
     }
 
-    // Build segments array for database
-    const segments: any[] = [];
-    
-    // Leg 1
+    const segmentsData: any[] = [];
     if (flightFrom || flightTo) {
-        segments.push({
-            from: flightFrom || '',
-            to: flightTo || '',
-            date: parseDate(travelDate)
-        });
+        segmentsData.push({ from: flightFrom || '', to: flightTo || '', date: parseDate(travelDate) });
     }
-
-    // Additional legs
     for (const leg of additionalLegs) {
-        segments.push({
-            from: leg.from || '',
-            to: leg.to || '',
-            date: parseDate(leg.date)
-        });
+        segmentsData.push({ from: leg.from || '', to: leg.to || '', date: parseDate(leg.date) });
     }
 
-    // Also check legacy keys (flightFrom_2, flightFrom_3, etc.)
     const bodyKeys = Object.keys(req.body);
     for (let n = 2; n <= 10; n++) {
         const fk = bodyKeys.find(k => k === `flightFrom_${n}`);
@@ -288,39 +234,45 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
             const legFrom = req.body[fk || ''] || '';
             const legTo = req.body[tk || ''] || '';
             const legDate = req.body[`travelDate_${n}`] || '';
-            const isDup = segments.some(s => s.from === legFrom && s.to === legTo);
+            const isDup = segmentsData.some(s => s.from === legFrom && s.to === legTo);
             if (!isDup && (legFrom || legTo)) {
-                segments.push({ from: legFrom, to: legTo, date: parseDate(legDate) });
+                segmentsData.push({ from: legFrom, to: legTo, date: parseDate(legDate) });
             }
         }
     }
 
-    // Get "Website Lead" system user
     const websiteLeadUser = await getWebsiteLeadUser();
 
-    // 1. Create PrimaryContact
-    const primaryContact = await PrimaryContact.create({
+    // 1. Create Contact
+    const contact = await Contact.create({
         contactName: finalName,
         contactPhoneNo: contactNumber,
         contactEmail: contactEmail || null,
         bookingType: 'Direct (B2C)',
         requirements: detailedRequirements.trim() || null,
+        status: 'Pending',
+        assignedToUserId: null,
     });
 
     // 2. Create Booking
     const booking = await Booking.create({
-        destination: flightTo || (segments.length > 0 ? segments[segments.length - 1].to : null),
-        travelDate: parseDate(travelDate) || (segments.length > 0 ? segments[0].date : null),
-        returnDate: parseDate(returnDate),
-        flightFrom: flightFrom || (segments.length > 0 ? segments[0].from : null),
-        flightTo: flightTo || (segments.length > 0 ? segments[0].to : null),
+        contactId: contact._id,
         tripType: finalTripType,
-        segments,
-        travellers: totalTravellers || null,
-        primaryContactId: primaryContact._id,
         createdByUserId: websiteLeadUser._id,
         assignedToUserId: null,
     });
+
+    // 3. Create Segments
+    if (segmentsData.length > 0) {
+        const segmentDocs = segmentsData.map((s, idx) => ({
+            bookingId: booking._id,
+            legNumber: idx + 1,
+            flightFrom: s.from,
+            flightTo: s.to,
+            departureTime: s.date
+        }));
+        await Segment.insertMany(segmentDocs);
+    }
 
     // Invalidate caches
     appCache.invalidateByPrefix('bookings_');

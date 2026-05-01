@@ -24,27 +24,27 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
     const stats = await Booking.aggregate([
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'contacts',
+                localField: 'contactId',
+                foreignField: '_id',
+                as: 'contact'
+            }
+        },
+        { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
+        {
             $facet: {
                 byStatus: [
-                    { $group: { _id: '$status', count: { $sum: 1 } } }
+                    { $group: { _id: '$contact.status', count: { $sum: 1 } } }
                 ],
                 byType: [
                     { $group: { _id: '$tripType', count: { $sum: 1 } } }
                 ],
                 byInterest: [
-                    {
-                        $lookup: {
-                            from: 'primarycontacts',
-                            localField: 'primaryContactId',
-                            foreignField: '_id',
-                            as: 'contact'
-                        }
-                    },
-                    { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
                     { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
                 ],
                 uniqueLeads: [
-                    { $group: { _id: '$primaryContactId' } },
+                    { $group: { _id: '$contactId' } },
                     { $count: 'count' }
                 ]
             }
@@ -112,16 +112,38 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         {
             $group: {
                 _id: null,
-                totalExpected: { $sum: '$amount' }
+                totalExpected: { $sum: '$lumpSumAmount' },
+                count: { $sum: 1 }
             }
         }
     ]);
+
+    // Aggregate Costs for Margins (Step 3: Query costs collection)
+    const bookingIds = await Booking.find(bookingMatch).distinct('_id');
+    
+    const costStats = await mongoose.model('Cost').aggregate([
+        { $match: { bookingId: { $in: bookingIds } } },
+        {
+            $group: {
+                _id: '$costKind',
+                total: { $sum: '$price' }
+            }
+        }
+    ]);
+
+    const estimatedCosts = costStats.find(c => c._id === 'estimated')?.total || 0;
+    const actualCosts = costStats.find(c => c._id === 'actual')?.total || 0;
 
     res.json({
         totalCollected: paymentStats[0]?.totalCollected || 0,
         totalExpected: bookingStats[0]?.totalExpected || 0,
         balance: (bookingStats[0]?.totalExpected || 0) - (paymentStats[0]?.totalCollected || 0),
-        paymentCount: paymentStats[0]?.count || 0
+        paymentCount: paymentStats[0]?.count || 0,
+        bookingCount: bookingStats[0]?.count || 0,
+        estimatedCosts,
+        actualCosts,
+        estimatedMargin: (bookingStats[0]?.totalExpected || 0) - estimatedCosts,
+        netMargin: (bookingStats[0]?.totalExpected || 0) - actualCosts
     });
 });
 
@@ -184,6 +206,15 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
         { $match: matchQuery },
         {
             $lookup: {
+                from: 'contacts',
+                localField: 'contactId',
+                foreignField: '_id',
+                as: 'contact'
+            }
+        },
+        { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
                 from: 'users',
                 localField: 'assignedToUserId',
                 foreignField: '_id',
@@ -205,8 +236,8 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
                 _id: { $ifNull: ['$assignedToUserId', 'unassigned'] }, // Group all nulls together
                 agentName: { $first: { $ifNull: ['$agentDetails.name', 'Unassigned'] } },
                 totalBookings: { $sum: 1 },
-                convertedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-                totalRevenue: { $sum: '$amount' }
+                convertedBookings: { $sum: { $cond: [{ $eq: ['$contact.status', 'Booked'] }, 1, 0] } },
+                totalRevenue: { $sum: '$lumpSumAmount' }
             }
         },
         {
@@ -237,7 +268,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
 export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Response) => {
     const { fromDate, toDate, companyName } = req.query;
 
-    const bookingMatch: any = { status: 'Booked' };
+    const bookingMatch: any = {};
     if (fromDate || toDate) {
         bookingMatch.createdAt = {};
         if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
@@ -247,12 +278,14 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         bookingMatch.companyName = { $regex: new RegExp(companyName as string, 'i') };
     }
 
-    // Get all booked bookings with their payments and contact info
-    const bookings = await Booking.find(bookingMatch)
-        .populate('primaryContact', 'contactName contactPhoneNo')
+    // Get all bookings, populate contact to filter by status
+    const allBookings = await Booking.find(bookingMatch)
+        .populate('contactId', 'contactName contactPhoneNo status')
         .populate('payments')
         .sort({ createdAt: -1 })
         .lean();
+    
+    const bookings = allBookings.filter(b => (b as any).contactId?.status === 'Booked');
 
     const pending: any[] = [];
     const received: any[] = [];
@@ -262,14 +295,14 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     for (const b of bookings) {
         const payments = (b as any).payments || [];
         const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-        const bookingTotal = b.totalAmount || b.amount || 0;
+        const bookingTotal = (b as any).lumpSumAmount || 0;
         const outstanding = Math.max(bookingTotal - totalPaid, 0);
 
         const bookingInfo = {
             bookingId: b._id,
             uniqueCode: b.uniqueCode,
-            contactPerson: (b as any).primaryContact?.contactName || 'N/A',
-            contactNumber: (b as any).primaryContact?.contactPhoneNo || '',
+            contactPerson: (b as any).contactId?.contactName || 'N/A',
+            contactNumber: (b as any).contactId?.contactPhoneNo || '',
             companyName: b.companyName || '',
             totalAmount: bookingTotal,
             totalPaid,
@@ -287,7 +320,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
             received.push({
                 bookingId: b._id,
                 uniqueCode: b.uniqueCode,
-                contactPerson: (b as any).primaryContact?.contactName || 'N/A',
+                contactPerson: (b as any).contactId?.contactName || 'N/A',
                 companyName: b.companyName || '',
                 amount: p.amount,
                 paymentMethod: p.paymentMethod,
@@ -320,8 +353,8 @@ export const getQueryGrouping = asyncHandler(async (req: Request, res: Response)
         { $match: matchQuery },
         {
             $lookup: {
-                from: 'primarycontacts',
-                localField: 'primaryContactId',
+                from: 'contacts',
+                localField: 'contactId',
                 foreignField: '_id',
                 as: 'contact'
             }
@@ -335,10 +368,10 @@ export const getQueryGrouping = asyncHandler(async (req: Request, res: Response)
                     $push: {
                         _id: '$_id',
                         uniqueCode: '$uniqueCode',
-                        status: '$status',
+                        status: '$contact.status',
                         createdAt: '$createdAt',
                         destination: '$destination',
-                        amount: '$amount'
+                        amount: '$lumpSumAmount'
                     }
                 },
                 count: { $sum: 1 }

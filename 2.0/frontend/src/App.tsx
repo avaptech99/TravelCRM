@@ -60,8 +60,10 @@ function App() {
 
                   <Route path="/bookings/:id/travelers" element={<BookingTravelers />} />
                   <Route path="/booked" element={<BookedEDT />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/users" element={<Users />} />
+                  <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/users" element={<Users />} />
+                  </Route>
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

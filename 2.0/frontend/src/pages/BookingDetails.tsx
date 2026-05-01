@@ -590,18 +590,24 @@ export const BookingDetails: React.FC = () => {
                     </div>
 
                     {/* Payments Section */}
-                    {booking.status === 'Booked' && (
+                    {(booking.status === 'Booked' || (booking.payments && booking.payments.length > 0)) && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
                                 <span className="flex items-center gap-1.5">
                                     <CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})
                                     {(() => {
-                                        const totalAmount = booking.totalAmount || booking.amount || 0;
+                                        const totalAmount = booking.lumpSumAmount || booking.totalAmount || booking.amount || 0;
                                         const totalPaid = booking.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
                                         const outstanding = totalAmount - totalPaid;
                                         return (
-                                            <span className="ml-4 px-2.5 py-1 bg-red-50 text-red-600 text-sm font-medium rounded-md border border-red-100">
-                                                Outstanding: {outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            <span className={`ml-4 px-2.5 py-1 text-[11px] font-bold uppercase tracking-tight rounded-lg border shadow-sm ${
+                                                outstanding > 0 
+                                                    ? 'bg-red-50 text-red-600 border-red-100/50' 
+                                                    : outstanding < 0 
+                                                        ? 'bg-purple-50 text-purple-600 border-purple-100/50'
+                                                        : 'bg-blue-50 text-blue-600 border-blue-100/50'
+                                            }`}>
+                                                Outstanding: ₹{outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         );
                                     })()}

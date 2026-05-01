@@ -20,9 +20,9 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ booking, isOpe
     const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [paymentRemarks, setPaymentRemarks] = useState<string>('');
 
-    // If totalAmount is not present but pricePerTicket is, derive totalPayment as fallback
-    let totalPayment = booking.totalAmount || 0;
-    if (!booking.totalAmount && booking.pricePerTicket) {
+    // Priority: lumpSumAmount (CRM 2.0) > totalAmount > derived from pricePerTicket
+    let totalPayment = booking.lumpSumAmount || booking.totalAmount || 0;
+    if (!totalPayment && booking.pricePerTicket) {
         const passengerCount = booking.travelers ? booking.travelers.length : 1;
         totalPayment = booking.pricePerTicket * passengerCount;
     }

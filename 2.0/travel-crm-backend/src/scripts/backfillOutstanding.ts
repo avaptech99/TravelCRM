@@ -33,7 +33,7 @@ async function backfillOutstanding() {
     for (const booking of bookings) {
         const payments = await Payment.find({ bookingId: booking._id }).lean();
         const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-        const bookingTotal = booking.totalAmount || booking.amount || 0;
+        const bookingTotal = (booking as any).lumpSumAmount || 0;
         const outstanding = Math.max(bookingTotal - totalPaid, 0);
 
         await Booking.updateOne(

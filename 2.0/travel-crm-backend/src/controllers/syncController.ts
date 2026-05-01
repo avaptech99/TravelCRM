@@ -38,24 +38,33 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         Booking.aggregate([
             { $match: statsQuery },
             {
+                $lookup: {
+                    from: 'contacts',
+                    localField: 'contactId',
+                    foreignField: '_id',
+                    as: 'contact'
+                }
+            },
+            { $unwind: { path: '$contact', preserveNullAndEmptyArrays: true } },
+            {
                 $group: {
                     _id: null,
                     total: { $sum: 1 },
-                    booked: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-                    pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                    working: { $sum: { $cond: [{ $eq: ['$status', 'Working'] }, 1, 0] } },
-                    sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
+                    booked: { $sum: { $cond: [{ $eq: ['$contact.status', 'Booked'] }, 1, 0] } },
+                    pending: { $sum: { $cond: [{ $eq: ['$contact.status', 'Pending'] }, 1, 0] } },
+                    working: { $sum: { $cond: [{ $eq: ['$contact.status', 'Working'] }, 1, 0] } },
+                    sent: { $sum: { $cond: [{ $eq: ['$contact.status', 'Sent'] }, 1, 0] } },
                 }
             }
         ]),
 
         // 2. Recent bookings (latest 5)
         Booking.find(recentQuery)
-            .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt travellers')
+            .select('uniqueCode contactId assignedToUserId destination amount createdAt travellers companyName includesFlight tripType lumpSumAmount')
             .sort({ createdAt: -1 })
             .limit(5)
             .populate('assignedToUser', 'name')
-            .populate('primaryContact', 'contactName contactPhoneNo bookingType')
+            .populate('contactId', 'contactName contactPhoneNo bookingType status')
             .lean(),
 
         // 3. Notifications (latest 20)
@@ -78,15 +87,30 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         sent: statsResult[0].sent,
     } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-    const mappedBookings = recentBookings.map(b => ({
-        ...b,
-        id: b._id.toString(),
-        contactPerson: (b as any).primaryContact?.contactName,
-        contactNumber: (b as any).primaryContact?.contactPhoneNo,
-        bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: b.destination,
-        travellers: b.travellers,
-    }));
+    // Fetch segments for recent bookings to get flightFrom, flightTo, travelDate
+    const { default: Segment } = await import('../models/Segment');
+    const recentBookingIds = recentBookings.map(b => b._id.toString());
+    const segments = await Segment.find({ bookingId: { $in: recentBookingIds } }).lean();
+
+    const mappedBookings = recentBookings.map(b => {
+        const firstSegment = segments.find(s => s.bookingId.toString() === b._id.toString() && s.legNumber === 1);
+        const lastSegment = segments.find(s => s.bookingId.toString() === b._id.toString()); // Just pick any for 'to' if multiple
+
+        return {
+            ...b,
+            id: b._id.toString(),
+            contactPerson: (b as any).contactId?.contactName,
+            contactNumber: (b as any).contactId?.contactPhoneNo,
+            bookingType: (b as any).contactId?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            status: (b as any).contactId?.status || 'Pending',
+            destinationCity: lastSegment?.flightTo || '',
+            flightFrom: firstSegment?.flightFrom || '',
+            flightTo: lastSegment?.flightTo || '',
+            travelDate: firstSegment?.departureTime || null,
+            travellers: 0,
+            amount: (b as any).lumpSumAmount || 0,
+        };
+    });
 
     const mappedNotifications = notifications.map(n => ({
         ...n,
