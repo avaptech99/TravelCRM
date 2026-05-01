@@ -120,6 +120,7 @@ export const Reports: React.FC = () => {
 
     const [showPending, setShowPending] = useState(false);
     const [showReceived, setShowReceived] = useState(false);
+    const [isMetricsOpen, setIsMetricsOpen] = useState(true);
 
     const statusData = bookingStats?.byStatus?.map((s: any) => ({ name: s._id, value: s.count })) || [];
     const interestData = bookingStats?.byInterest?.map((s: any) => ({ 
@@ -214,181 +215,204 @@ export const Reports: React.FC = () => {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
-                {/* Revenue Growth Trend */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
-                        <TrendingUp size={16} className="text-primary" />
-                        Monthly Revenue Trend
-                    </h3>
-                    <div className="flex-1 w-full h-[300px]">
-                        {isTrendsLoading ? (
-                            <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                                <AreaChart data={revenueTrends}>
-                                    <defs>
-                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
-                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                                        itemStyle={{ fontWeight: 600, fontSize: '12px' }}
-                                        formatter={(value: any) => [`₹${value.toLocaleString()}`, 'Revenue']}
-                                    />
-                                    <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        )}
+            {/* Collapsible Performance Metrics */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <button 
+                    onClick={() => setIsMetricsOpen(!isMetricsOpen)}
+                    className="w-full flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <TrendingUp size={18} />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-sm font-bold text-slate-800">Detailed Performance Metrics</h3>
+                            <p className="text-xs text-slate-500">Visual breakdown of revenue, agents, and conversion status</p>
+                        </div>
                     </div>
-                </div>
+                    {isMetricsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                </button>
+                
+                {isMetricsOpen && (
+                    <div className="p-8 border-t border-slate-100 bg-slate-50/30 space-y-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Revenue Growth Trend */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+                                    <TrendingUp size={16} className="text-primary" />
+                                    Monthly Revenue Trend
+                                </h3>
+                                <div className="flex-1 w-full h-[300px]">
+                                    {isTrendsLoading ? (
+                                        <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                                            <AreaChart data={revenueTrends}>
+                                                <defs>
+                                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
+                                                <Tooltip 
+                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                                                    itemStyle={{ fontWeight: 600, fontSize: '12px' }}
+                                                    formatter={(value: any) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                                                />
+                                                <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
+                            </div>
 
-                {/* Agent Performance */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
-                        <Users size={16} className="text-primary" />
-                        Top Agents by Revenue
-                    </h3>
-                    <div className="flex-1 w-full h-[300px]">
-                        {isAgentsLoading ? (
-                            <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                                <BarChart 
-                                    data={agentStats?.slice(0, 5)} 
-                                    layout="vertical" 
-                                    margin={{ left: 20, right: 40 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                                    <XAxis type="number" hide />
-                                    <YAxis 
-                                        dataKey="agentName" 
-                                        type="category" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{fontSize: 11, fontWeight: 600, fill: '#334155'}} 
-                                        width={100} 
-                                    />
-                                    <Tooltip 
-                                        cursor={{fill: '#f8fafc'}}
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                                        formatter={(value: any, name: any, props: any) => {
-                                            if (name === 'totalRevenue') {
-                                                return [
-                                                    <div key="custom-tooltip">
-                                                        <div className="text-slate-900 font-bold mb-1">₹{value.toLocaleString()}</div>
-                                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
-                                                            {props.payload.convertedBookings} Booked Queries
+                            {/* Agent Performance */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+                                    <Users size={16} className="text-primary" />
+                                    Top Agents by Revenue
+                                </h3>
+                                <div className="flex-1 w-full h-[300px]">
+                                    {isAgentsLoading ? (
+                                        <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                                            <BarChart 
+                                                data={agentStats?.slice(0, 5)} 
+                                                layout="vertical" 
+                                                margin={{ left: 20, right: 40 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                                <XAxis type="number" hide />
+                                                <YAxis 
+                                                    dataKey="agentName" 
+                                                    type="category" 
+                                                    axisLine={false} 
+                                                    tickLine={false} 
+                                                    tick={{fontSize: 11, fontWeight: 600, fill: '#334155'}} 
+                                                    width={100} 
+                                                />
+                                                <Tooltip 
+                                                    cursor={{fill: '#f8fafc'}}
+                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                                                    formatter={(value: any, name: any, props: any) => {
+                                                        if (name === 'totalRevenue') {
+                                                            return [
+                                                                <div key="custom-tooltip">
+                                                                    <div className="text-slate-900 font-bold mb-1">₹{value.toLocaleString()}</div>
+                                                                    <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
+                                                                        {props.payload.convertedBookings} Booked Queries
+                                                                    </div>
+                                                                </div>,
+                                                                'Revenue'
+                                                            ];
+                                                        }
+                                                        return [value, name];
+                                                    }}
+                                                />
+                                                <Bar dataKey="totalRevenue" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24}>
+                                                    <LabelList 
+                                                        dataKey="convertedBookings" 
+                                                        position="right" 
+                                                        style={{ fill: '#64748b', fontSize: '10px', fontWeight: 'bold' }}
+                                                        formatter={(value: any) => `${value} Booked`}
+                                                    />
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {/* Booking Status Distribution */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Booking Pipeline Status</h3>
+                                <div className="flex-1 w-full h-[250px]">
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                        <PieChart>
+                                            <Pie
+                                                data={statusData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={70}
+                                                outerRadius={95}
+                                                paddingAngle={8}
+                                                dataKey="value"
+                                            >
+                                                {statusData.map((entry: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} stroke="none" />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Interest Level */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Lead Interest Conversion</h3>
+                                <div className="flex-1 w-full h-[250px]">
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                        <PieChart>
+                                            <Pie
+                                                data={interestData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={70}
+                                                outerRadius={95}
+                                                paddingAngle={8}
+                                                dataKey="value"
+                                            >
+                                                {interestData.map((entry: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={getInterestColor(entry.name)} stroke="none" />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Agent Efficiency Table */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:col-span-1 min-h-[400px] shrink-0">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Conversion Efficiency</h3>
+                                <div className="overflow-y-auto flex-1 h-[250px] pr-2 custom-scrollbar">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-white z-10">
+                                            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                                <th className="text-left pb-4">Agent Name</th>
+                                                <th className="text-right pb-4">Conv. Rate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {agentStats?.map((agent: any) => (
+                                                <tr key={agent._id} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="py-4 font-semibold text-slate-700">{agent.agentName}</td>
+                                                    <td className="py-4 text-right">
+                                                        <div className="flex items-center justify-end gap-3 text-primary font-semibold">
+                                                            <span>{agent.conversionRate.toFixed(1)}%</span>
+                                                            <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                                                <div className="h-full bg-brand-gradient transition-all duration-1000" style={{ width: `${agent.conversionRate}%` }}></div>
+                                                            </div>
                                                         </div>
-                                                    </div>,
-                                                    'Revenue'
-                                                ];
-                                            }
-                                            return [value, name];
-                                        }}
-                                    />
-                                    <Bar dataKey="totalRevenue" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24}>
-                                        <LabelList 
-                                            dataKey="convertedBookings" 
-                                            position="right" 
-                                            style={{ fill: '#64748b', fontSize: '10px', fontWeight: 'bold' }}
-                                            formatter={(value: any) => `${value} Booked`}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
-                {/* Booking Status Distribution */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Booking Pipeline Status</h3>
-                    <div className="flex-1 w-full h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                            <PieChart>
-                                <Pie
-                                    data={statusData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={95}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                >
-                                    {statusData.map((entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} stroke="none" />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Interest Level */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Lead Interest Conversion</h3>
-                    <div className="flex-1 w-full h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                            <PieChart>
-                                <Pie
-                                    data={interestData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={95}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                >
-                                    {interestData.map((entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={getInterestColor(entry.name)} stroke="none" />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Agent Efficiency Table */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:col-span-1 min-h-[400px] shrink-0">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Conversion Efficiency</h3>
-                    <div className="overflow-y-auto flex-1 h-[250px] pr-2 custom-scrollbar">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-white z-10">
-                                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                    <th className="text-left pb-4">Agent Name</th>
-                                    <th className="text-right pb-4">Conv. Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {agentStats?.map((agent: any) => (
-                                    <tr key={agent._id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="py-4 font-semibold text-slate-700">{agent.agentName}</td>
-                                        <td className="py-4 text-right">
-                                            <div className="flex items-center justify-end gap-3 text-primary font-semibold">
-                                                <span>{agent.conversionRate.toFixed(1)}%</span>
-                                                <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                                    <div className="h-full bg-brand-gradient transition-all duration-1000" style={{ width: `${agent.conversionRate}%` }}></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* Payment Breakdown Section */}
