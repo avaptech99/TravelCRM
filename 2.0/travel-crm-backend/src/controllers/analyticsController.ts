@@ -41,7 +41,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                     { $group: { _id: '$tripType', count: { $sum: 1 } } }
                 ],
                 byInterest: [
-                    { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
+                    { $group: { _id: { $ifNull: ['$contact.interested', 'No'] }, count: { $sum: 1 } } }
                 ],
                 uniqueLeads: [
                     { $group: { _id: '$contactId' } },
