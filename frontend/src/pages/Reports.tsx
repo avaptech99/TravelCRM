@@ -17,21 +17,19 @@ import {
     Area,
     LabelList,
 } from 'recharts';
-import { 
-    Calendar, 
-    TrendingUp, 
-    Users, 
+import {
+    Users,
+    TrendingUp,
     DollarSign, 
     ArrowUpRight,
     ArrowDownRight,
     Loader2,
+    Calendar,
     ChevronUp,
     ChevronDown,
     Building
 } from 'lucide-react';
 import dayjs from 'dayjs';
-
-
 
 interface StatCardProps {
     title: string;
@@ -72,7 +70,7 @@ export const Reports: React.FC = () => {
     });
 
     const { data: bookingStats, isLoading: isBookingsLoading } = useQuery({
-        queryKey: ['analytics-bookings', dateRange],
+        queryKey: ['booking-analytics', dateRange],
         queryFn: async () => {
             const { data } = await api.get('/analytics/bookings', { params: dateRange });
             return data;
@@ -80,7 +78,7 @@ export const Reports: React.FC = () => {
     });
 
     const { data: paymentStats, isLoading: isPaymentsLoading } = useQuery({
-        queryKey: ['analytics-payments', dateRange],
+        queryKey: ['payment-analytics', dateRange],
         queryFn: async () => {
             const { data } = await api.get('/analytics/payments', { params: dateRange });
             return data;
@@ -103,56 +101,56 @@ export const Reports: React.FC = () => {
         },
     });
 
-    const statusData = bookingStats?.byStatus?.map((s: any) => ({ name: s._id, value: s.count })) || [];
-    const interestData = bookingStats?.byInterest?.map((s: any) => ({ 
-        name: s._id === 'Yes' ? 'Interested' : (s._id === 'No' ? 'Not Interested' : 'Unspecified'), 
-        value: s.count 
+    const statusData = bookingStats?.byStatus?.map((item: any) => ({
+        name: item._id,
+        value: item.count,
+    })) || [];
+
+    const interestData = bookingStats?.byInterest?.map((item: any) => ({ 
+        name: item._id === 'Yes' ? 'Interested' : (item._id === 'No' ? 'Not Interested' : 'Unspecified'), 
+        value: item.count 
     })) || [];
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'Booked': return '#10b981'; // Green
-            case 'Sent': return '#f59e0b';   // Yellow
-            case 'Working': return '#8b5cf6'; // Purple
-            case 'Pending': return '#6366f1'; // Blue
-            case 'Follow Up': return '#5d4037'; // Chocolate Brown
-            default: return '#94a3b8';        // Slate
+            case 'Booked': return '#10b981';
+            case 'Sent': return '#f59e0b';
+            case 'Working': return '#8b5cf6';
+            case 'Pending': return '#6366f1';
+            case 'Follow Up': return '#5d4037';
+            default: return '#94a3b8';
         }
     };
 
     const getInterestColor = (interest: string) => {
         switch (interest) {
-            case 'Interested': return '#f59e0b';     // Yellow
-            case 'Not Interested': return '#ef4444'; // Red
-            default: return '#94a3b8';               // Slate
+            case 'Interested': return '#f59e0b';
+            case 'Not Interested': return '#ef4444';
+            default: return '#94a3b8';
         }
     };
 
     return (
-        <div className="space-y-8 pb-12">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
+        <div className="p-4 sm:p-8 space-y-10 bg-slate-50/50 min-h-screen">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Analytics Dashboard</h1>
-                    <p className="text-slate-500 text-sm mt-1">Measuring performance and data growth metrics.</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Analytics Dashboard</h1>
+                    <p className="text-slate-500 text-sm mt-1">Real-time performance metrics and lead insights</p>
                 </div>
-
-                <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <Calendar size={18} className="text-slate-400 ml-3" />
-                        <input
-                            type="date"
-                            value={dateRange.fromDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, fromDate: e.target.value }))}
-                            className="text-sm font-medium border-none focus:ring-0 text-slate-800 bg-transparent p-1 cursor-pointer"
-                        />
-                        <span className="text-slate-400 font-semibold text-[10px]">TO</span>
-                        <input
-                            type="date"
-                            value={dateRange.toDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, toDate: e.target.value }))}
-                            className="text-sm font-medium border-none focus:ring-0 text-slate-800 bg-transparent p-1 cursor-pointer mr-2"
-                        />
-                    </div>
+                <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
+                    <input
+                        type="date"
+                        value={dateRange.fromDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, fromDate: e.target.value }))}
+                        className="bg-slate-50 border-none text-slate-700 text-xs font-bold rounded-xl focus:ring-2 focus:ring-primary/20 p-2.5"
+                    />
+                    <span className="text-slate-300 font-bold">→</span>
+                    <input
+                        type="date"
+                        value={dateRange.toDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, toDate: e.target.value }))}
+                        className="bg-slate-50 border-none text-slate-700 text-xs font-bold rounded-xl focus:ring-2 focus:ring-primary/20 p-2.5"
+                    />
                 </div>
             </div>
 
@@ -181,30 +179,35 @@ export const Reports: React.FC = () => {
                                 value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
                                 icon={<DollarSign size={20} />} 
                                 loading={isPaymentsLoading}
+                                color="emerald"
                             />
                             <StatCard 
                                 title="Estimated Revenue" 
                                 value={`₹${(paymentStats?.totalExpected || 0).toLocaleString()}`} 
                                 icon={<TrendingUp size={20} />} 
                                 loading={isPaymentsLoading}
+                                color="blue"
                             />
                             <StatCard 
                                 title="Pending Balance" 
                                 value={`₹${(paymentStats?.balance || 0).toLocaleString()}`} 
                                 icon={<ArrowDownRight size={20} />} 
                                 loading={isPaymentsLoading}
+                                color="rose"
                             />
                             <StatCard 
                                 title="Total Leads" 
                                 value={bookingStats?.byStatus?.reduce((acc: number, curr: any) => acc + curr.count, 0) || 0} 
                                 icon={<Users size={20} />} 
                                 loading={isBookingsLoading}
+                                color="indigo"
                             />
                             <StatCard 
                                 title="Booked" 
                                 value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
-                                icon={<Users size={20} />} 
+                                icon={<Building size={20} />} 
                                 loading={isBookingsLoading}
+                                color="amber"
                             />
                         </div>
                     </div>
@@ -212,7 +215,6 @@ export const Reports: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
-                {/* Revenue Growth Trend */}
                 <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
                         <TrendingUp size={16} className="text-primary" />
