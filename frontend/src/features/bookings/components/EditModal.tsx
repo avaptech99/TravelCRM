@@ -13,6 +13,7 @@ import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -207,14 +208,32 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     {!isMarketer && (
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-slate-700">Interested</label>
-                            <select
-                                value={interested}
-                                onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            >
-                                <option value="Yes">Yes</option>
-                                <option value="No">No</option>
-                            </select>
+                            <div className="flex h-[42px] p-1 bg-slate-100 rounded-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => setInterested('Yes')}
+                                    className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold rounded-md transition-all ${
+                                        interested === 'Yes' 
+                                            ? 'bg-white text-emerald-600 shadow-sm' 
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    <ThumbsUp size={14} className={interested === 'Yes' ? 'text-emerald-500' : 'text-slate-400'} />
+                                    Yes
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setInterested('No')}
+                                    className={`flex-1 flex items-center justify-center gap-2 text-xs font-bold rounded-md transition-all ${
+                                        interested === 'No' 
+                                            ? 'bg-white text-rose-600 shadow-sm' 
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    <ThumbsDown size={14} className={interested === 'No' ? 'text-rose-500' : 'text-slate-400'} />
+                                    No
+                                </button>
+                            </div>
                         </div>
                     )}
 

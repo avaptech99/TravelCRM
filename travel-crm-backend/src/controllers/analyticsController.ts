@@ -38,7 +38,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                         }
                     },
                     { $unwind: '$contact' },
-                    { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
+                    { $group: { _id: { $ifNull: ['$contact.interested', 'No'] }, count: { $sum: 1 } } }
                 ]
             }
         }

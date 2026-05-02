@@ -24,7 +24,10 @@ import {
     DollarSign, 
     ArrowUpRight,
     ArrowDownRight,
-    Loader2
+    Loader2,
+    ChevronUp,
+    ChevronDown,
+    Building
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -36,16 +39,17 @@ interface StatCardProps {
     icon: React.ReactNode;
     trend?: { value: string; isPositive: boolean };
     loading?: boolean;
+    color?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading }) => (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading, color }) => (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col min-w-0 overflow-hidden group">
         <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-slate-50 rounded-xl text-slate-600">
+            <div className={`p-3 rounded-xl shrink-0 transition-colors ${color ? `bg-${color}/10 text-${color}` : 'bg-slate-50 text-slate-600'}`}>
                 {icon}
             </div>
             {trend && (
-                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest ${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest shrink-0 ${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
                     {trend.isPositive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                     {trend.value}
                 </div>
@@ -54,13 +58,14 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading 
         {loading ? (
             <div className="h-10 w-32 bg-slate-100 animate-pulse rounded-lg"></div>
         ) : (
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{value}</div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight truncate break-all group-hover:text-primary transition-colors" title={String(value)}>{value}</div>
         )}
-        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-2">{title}</div>
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 truncate group-hover:text-slate-600 transition-colors">{title}</div>
     </div>
 );
 
 export const Reports: React.FC = () => {
+    const [isOverviewOpen, setIsOverviewOpen] = useState(true);
     const [dateRange, setDateRange] = useState({
         fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
         toDate: dayjs().format('YYYY-MM-DD'),
@@ -151,31 +156,59 @@ export const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
-                <StatCard 
-                    title="Revenue Collected" 
-                    value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
-                    icon={<DollarSign size={20} />} 
-                    loading={isPaymentsLoading}
-                />
-                <StatCard 
-                    title="Estimated Revenue" 
-                    value={`₹${(paymentStats?.totalExpected || 0).toLocaleString()}`} 
-                    icon={<TrendingUp size={20} />} 
-                    loading={isPaymentsLoading}
-                />
-                <StatCard 
-                    title="Pending Balance" 
-                    value={`₹${(paymentStats?.balance || 0).toLocaleString()}`} 
-                    icon={<ArrowDownRight size={20} />} 
-                    loading={isPaymentsLoading}
-                />
-                <StatCard 
-                    title="Booked" 
-                    value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
-                    icon={<Users size={20} />} 
-                    loading={isBookingsLoading}
-                />
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-2">
+                <button 
+                    onClick={() => setIsOverviewOpen(!isOverviewOpen)}
+                    className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <ArrowUpRight size={20} />
+                        </div>
+                        <div className="text-left">
+                            <h2 className="text-lg font-bold text-slate-900">Performance Overview</h2>
+                            <p className="text-slate-500 text-xs">Revenue summary and booking volume</p>
+                        </div>
+                    </div>
+                    {isOverviewOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                </button>
+
+                {isOverviewOpen && (
+                    <div className="p-6 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                            <StatCard 
+                                title="Revenue Collected" 
+                                value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
+                                icon={<DollarSign size={20} />} 
+                                loading={isPaymentsLoading}
+                            />
+                            <StatCard 
+                                title="Estimated Revenue" 
+                                value={`₹${(paymentStats?.totalExpected || 0).toLocaleString()}`} 
+                                icon={<TrendingUp size={20} />} 
+                                loading={isPaymentsLoading}
+                            />
+                            <StatCard 
+                                title="Pending Balance" 
+                                value={`₹${(paymentStats?.balance || 0).toLocaleString()}`} 
+                                icon={<ArrowDownRight size={20} />} 
+                                loading={isPaymentsLoading}
+                            />
+                            <StatCard 
+                                title="Total Leads" 
+                                value={bookingStats?.byStatus?.reduce((acc: number, curr: any) => acc + curr.count, 0) || 0} 
+                                icon={<Users size={20} />} 
+                                loading={isBookingsLoading}
+                            />
+                            <StatCard 
+                                title="Booked" 
+                                value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
+                                icon={<Users size={20} />} 
+                                loading={isBookingsLoading}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">

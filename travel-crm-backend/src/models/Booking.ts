@@ -63,7 +63,24 @@ const bookingSchema = new Schema<IBooking>(
     },
     {
         timestamps: true,
-        toJSON: { virtuals: true },
+        toJSON: {
+            virtuals: true,
+            transform: (doc, ret) => {
+                ret.id = ret._id;
+                // Flatten contact fields for easier frontend access
+                if (ret.primaryContact) {
+                    ret.contactPerson = ret.primaryContact.contactPerson;
+                    ret.contactNumber = ret.primaryContact.contactNumber;
+                    ret.requirements = ret.primaryContact.requirements;
+                    ret.interested = ret.primaryContact.interested || 'No';
+                }
+                // Flatten createdByUser
+                if (ret.createdByUser) {
+                    ret.createdBy = ret.createdByUser.name;
+                }
+                return ret;
+            }
+        },
         toObject: { virtuals: true },
     }
 );
