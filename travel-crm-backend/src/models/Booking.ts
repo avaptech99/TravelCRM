@@ -63,20 +63,25 @@ const bookingSchema = new Schema<IBooking>(
     },
     {
         timestamps: true,
-        toJSON: {
+        toJSON: { 
             virtuals: true,
             transform: (doc, ret) => {
                 ret.id = ret._id;
-                // Flatten contact fields for easier frontend access
+                // Flatten primaryContact fields
                 if (ret.primaryContact) {
-                    ret.contactPerson = ret.primaryContact.contactPerson;
-                    ret.contactNumber = ret.primaryContact.contactNumber;
+                    ret.contactPerson = ret.primaryContact.contactName;
+                    ret.contactNumber = ret.primaryContact.contactPhoneNo;
+                    ret.contactEmail = ret.primaryContact.contactEmail;
                     ret.requirements = ret.primaryContact.requirements;
                     ret.interested = ret.primaryContact.interested || 'No';
+                    ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
                 }
-                // Flatten createdByUser
-                if (ret.createdByUser) {
-                    ret.createdBy = ret.createdByUser.name;
+                // Flatten user names for display
+                if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
+                    ret.assignedToUser = ret.assignedToUserId.name;
+                }
+                if (ret.createdByUserId && typeof ret.createdByUserId === 'object') {
+                    ret.createdByUser = ret.createdByUserId.name;
                 }
                 return ret;
             }
