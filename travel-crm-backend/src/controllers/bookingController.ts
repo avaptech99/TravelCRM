@@ -7,6 +7,7 @@ import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
+import Activity from '../models/Activity';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import {
@@ -1196,8 +1197,6 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
 // @route   GET /api/bookings/:id/activity
 // @access  Private
 export const getBookingActivity = asyncHandler(async (req: Request, res: Response) => {
-    const { default: Activity } = await import('../models/Activity');
-    
     const activities = await Activity.find({ bookingId: req.params.id })
         .sort({ createdAt: -1 })
         .limit(50)
