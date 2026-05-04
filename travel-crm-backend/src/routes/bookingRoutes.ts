@@ -19,6 +19,8 @@ import {
     getCalendarBookings,
     getBookingActivity,
     bulkAssign,
+    bulkDelete,
+    verifyBooking,
 } from '../controllers/bookingController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -32,6 +34,7 @@ router.get('/stats', getBookingStats);
 router.get('/recent', getRecentBookings);
 router.get('/calendar', getCalendarBookings);
 router.post('/bulk-assign', adminGuard, bulkAssign);
+router.post('/bulk-delete', adminGuard, bulkDelete);
 
 router.route('/')
     .get(getBookings)
@@ -57,6 +60,7 @@ router.route('/:id/passengers')
     .put(updatePassengers);
 
 router.get('/:id/activity', getBookingActivity);
+router.patch('/:id/verify', verifyBooking);
 
 router.route('/:id/payments')
     .get(getPayments)

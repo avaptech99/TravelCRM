@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
     Dialog,
@@ -14,7 +14,7 @@ import api from '../../../api/client';
 interface EditUserModalProps {
     isOpen: boolean;
     onClose: () => void;
-    user: { id: string; name: string; email: string; role: string } | null;
+    user: { id: string; name: string; email: string; role: string; groups?: string[] } | null;
 }
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user }) => {
@@ -24,12 +24,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<'ADMIN' | 'AGENT' | 'MARKETER'>('AGENT');
+    const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
 
     useEffect(() => {
         if (user) {
             setName(user.name);
             setEmail(user.email);
-            setRole(user.role as 'ADMIN' | 'AGENT');
+            setRole(user.role as 'ADMIN' | 'AGENT' | 'MARKETER');
+            setSelectedGroups(user.groups || []);
             setPassword(''); // Don't pre-fill password, only send if changing
         }
     }, [user]);
@@ -41,7 +43,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
 
     const mutation = useMutation({
         mutationFn: async () => {
-            const payload: any = { name, email, role };
+            const payload: any = { name, email, role, groups: selectedGroups };
             if (password) {
                 payload.password = password;
             }
@@ -58,6 +60,20 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
             toast.error(error.response?.data?.message || 'Failed to update user');
         }
     });
+
+    const { data: dropdownSettings } = useQuery({
+        queryKey: ['dropdown-settings'],
+        queryFn: async () => {
+            const { data } = await api.get('/settings/dropdowns');
+            return data as Record<string, string[]>;
+        },
+    });
+
+    const handleGroupToggle = (group: string) => {
+        setSelectedGroups(prev => 
+            prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]
+        );
+    };
 
     const isFormValid = name.trim().length >= 2 && email.includes('@') && (!password || password.length >= 6);
 
@@ -117,6 +133,68 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                             <option value="ADMIN">Admin</option>
                         </select>
                     </div>
+
+                    {role !== 'ADMIN' && dropdownSettings?.groups && dropdownSettings.groups.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700">Assign to Groups</label>
+                                <div className="relative group/info">
+                                    <div className="cursor-help text-slate-400 hover:text-primary transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-info"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                                    </div>
+                                    <div className="absolute right-0 bottom-full mb-3 w-[280px] p-4 bg-slate-900/95 text-white text-[10px] rounded-2xl shadow-2xl opacity-0 group-hover/info:opacity-100 transition-all duration-300 pointer-events-none z-[100] border border-slate-800 backdrop-blur-xl transform translate-y-2 group-hover/info:translate-y-0">
+                                        <div className="font-bold mb-3 border-b border-slate-700/50 pb-2 flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                            Permission & Visibility Guide
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-primary font-bold uppercase tracking-widest text-[9px]">Package / LCC</span>
+                                                <div className="flex flex-col text-slate-400 italic">
+                                                    <span>• See: All leads in the system</span>
+                                                    <span>• Do: Assign to anyone, Edit all details</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-primary font-bold uppercase tracking-widest text-[9px]">Visa / Ticketing</span>
+                                                <div className="flex flex-col text-slate-400 italic">
+                                                    <span>• See: Only their OWN leads (Created/Assigned)</span>
+                                                    <span>• Do: Manage own leads. Hidden from others.</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-primary font-bold uppercase tracking-widest text-[9px]">Operation</span>
+                                                <div className="flex flex-col text-slate-400 italic">
+                                                    <span>• See: All "Booked" leads only</span>
+                                                    <span>• Do: Full edit of all details and Actual Costs</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-primary font-bold uppercase tracking-widest text-[9px]">Account</span>
+                                                <div className="flex flex-col text-slate-400 italic">
+                                                    <span>• See: All "Booked" leads only</span>
+                                                    <span>• Do: Manage payments, Costs & Verification</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                {dropdownSettings.groups.map((group: string) => (
+                                    <label key={group} className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedGroups.includes(group)}
+                                            onChange={() => handleGroupToggle(group)}
+                                            className="w-4 h-4 text-primary bg-white border-slate-300 rounded focus:ring-primary focus:ring-2"
+                                        />
+                                        <span className="text-xs font-medium text-slate-600 group-hover:text-slate-900 transition-colors">{group}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter>

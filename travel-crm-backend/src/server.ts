@@ -16,6 +16,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import syncRoutes from './routes/syncRoutes';
 import externalRoutes from './routes/externalRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 import connectDB from './config/db';
 import { startSelfPinging } from './utils/keepWarm';
 import { startFollowUpCron } from './utils/followUpCron';
@@ -68,6 +69,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/external', externalRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Ping route for keeping server warm
 app.get('/api/ping', (req: Request, res: Response) => {

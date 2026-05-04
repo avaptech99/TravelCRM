@@ -8,11 +8,12 @@ export type JwtPayload = {
     role: string;
     name: string;
     email: string;
+    groups: string[];
 };
 
 export const generateToken = (user: IUser): string => {
     return jwt.sign(
-        { id: user._id, role: user.role, name: user.name, email: user.email },
+        { id: user._id, role: user.role, name: user.name, email: user.email, groups: user.groups },
         JWT_SECRET,
         { expiresIn: '30d' }
     );

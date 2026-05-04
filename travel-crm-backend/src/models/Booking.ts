@@ -28,6 +28,21 @@ export interface IBooking extends Document {
     outstanding: number;
     createdByUserId: mongoose.Types.ObjectId;
     assignedToUserId: mongoose.Types.ObjectId | null;
+    assignedGroup: string;
+    company: string | null;
+    isVerified: boolean;
+    verifiedBy: string | null;
+    verifiedAt: Date | null;
+    estimatedCosts: {
+        type: string;
+        price: number;
+        source: string;
+    }[];
+    actualCosts: {
+        type: string;
+        price: number;
+        source: string;
+    }[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -60,6 +75,21 @@ const bookingSchema = new Schema<IBooking>(
         outstanding: { type: Number, default: 0 },
         createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        assignedGroup: { type: String, default: 'Package / LCC' },
+        company: { type: String, default: null },
+        isVerified: { type: Boolean, default: false },
+        verifiedBy: { type: String, default: null },
+        verifiedAt: { type: Date, default: null },
+        estimatedCosts: [{
+            costType: { type: String },
+            price: { type: Number },
+            source: { type: String }
+        }],
+        actualCosts: [{
+            costType: { type: String },
+            price: { type: Number },
+            source: { type: String }
+        }],
     },
     {
         timestamps: true,
@@ -80,8 +110,8 @@ const bookingSchema = new Schema<IBooking>(
                 if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
                     ret.assignedToUser = ret.assignedToUserId.name;
                 }
-                if (ret.createdByUserId && typeof ret.createdByUserId === 'object') {
-                    ret.createdByUser = ret.createdByUserId.name;
+                if (ret.createdByUserId && typeof ret.createdByUserId === 'object' && !ret.createdByUser) {
+                    ret.createdByUser = (ret.createdByUserId as any).name;
                 }
                 return ret;
             }

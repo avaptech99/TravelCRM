@@ -23,6 +23,7 @@ interface User {
     name: string;
     email: string;
     role: string;
+    groups?: string[];
     isOnline: boolean;
     lastSeen: string;
     createdAt: string;
@@ -46,6 +47,19 @@ export const Users: React.FC = () => {
     });
 
     const displayUsers = users?.filter((u: User) => u.email !== 'website-lead@system.internal');
+
+    const groupedUsers = displayUsers?.reduce((acc: Record<string, User[]>, user: User) => {
+        const primaryGroup = user.role === 'ADMIN' ? 'Administrators' : (user.groups?.[0] || 'Other Agents');
+        if (!acc[primaryGroup]) acc[primaryGroup] = [];
+        acc[primaryGroup].push(user);
+        return acc;
+    }, {});
+
+    const sortedGroupNames = Object.keys(groupedUsers || {}).sort((a, b) => {
+        if (a === 'Administrators') return -1;
+        if (b === 'Administrators') return 1;
+        return a.localeCompare(b);
+    });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -121,108 +135,132 @@ export const Users: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-200">
-                                {displayUsers?.map((user: User) => (
-                                    <React.Fragment key={user.id}>
-                                        <tr className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 cursor-pointer flex items-center gap-2"
-                                                onClick={() => {
-                                                    if (user.role === 'AGENT') {
-                                                        setExpandedUserId(expandedUserId === user.id ? null : user.id);
-                                                    }
-                                                }}
-                                            >
-                                                {user.role === 'AGENT' && (
-                                                    <button className="text-slate-400 hover:text-slate-600 transition-colors">
-                                                        {expandedUserId === user.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                                    </button>
-                                                )}
-                                                {user.name}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2.5 h-2.5 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                                                <span className={`font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
-                                                    {user.isOnline ? 'Online' : 'Offline'}
-                                                </span>
-                                            </div>
-                                            {!user.isOnline && user.lastSeen && (
-                                                <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                                                    Last seen: {dayjs(user.lastSeen).fromNow()}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                            {user.email}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                            {dayjs(user.createdAt).format('MMM DD, YYYY')}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
-                                            {user.role === 'AGENT' && (
-                                                <button
-                                                    onClick={() => setUnassignUserId(user.id)}
-                                                    className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
-                                                    title="Unassign inactive bookings"
-                                                >
-                                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Unassign</span>
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => setEditUser(user)}
-                                                className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50"
-                                                title="Edit user"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteMutation.mutate(user.id)}
-                                                className="text-slate-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
-                                                title="Delete user"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {/* Inline Bookings View */}
-                                    {expandedUserId === user.id && (
-                                        <tr>
-                                            <td colSpan={6} className="bg-slate-50/50 p-6 border-b border-slate-200">
-                                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                                    <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50">
-                                                        <h3 className="text-sm font-bold text-slate-800">
-                                                            {user.name}'s Assignments
-                                                        </h3>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Travel Date:</span>
-                                                            <select
-                                                                value={travelDateFilter}
-                                                                onChange={(e) => setTravelDateFilter(e.target.value)}
-                                                                className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-2 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[130px]"
-                                                            >
-                                                                <option value="upcoming_7_days">Next 7 Days</option>
-                                                                <option value="upcoming_10_days">Next 10 Days</option>
-                                                                <option value="upcoming_15_days">Next 15 Days</option>
-                                                                <option value="upcoming_30_days">Next 30 Days</option>
-                                                                <option value="all">All Dates</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-0">
-                                                        <BookingsTable
-                                                            agentFilter={user.id}
-                                                            travelDateFilter={travelDateFilter === 'all' ? undefined : travelDateFilter}
-                                                            isInlineView={true}
-                                                        />
-                                                    </div>
+                                {sortedGroupNames.map(groupName => (
+                                    <React.Fragment key={groupName}>
+                                        <tr className="bg-slate-50/50">
+                                            <td colSpan={6} className="px-6 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-4 bg-primary rounded-full"></div>
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{groupName}</span>
+                                                    <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 rounded-full font-bold">
+                                                        {groupedUsers[groupName].length}
+                                                    </span>
                                                 </div>
                                             </td>
                                         </tr>
-                                    )}
+                                        {groupedUsers[groupName].map((user: User) => (
+                                            <React.Fragment key={user.id}>
+                                                <tr className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 cursor-pointer flex items-center gap-2"
+                                                        onClick={() => {
+                                                            if (user.role === 'AGENT') {
+                                                                setExpandedUserId(expandedUserId === user.id ? null : user.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {user.role === 'AGENT' && (
+                                                            <button className="text-slate-400 hover:text-slate-600 transition-colors">
+                                                                {expandedUserId === user.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                            </button>
+                                                        )}
+                                                        {user.name}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2.5 h-2.5 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                                        <span className={`font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
+                                                            {user.isOnline ? 'Online' : 'Offline'}
+                                                        </span>
+                                                    </div>
+                                                    {!user.isOnline && user.lastSeen && (
+                                                        <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                                                            Last seen: {dayjs(user.lastSeen).fromNow()}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                    {user.email}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
+                                                        {user.role}
+                                                    </span>
+                                                    {user.groups && user.groups.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1.5 max-w-[150px]">
+                                                            {user.groups.map(group => (
+                                                                <span key={group} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-bold rounded border border-slate-200">
+                                                                    {group}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                    {dayjs(user.createdAt).format('MMM DD, YYYY')}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
+                                                    {user.role === 'AGENT' && (
+                                                        <button
+                                                            onClick={() => setUnassignUserId(user.id)}
+                                                            className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                            title="Unassign inactive bookings"
+                                                        >
+                                                            <span className="text-[10px] font-bold uppercase tracking-tighter">Unassign</span>
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setEditUser(user)}
+                                                        className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50"
+                                                        title="Edit user"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteMutation.mutate(user.id)}
+                                                        className="text-slate-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                        title="Delete user"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {/* Inline Bookings View */}
+                                            {expandedUserId === user.id && (
+                                                <tr>
+                                                    <td colSpan={6} className="bg-slate-50/50 p-6 border-b border-slate-200">
+                                                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                                            <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50">
+                                                                <h3 className="text-sm font-bold text-slate-800">
+                                                                    {user.name}'s Assignments
+                                                                </h3>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Travel Date:</span>
+                                                                    <select
+                                                                        value={travelDateFilter}
+                                                                        onChange={(e) => setTravelDateFilter(e.target.value)}
+                                                                        className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-2 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[130px]"
+                                                                    >
+                                                                        <option value="upcoming_7_days">Next 7 Days</option>
+                                                                        <option value="upcoming_10_days">Next 10 Days</option>
+                                                                        <option value="upcoming_15_days">Next 15 Days</option>
+                                                                        <option value="upcoming_30_days">Next 30 Days</option>
+                                                                        <option value="all">All Dates</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-0">
+                                                                <BookingsTable
+                                                                    agentFilter={user.id}
+                                                                    travelDateFilter={travelDateFilter === 'all' ? undefined : travelDateFilter}
+                                                                    isInlineView={true}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
+                                        ))}
                                     </React.Fragment>
                                 ))}
                                 {!displayUsers?.length && (
@@ -238,102 +276,121 @@ export const Users: React.FC = () => {
 
                             {/* Mobile View Cards */}
                             <div className="md:hidden flex flex-col gap-4 mt-2">
-                                {displayUsers?.map((user: User) => (
-                                    <div key={user.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-[0_2px_10px_rgb(0,0,0,0.03)] flex flex-col gap-4 relative justify-between">
-                                        <div className="flex justify-between items-start">
-                                            <div 
-                                                className="flex items-center gap-3 cursor-pointer"
-                                                onClick={() => {
-                                                    if (user.role === 'AGENT') {
-                                                        setExpandedUserId(expandedUserId === user.id ? null : user.id);
-                                                    }
-                                                }}
-                                            >
-                                                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-primary font-bold border border-slate-100 shadow-sm">
-                                                    {user.name.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="font-bold text-slate-900 leading-tight">{user.name}</h3>
-                                                        {user.role === 'AGENT' && (
-                                                            <span className="text-slate-400 bg-slate-50 rounded p-0.5">
-                                                                {expandedUserId === user.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                                            </span>
+                                {sortedGroupNames.map(groupName => (
+                                    <div key={groupName} className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-2 px-1">
+                                            <div className="w-1 h-3 bg-primary rounded-full"></div>
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{groupName}</span>
+                                        </div>
+                                        {groupedUsers[groupName].map((user: User) => (
+                                            <div key={user.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-[0_2px_10px_rgb(0,0,0,0.03)] flex flex-col gap-4 relative justify-between">
+                                                <div className="flex justify-between items-start">
+                                                    <div 
+                                                        className="flex items-center gap-3 cursor-pointer"
+                                                        onClick={() => {
+                                                            if (user.role === 'AGENT') {
+                                                                setExpandedUserId(expandedUserId === user.id ? null : user.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-primary font-bold border border-slate-100 shadow-sm">
+                                                            {user.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h3 className="font-bold text-slate-900 leading-tight">{user.name}</h3>
+                                                                {user.role === 'AGENT' && (
+                                                                    <span className="text-slate-400 bg-slate-50 rounded p-0.5">
+                                                                        {expandedUserId === user.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-slate-500 mt-0.5">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
+                                                            {user.role}
+                                                        </span>
+                                                        {user.groups && user.groups.length > 0 && (
+                                                            <div className="flex flex-wrap justify-end gap-1 max-w-[120px]">
+                                                                {user.groups.map(group => (
+                                                                    <span key={group} className="px-1.5 py-0.5 bg-slate-50 text-slate-500 text-[8px] font-bold rounded border border-slate-100">
+                                                                        {group}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 mt-0.5">{user.email}</p>
                                                 </div>
-                                            </div>
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
-                                                {user.role}
-                                            </span>
-                                        </div>
 
-                                        <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Status</span>
-                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                                                    <span className={`text-xs font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
-                                                        {user.isOnline ? 'Online' : 'Offline'}
-                                                    </span>
+                                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Status</span>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                                            <span className={`text-xs font-semibold ${user.isOnline ? 'text-green-600' : 'text-slate-500'}`}>
+                                                                {user.isOnline ? 'Online' : 'Offline'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Joined On</span>
+                                                        <span className="text-xs font-semibold text-slate-700">{dayjs(user.createdAt).format('MMM DD, YYYY')}</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Joined On</span>
-                                                <span className="text-xs font-semibold text-slate-700">{dayjs(user.createdAt).format('MMM DD, YYYY')}</span>
-                                            </div>
-                                        </div>
 
-                                        <div className="flex items-center justify-end gap-2 pt-1">
-                                            {user.role === 'AGENT' && (
-                                                <button
-                                                    onClick={() => setUnassignUserId(user.id)}
-                                                    className="text-slate-500 hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-red-50"
-                                                    title="Unassign inactive bookings"
-                                                >
-                                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Unassign</span>
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => setEditUser(user)}
-                                                className="text-slate-500 hover:text-blue-600 transition-colors p-1.5 rounded-lg border border-slate-200 hover:bg-blue-50"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteMutation.mutate(user.id)}
-                                                className="text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg border border-slate-200 hover:bg-red-50"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-
-                                        {expandedUserId === user.id && (
-                                            <div className="mt-2 bg-slate-50/50 rounded-lg border border-slate-200 overflow-hidden">
-                                                <div className="border-b border-slate-200 px-3 py-2 flex items-center justify-between bg-slate-50">
-                                                    <h3 className="text-xs font-bold text-slate-800 truncate mr-2">Assignments</h3>
-                                                    <select
-                                                        value={travelDateFilter}
-                                                        onChange={(e) => setTravelDateFilter(e.target.value)}
-                                                        className="text-[10px] font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
+                                                <div className="flex items-center justify-end gap-2 pt-1">
+                                                    {user.role === 'AGENT' && (
+                                                        <button
+                                                            onClick={() => setUnassignUserId(user.id)}
+                                                            className="text-slate-500 hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-red-50"
+                                                            title="Unassign inactive bookings"
+                                                        >
+                                                            <span className="text-[10px] font-bold uppercase tracking-tighter">Unassign</span>
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setEditUser(user)}
+                                                        className="text-slate-500 hover:text-blue-600 transition-colors p-1.5 rounded-lg border border-slate-200 hover:bg-blue-50"
                                                     >
-                                                        <option value="upcoming_7_days">Next 7 Days</option>
-                                                        <option value="upcoming_10_days">Next 10 Days</option>
-                                                        <option value="upcoming_15_days">Next 15 Days</option>
-                                                        <option value="upcoming_30_days">Next 30 Days</option>
-                                                        <option value="all">All Dates</option>
-                                                    </select>
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteMutation.mutate(user.id)}
+                                                        className="text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg border border-slate-200 hover:bg-red-50"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
                                                 </div>
-                                                <div className="p-0">
-                                                    <BookingsTable
-                                                        agentFilter={user.id}
-                                                        travelDateFilter={travelDateFilter === 'all' ? undefined : travelDateFilter}
-                                                        isInlineView={true}
-                                                    />
-                                                </div>
+
+                                                {expandedUserId === user.id && (
+                                                    <div className="mt-2 bg-slate-50/50 rounded-lg border border-slate-200 overflow-hidden">
+                                                        <div className="border-b border-slate-200 px-3 py-2 flex items-center justify-between bg-slate-50">
+                                                            <h3 className="text-xs font-bold text-slate-800 truncate mr-2">Assignments</h3>
+                                                            <select
+                                                                value={travelDateFilter}
+                                                                onChange={(e) => setTravelDateFilter(e.target.value)}
+                                                                className="text-[10px] font-semibold text-slate-700 bg-white border border-slate-200 rounded-md py-1 px-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
+                                                            >
+                                                                <option value="upcoming_7_days">Next 7 Days</option>
+                                                                <option value="upcoming_10_days">Next 10 Days</option>
+                                                                <option value="upcoming_15_days">Next 15 Days</option>
+                                                                <option value="upcoming_30_days">Next 30 Days</option>
+                                                                <option value="all">All Dates</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="p-0">
+                                                            <BookingsTable
+                                                                agentFilter={user.id}
+                                                                travelDateFilter={travelDateFilter === 'all' ? undefined : travelDateFilter}
+                                                                isInlineView={true}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
                                 ))}
                                 {!users?.length && (

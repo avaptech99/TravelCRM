@@ -22,7 +22,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const agents = await User.find({ role: 'AGENT' })
-        .select('name email lastSeen')
+        .select('name email lastSeen groups')
         .sort({ name: 1 })
         .lean();
 
@@ -54,7 +54,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const users = await User.find()
-        .select('name email role lastSeen createdAt')
+        .select('name email role lastSeen createdAt groups')
         .sort({ role: 1, createdAt: -1 })
         .lean();
 
@@ -100,7 +100,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Invalid input');
     }
 
-    const { name, email, password, role } = result.data;
+    const { name, email, password, role, groups } = result.data;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -115,6 +115,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         email,
         passwordHash,
         role,
+        groups: groups || [],
     });
 
     // Invalidate user caches
@@ -125,6 +126,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        groups: user.groups,
         createdAt: user.createdAt,
     });
 });
@@ -244,7 +246,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 // @access  Private/Admin
 export const updateUserById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, email, role, password } = req.body;
+    const { name, email, role, password, groups } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
@@ -263,6 +265,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
     user.name = name || user.name;
     user.email = email || user.email;
     if (role) user.role = role;
+    if (groups) user.groups = groups;
 
     if (password) {
         if (password.length < 6) {
@@ -282,6 +285,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
         name: user.name,
         email: user.email,
         role: user.role,
+        groups: user.groups,
     });
 });
 // @desc    Update user status (Online/Offline)

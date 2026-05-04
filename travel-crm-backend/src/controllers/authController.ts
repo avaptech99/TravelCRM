@@ -25,7 +25,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     // Find user by email - use lean() for performance and select only needed fields
     const dbStartTime = Date.now();
     const user = await User.findOne({ email })
-        .select('passwordHash name email role')
+        .select('passwordHash name email role groups')
         .lean();
     const dbEndTime = Date.now();
 
@@ -58,6 +58,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                groups: user.groups,
                 isOnline: true,
                 token: generateToken(user),
             });

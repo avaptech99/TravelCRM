@@ -9,7 +9,8 @@ export const createUserSchema = z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
-    role: z.enum(['ADMIN', 'AGENT', 'MARKETER']),
+    role: z.enum(['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT']),
+    groups: z.array(z.string()).optional(),
 });
 
 export const createBookingSchema = z.object({
@@ -33,6 +34,7 @@ export const createBookingSchema = z.object({
     includesFlight: z.boolean().optional(),
     includesAdditionalServices: z.boolean().optional(),
     additionalServicesDetails: z.string().optional().nullable(),
+    assignedGroup: z.string().optional(),
 });
 
 export const updateBookingSchema = z.object({
@@ -58,6 +60,18 @@ export const updateBookingSchema = z.object({
     includesAdditionalServices: z.boolean().optional(),
     additionalServicesDetails: z.string().optional().nullable(),
     followUpDate: z.string().optional().nullable(),
+    company: z.string().optional().nullable(),
+    assignedGroup: z.string().optional(),
+    estimatedCosts: z.array(z.object({
+        costType: z.string(),
+        price: z.number(),
+        source: z.string()
+    })).optional(),
+    actualCosts: z.array(z.object({
+        costType: z.string(),
+        price: z.number(),
+        source: z.string()
+    })).optional(),
 });
 
 export const updateBookingStatusSchema = z.object({

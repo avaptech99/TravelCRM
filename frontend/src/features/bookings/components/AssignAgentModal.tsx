@@ -91,7 +91,12 @@ export const AssignAgentModal: React.FC<AssignAgentModalProps> = ({ booking, isO
                                 className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             >
                                 <option value="" disabled>Select an agent...</option>
-                                {agents?.filter((a: any) => a.name !== 'Website Lead').map((agent: any) => (
+                                {agents?.filter((a: any) => {
+                                    const matchesName = a.name !== 'Website Lead';
+                                    if (!booking?.assignedGroup) return matchesName;
+                                    const matchesGroup = a.groups?.some((g: string) => g.toLowerCase().trim() === booking.assignedGroup?.toLowerCase().trim());
+                                    return matchesName && matchesGroup;
+                                }).map((agent: any) => (
                                     <option key={agent.id} value={agent.id}>
                                         {agent.name} ({agent.email})
                                     </option>

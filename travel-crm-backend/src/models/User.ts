@@ -5,6 +5,7 @@ export interface IUser extends Document {
     email: string;
     passwordHash: string;
     role: string;
+    groups: string[];
     isOnline: boolean;
     lastSeen: Date;
     createdAt: Date;
@@ -16,6 +17,7 @@ const userSchema = new Schema<IUser>(
         email: { type: String, required: true, unique: true },
         passwordHash: { type: String, required: true },
         role: { type: String, default: 'AGENT' },
+        groups: { type: [String], default: [] },
         isOnline: { type: Boolean, default: false },
         lastSeen: { type: Date, default: Date.now },
         createdAt: { type: Date, default: Date.now },
