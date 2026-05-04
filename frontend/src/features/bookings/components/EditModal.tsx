@@ -12,8 +12,8 @@ import {
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -27,25 +27,36 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const navigate = useNavigate();
 
     const [status, setStatus] = useState<string>('');
+    const [assignedGroup, setAssignedGroup] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
-    const [followUpDate, setFollowUpDate] = useState<string | null>(null);
+
+    const { user } = useAuth();
+    const isMarketer = user?.role === 'MARKETER';
+
+    const { data: dropdownSettings } = useQuery({
+        queryKey: ['dropdown-settings'],
+        queryFn: async () => {
+            const { data } = await api.get('/settings/dropdowns');
+            return data as Record<string, string[]>;
+        },
+    });
 
     // Reset state when booking changes
     React.useEffect(() => {
         if (booking) {
             setStatus(booking.status);
+            setAssignedGroup(booking.assignedGroup || '');
             setAssignedToUserId(booking.assignedToUserId || '');
             setInterested(booking.interested || 'No');
             setCommentText('');
-            setFollowUpDate(booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null);
         }
     }, [booking]);
 
-    const canChangeAgent = true; // Both ADMIN and AGENT can change it now
+    const canChangeAgent = user?.role === 'ADMIN' || user?.permissions?.canAssignLeads; 
 
-    const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
+    const [agents, setAgents] = useState<{ id: string, name: string, groups: string[] }[]>([]);
 
     React.useEffect(() => {
         if (isOpen && canChangeAgent) {
@@ -63,22 +74,18 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/status`, { status }));
             }
 
-            // 2. Update Assignee
-            if (canChangeAgent && assignedToUserId !== (booking.assignedToUserId || '')) {
-                promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
+            // 3. Update Pricing/Other Details (Do this BEFORE assign so backend auto-unassign on group change doesn't overwrite a new agent selection)
+            const putPayload: any = {};
+            if (interested !== (booking.interested || 'No')) putPayload.interested = interested;
+            if (assignedGroup !== (booking.assignedGroup || '')) putPayload.assignedGroup = assignedGroup;
+
+            if (Object.keys(putPayload).length > 0) {
+                await api.put(`/bookings/${booking.id}`, putPayload);
             }
 
-            // 3. Update Pricing/Other Details (Interested, Follow Up Date)
-            const updates: any = {};
-            if (interested !== (booking.interested || 'No')) {
-                updates.interested = interested;
-            }
-            const currentBookingFollowUp = booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null;
-            if (status === 'Follow Up' && followUpDate !== currentBookingFollowUp) {
-                updates.followUpDate = followUpDate || null;
-            }
-            if (Object.keys(updates).length > 0) {
-                promises.push(api.put(`/bookings/${booking.id}`, updates));
+            // 2. Update Assignee (After PUT, so any group change has already unassigned the old user, and we can now assign the new one)
+            if (canChangeAgent && assignedToUserId !== (booking.assignedToUserId || '')) {
+                promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
             // 4. Add Comment
@@ -86,7 +93,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.post(`/bookings/${booking.id}/comments`, { text: commentText }));
             }
 
-            await Promise.all(promises);
+            if (promises.length > 0) {
+                await Promise.all(promises);
+            }
 
             return { oldStatus: booking.status, newStatus: status };
         },
@@ -133,15 +142,13 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     });
 
     const isDirty = (booking && status !== booking.status) ||
+        (booking && assignedGroup !== (booking.assignedGroup || '')) ||
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
         (booking && interested !== (booking.interested || 'No')) ||
-        (booking && status === 'Follow Up' && followUpDate !== (booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null)) ||
         commentText.trim().length > 0;
 
     if (!booking) return null;
 
-    const { user } = useAuth();
-    const isMarketer = user?.role === 'MARKETER';
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -156,84 +163,100 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-6 py-4">
-                    {/* Status Update */}
+                <div className="flex flex-col gap-5 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                    {/* Status & Interested row */}
+                    {!isMarketer && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Status</label>
+                                <select
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value)}
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Working">Working</option>
+                                    <option value="Sent">Sent To Customer</option>
+                                    <option value="Booked">Converted to EDT/Booked</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Interested</label>
+                                <div className="flex h-[42px] p-1 bg-slate-100 rounded-lg">
+                                    <button
+                                        type="button"
+                                        onClick={() => setInterested('Yes')}
+                                        className={`flex-1 text-xs font-bold rounded-md transition-all ${
+                                            interested === 'Yes' 
+                                                ? 'bg-white text-primary shadow-sm' 
+                                                : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        Yes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setInterested('No')}
+                                        className={`flex-1 text-xs font-bold rounded-md transition-all ${
+                                            interested === 'No' 
+                                                ? 'bg-white text-primary shadow-sm' 
+                                                : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        No
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Assigned Group */}
                     {!isMarketer && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Status</label>
+                            <label className="text-sm font-medium text-slate-700">Assigned Group</label>
                             <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value)}
+                                value={assignedGroup}
+                                onChange={(e) => {
+                                    setAssignedGroup(e.target.value);
+                                    setAssignedToUserId('');
+                                }}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                             >
-                                <option value="Pending">Pending</option>
-                                <option value="Working">Working</option>
-                                <option value="Sent">Sent To Customer</option>
-                                <option value="Booked">Converted to EDT/Booked</option>
-                                <option value="Follow Up">Follow Up</option>
+                                <option value="">-- None --</option>
+                                {dropdownSettings?.groups?.filter((g: string) => {
+                                    const groupName = g.toLowerCase().trim();
+                                    if (groupName === 'account' || groupName === 'operation') {
+                                        return status === 'Booked';
+                                    }
+                                    return true;
+                                }).map((g: string) => (
+                                    <option key={g} value={g}>{g}</option>
+                                ))}
                             </select>
                         </div>
                     )}
 
-                    {status === 'Follow Up' && !isMarketer && (
+                    {/* Conditional Agent Assignment */}
+                    {!isMarketer && canChangeAgent && assignedGroup && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Follow-up Date</label>
-                            <input
-                                type="date"
-                                value={followUpDate || ''}
-                                onChange={(e) => setFollowUpDate(e.target.value)}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            />
-                        </div>
-                    )}
-
-                    {/* Agent Assignment */}
-                    {canChangeAgent && !isMarketer && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Assigned Agent</label>
+                            <label className="text-sm font-medium text-slate-700">Assign to Agent</label>
                             <select
                                 value={assignedToUserId}
                                 onChange={(e) => setAssignedToUserId(e.target.value)}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                             >
                                 <option value="" className="italic">-- Unassigned --</option>
-                                {agents.filter(a => a.name !== 'Website Lead').map(agent => (
-                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
+                                {agents
+                                    .filter(a => {
+                                        const matchesName = a.name !== 'Website Lead';
+                                        if (!assignedGroup) return matchesName;
+                                        const matchesGroup = a.groups?.some(g => g.toLowerCase().trim() === assignedGroup.toLowerCase().trim());
+                                        return matchesName && matchesGroup;
+                                    })
+                                    .map(agent => (
+                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                    ))}
                             </select>
-                        </div>
-                    )}
-
-                    {/* Interested Selection */}
-                    {!isMarketer && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Interested</label>
-                            <div className="flex p-1 bg-slate-100 rounded-xl w-full">
-                                <button
-                                    type="button"
-                                    onClick={() => setInterested('Yes')}
-                                    className={`flex items-center justify-center gap-2 flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                        interested === 'Yes'
-                                            ? 'bg-emerald-500 text-white shadow-lg scale-[1.02]'
-                                            : 'text-slate-500 hover:bg-slate-200'
-                                    }`}
-                                >
-                                    <ThumbsUp className={`w-4 h-4 ${interested === 'Yes' ? 'animate-bounce' : ''}`} />
-                                    Yes
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setInterested('No')}
-                                    className={`flex items-center justify-center gap-2 flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                        interested === 'No'
-                                            ? 'bg-rose-500 text-white shadow-lg scale-[1.02]'
-                                            : 'text-slate-500 hover:bg-slate-200'
-                                    }`}
-                                >
-                                    <ThumbsDown className={`w-4 h-4 ${interested === 'No' ? 'animate-bounce' : ''}`} />
-                                    No
-                                </button>
-                            </div>
                         </div>
                     )}
 

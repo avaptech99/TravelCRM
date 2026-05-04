@@ -28,9 +28,10 @@ interface BookingsTableProps {
     travelDateFilter?: string;
     isInlineView?: boolean;
     outstandingFilter?: boolean;
+    groupFilter?: string;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, groupFilter }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -74,7 +75,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             return;
         }
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter]);
+    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter, groupFilter]);
 
     const unassignMutation = useMutation({
         mutationFn: async (bookingId: string) => {
@@ -92,6 +93,20 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (error.message !== 'Cancelled') {
                 toast.error(error.response?.data?.message || 'Failed to unassign booking');
             }
+        }
+    });
+
+    const claimMutation = useMutation({
+        mutationFn: async (bookingId: string) => {
+            const { data } = await api.patch(`/bookings/${bookingId}/assign`, { assignedToUserId: user?.id });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
+            toast.success('Lead claimed successfully!');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to claim lead');
         }
     });
 
@@ -117,7 +132,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, groupFilter, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -127,6 +142,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (isMyBookingsView) params.append('myBookings', 'true');
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (outstandingFilter) params.append('outstandingOnly', 'true');
+            if (groupFilter) params.append('group', groupFilter);
 
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
@@ -214,7 +230,12 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 );
             },
         }),
-        columnHelper.accessor((row) => row.createdByUser?.name || 'Unknown', {
+        columnHelper.accessor((row) => {
+            if (typeof row.createdByUser === 'object' && row.createdByUser?.name) {
+                return row.createdByUser.name;
+            }
+            return row.createdByUser || 'Unknown';
+        }, {
             id: 'createdBy',
             header: 'Created By',
         }),
@@ -268,11 +289,35 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         columnHelper.display({
             id: 'assignedTo',
             header: 'Assigned To',
-            cell: (info) => (
-                <span className="text-slate-600">
-                    {info.row.original.assignedToUser?.name || <span className="text-slate-400 italic">Unassigned</span>}
-                </span>
-            ),
+            cell: (info) => {
+                const bookingGroup = (info.row.original.assignedGroup || 'Package / LCC').toLowerCase().trim();
+                const canClaim = user?.role === 'ADMIN' || (user?.groups || []).some(g => g.toLowerCase().trim() === bookingGroup);
+                
+                return (
+                    <div className="flex items-center">
+                        {info.row.original.assignedToUser?.name ? (
+                            <span className="text-slate-600 font-semibold">{info.row.original.assignedToUser.name}</span>
+                        ) : (
+                            <div className="flex flex-col items-start gap-1">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                                    {info.row.original.assignedGroup || 'Unassigned'}
+                                </span>
+                                {canClaim && user?.role === 'AGENT' && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            claimMutation.mutate(info.row.original.id);
+                                        }}
+                                        className="text-[10px] bg-primary/10 text-primary hover:bg-primary hover:text-white px-2 py-1 rounded font-bold uppercase tracking-tight transition-all"
+                                    >
+                                        Claim Lead
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
         }),
         columnHelper.display({
             id: 'actions',

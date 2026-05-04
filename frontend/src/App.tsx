@@ -11,7 +11,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 // Lazy load pages for better performance
 const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const Bookings = lazy(() => import('./pages/Bookings').then(module => ({ default: module.Bookings })));
-const MyBookings = lazy(() => import('./pages/MyBookings').then(module => ({ default: module.MyBookings })));
+
 const CalendarView = lazy(() => import('./pages/CalendarView').then(module => ({ default: module.CalendarView })));
 const BookingDetails = lazy(() => import('./pages/BookingDetails').then(module => ({ default: module.BookingDetails })));
 
@@ -52,7 +52,8 @@ function App() {
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/bookings" element={<Bookings />} />
-                  <Route path="/my-bookings" element={<MyBookings />} />
+                  <Route path="/mybooking" element={<Bookings />} />
+                  <Route path="/unassignedbooking" element={<Bookings />} />
                   <Route path="/calendar" element={<CalendarView />} />
                   <Route path="/bookings/:id" element={<BookingDetails />} />
 

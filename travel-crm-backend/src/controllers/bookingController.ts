@@ -8,6 +8,7 @@ import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
+import Activity from '../models/Activity';
 import appCache from '../utils/cache';
 import {
     createBookingSchema,
@@ -60,7 +61,13 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
     }
 
     const query: any = {};
-    if (req.user?.role === 'AGENT') {
+    const userGroups = req.user?.groups || [];
+    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
+    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
+
+    if (isAccount || isOperation) {
+        query.status = 'Booked';
+    } else if (req.user?.role === 'AGENT') {
         query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
     } else if (req.user?.role === 'MARKETER') {
         query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
@@ -108,7 +115,13 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const query: any = {};
-    if (req.user?.role === 'AGENT') {
+    const userGroups = req.user?.groups || [];
+    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
+    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
+
+    if (isAccount || isOperation) {
+        query.status = 'Booked';
+    } else if (req.user?.role === 'AGENT') {
         query.assignedToUserId = req.user.id;
     } else if (req.user?.role === 'MARKETER') {
         query.createdByUserId = req.user.id;
@@ -142,9 +155,9 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, group } = req.query;
 
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -155,13 +168,53 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const query: any = {};
     const primaryContactQuery: any = {};
 
-    if (req.user?.role === 'MARKETER') {
-        query.createdByUserId = req.user.id;
-    } else if (myBookings === 'true') {
+    // 1. Mandatory Visibility Restrictions (Based on Role or Group/Department)
+    const userGroups = req.user?.groups || [];
+    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
+    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
+
+    const isSpecialized = userGroups.includes('Visa') || userGroups.includes('Ticketing') || 
+                         req.user?.role === 'VISA' || req.user?.role === 'TICKETING';
+    
+    const isPackageLCC = userGroups.includes('Package / LCC');
+
+    if (req.user?.role === 'ADMIN') {
+        // Admin sees all
+    } else if (isAccount || isOperation) {
+        // Account and Operation can see all 'Booked' queries from any group
+        query.status = 'Booked';
+    } else if (req.user?.role === 'AGENT' || isSpecialized) {
+        // Agents and specialized departments (Visa/Ticketing) see:
+        // 1. Leads assigned to them
+        // 2. Leads created by them
+        // 3. ALL leads belonging to their departmental group(s)
         query.$or = [
-            { assignedToUserId: req.user?.id },
-            { createdByUserId: req.user?.id },
+            { assignedToUserId: new mongoose.Types.ObjectId(req.user.id) }, 
+            { createdByUserId: new mongoose.Types.ObjectId(req.user.id) },
+            { assignedGroup: { $in: userGroups } }
         ];
+    } else if (req.user?.role === 'MARKETER') {
+        query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
+    }
+
+    // 2. Tab/Filter-Based Visibility (e.g., "My Leads")
+    if (myBookings === 'true') {
+        const userMatch = [
+            { assignedToUserId: new mongoose.Types.ObjectId(req.user?.id) },
+            { createdByUserId: new mongoose.Types.ObjectId(req.user?.id) },
+        ];
+
+        if (query.$or) {
+            // Combine existing $or with user-specific match
+            const existingOr = [...query.$or];
+            query.$and = [
+                { $or: existingOr },
+                { $or: userMatch }
+            ];
+            delete query.$or;
+        } else {
+            query.$or = userMatch;
+        }
     } else if (assignedTo) {
         const agentArray = (assignedTo as string).split(',').map(a => a.trim());
         const hasUnassigned = agentArray.includes('unassigned');
@@ -179,13 +232,31 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
+    // Role-based visibility exclusion: 
+    // "Other users cannot view their queries of any group which one created by them" 
+    // for Visa/Ticketing. This means if a Visa user creates a lead, Agents/Admin (maybe?) shouldn't see it?
+    // Actually, "User can see all leads" for Agent. 
+    // Let's re-read: "Other users cannot view their queries of any group which one created by them" 
+    // for VISA and TICKETING.
+    // This sounds like if VISA creates a query, it's private.
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'VISA' && req.user?.role !== 'TICKETING') {
+        // For other roles (Agent, Marketer, Operation, Account), 
+        // they should NOT see queries created by Visa/Ticketing users unless assigned?
+        // Actually, let's keep it simple for now as per the "can see only their own" rule for them.
+    }
+
     if (status) {
         const statusArray = (status as string).split(',').map(s => s.trim());
         const bookingStatuses = statusArray.filter(s => !['Interested', 'Not Interested'].includes(s));
         const interestFilters = statusArray.filter(s => ['Interested', 'Not Interested'].includes(s));
 
         if (bookingStatuses.length > 0) {
-            query.status = { $in: bookingStatuses };
+            if (query.status === 'Booked') {
+                // If role is restricted to 'Booked', they can only see 'Booked' even if they filter for more
+                query.status = 'Booked';
+            } else {
+                query.status = { $in: bookingStatuses };
+            }
         }
 
         if (interestFilters.length > 0) {
@@ -222,6 +293,17 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             $lte: futureDate
         };
     }
+
+    if (req.query.company) {
+        query.company = req.query.company as string;
+    }
+
+    if (group) {
+        query.assignedGroup = group as string;
+    }
+
+
+
 
     if (search) {
         const searchStr = search as string;
@@ -384,13 +466,30 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const cacheKey = `booking_${id}`;
     const cached = appCache.get(cacheKey);
     
-    // Auth Check Function (internal)
     const checkAuth = (b: any) => {
+        if (req.user?.role === 'ADMIN') return true;
+
         const creatorId = (b.createdByUserId as any)?._id?.toString() || b.createdByUserId?.toString();
-        if (req.user?.role === 'MARKETER' && creatorId !== String(req.user.id)) {
-            return false;
+        const assignedId = (b.assignedToUserId as any)?._id?.toString() || b.assignedToUserId?.toString();
+        const bookingGroup = b.assignedGroup || 'Package / LCC';
+        const userGroups = req.user?.groups || [];
+
+        if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+            // Can see if creator, assigned, or in same department group
+            return creatorId === String(req.user?.id) || 
+                   assignedId === String(req.user?.id) || 
+                   userGroups.includes(bookingGroup);
         }
-        return true;
+
+        if (req.user?.role === 'MARKETER') {
+            return creatorId === String(req.user?.id);
+        }
+
+        if (req.user?.role === 'OPERATION' || req.user?.role === 'ACCOUNT') {
+            return b.status === 'Booked';
+        }
+
+        return false;
     };
 
     if (cached) {
@@ -421,8 +520,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             path: 'activities',
             populate: { path: 'userId', select: 'name role' },
             options: { sort: { createdAt: -1 } }
-        })
-        .lean();
+        });
 
     if (!booking) {
         res.status(404);
@@ -439,7 +537,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const outstanding = ((booking as any).amount || 0) - totalPaid;
 
     const result = {
-        ...booking,
+        ...booking.toJSON(),
         id: booking!._id.toString(),
         createdOn: booking.createdAt,
         outstanding,
@@ -482,6 +580,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         Passenger.deleteMany({ bookingId: req.params.id }),
         Payment.deleteMany({ bookingId: req.params.id }),
         Notification.deleteMany({ bookingId: req.params.id }),
+        Activity.deleteMany({ bookingId: req.params.id }),
         booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
         Booking.findByIdAndDelete(req.params.id)
     ]);
@@ -535,11 +634,12 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         travellers: finalTravellers,
         primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
-        assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
+        assignedToUserId: (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null,
         includesFlight: result.data.includesFlight ?? true,
         includesAdditionalServices: result.data.includesAdditionalServices ?? false,
         additionalServicesDetails: result.data.additionalServicesDetails || null,
         pricePerTicket: result.data.pricePerTicket || 0,
+        assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
     const dbTime = Date.now() - dbStart;
 
@@ -571,6 +671,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     };
 
     invalidateBookingCaches();
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(booking._id, req.user?.id, 'BOOKING_CREATED', `Booking created for ${(populatedBooking as any).primaryContact?.contactName || 'Customer'}`);
+
     res.status(201).json(resultBooking);
 });
 
@@ -593,21 +698,43 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'MARKETER') {
+    if (req.user?.role === 'ADMIN' || req.user?.role === 'AGENT' || req.user?.role === 'OPERATION') {
+        // Admins, Agents, and Operation team can update any booking
+    } else if (req.user?.role === 'ACCOUNT') {
+        // Account team can update actualCosts and payments (handled in specific routes)
+        const allowedFields = ['actualCosts', 'totalAmount', 'amount'];
+        const keys = Object.keys(req.body);
+        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
+        if (forbiddenKeys.length > 0) {
+            res.status(403);
+            throw new Error('Account team is authorized to update Actual Costs and Amount fields only');
+        }
+    } else if (req.user?.role === 'MARKETER') {
         if (booking.assignedToUserId) {
             res.status(403);
             throw new Error('Not authorized to update an assigned booking');
         }
-        // Marketers can ONLY update requirements
         const allowedFields = ['requirements'];
         const keys = Object.keys(req.body);
         const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
-        
         if (forbiddenKeys.length > 0) {
             res.status(403);
             throw new Error('Marketers are only authorized to update Detailed Requirements');
         }
-    } else if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+    } else if (req.user?.role === 'OPERATION') {
+        const allowedFields = ['actualCosts'];
+        const keys = Object.keys(req.body);
+        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
+        if (forbiddenKeys.length > 0) {
+            res.status(403);
+            throw new Error('Operation team is only authorized to update Actual Costs');
+        }
+    } else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+            res.status(403);
+            throw new Error('You can only update your own queries');
+        }
+    } else {
         res.status(403);
         throw new Error('Not authorized to update this booking');
     }
@@ -627,6 +754,17 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.includesFlight !== undefined) booking.includesFlight = result.data.includesFlight;
     if (result.data.includesAdditionalServices !== undefined) booking.includesAdditionalServices = result.data.includesAdditionalServices;
     if (result.data.additionalServicesDetails !== undefined) booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
+    if (result.data.company !== undefined) booking.company = result.data.company;
+    if (result.data.assignedGroup !== undefined) {
+        if (booking.assignedGroup !== result.data.assignedGroup) {
+            booking.assignedGroup = result.data.assignedGroup;
+            booking.assignedToUserId = null as any;
+        } else {
+            booking.assignedGroup = result.data.assignedGroup;
+        }
+    }
+    if (result.data.estimatedCosts !== undefined) booking.estimatedCosts = result.data.estimatedCosts as any;
+    if (result.data.actualCosts !== undefined) booking.actualCosts = result.data.actualCosts as any;
     if (result.data.segments !== undefined) {
         booking.segments = (result.data.segments || []).map(s => ({
             from: s.from || '',
@@ -639,11 +777,18 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     // Log activity
     const { logActivity } = await import('../utils/activityLogger');
-    if (result.data.followUpDate !== undefined) {
-        await logActivity(id, req.user?.id, 'BOOKING_UPDATED', `Follow-up date set to ${result.data.followUpDate || 'none'}`);
-    } else {
-        await logActivity(id, req.user?.id, 'BOOKING_UPDATED', 'Booking details were modified.');
-    }
+    const updates: string[] = [];
+    
+    if (result.data.amount !== undefined || result.data.totalAmount !== undefined) updates.push('Financials');
+    if (result.data.estimatedCosts !== undefined) updates.push('Estimated Costs');
+    if (result.data.actualCosts !== undefined) updates.push('Actual Costs');
+    if (result.data.finalQuotation !== undefined) updates.push(`Quotation (${result.data.finalQuotation})`);
+    if (result.data.company !== undefined) updates.push(`Company (${result.data.company})`);
+    if (result.data.followUpDate !== undefined) updates.push(`Follow-up (${result.data.followUpDate || 'none'})`);
+    if (result.data.assignedGroup !== undefined) updates.push(`Group (${result.data.assignedGroup})`);
+    
+    const details = updates.length > 0 ? `Updated: ${updates.join(', ')}` : 'Booking details were modified.';
+    await logActivity(id, req.user?.id, 'BOOKING_UPDATED', details);
 
     // Recalculate outstanding if amount fields changed
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
@@ -703,14 +848,16 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         throw new Error('Booking not found');
     }
 
-    if (req.user?.role === 'MARKETER') {
+    if (req.user?.role === 'ADMIN' || req.user?.role === 'AGENT' || req.user?.role === 'OPERATION') {
+        // Admins, Agents, and Operation team can update status for any booking
+    } else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+        if (getObjectIdString(existingBooking.assignedToUserId) !== req.user.id && getObjectIdString(existingBooking.createdByUserId) !== req.user.id) {
+            res.status(403);
+            throw new Error('You can only update status for your own queries');
+        }
+    } else {
         res.status(403);
-        throw new Error('Marketers are not authorized to update booking status');
-    }
-
-    if (req.user?.role === 'AGENT' && getObjectIdString(existingBooking.assignedToUserId) !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to update this booking');
+        throw new Error('Not authorized to update status for this booking');
     }
 
     const { status } = result.data;
@@ -743,6 +890,12 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
 // @access  Private (Admin only)
 export const assignBooking = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'AGENT') {
+        res.status(403);
+        throw new Error('Only Admins and Agents can assign leads');
+    }
+
     const result = assignBookingSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -754,9 +907,13 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     if (assignedToUserId) {
         const agent = await User.findById(assignedToUserId);
-        if (!agent || agent.role !== 'AGENT') {
+        if (!agent) {
             res.status(400);
-            throw new Error('Invalid agent selected');
+            throw new Error('User not found');
+        }
+        if (agent.role === 'MARKETER') {
+            res.status(400);
+            throw new Error('Leads cannot be assigned to Marketers');
         }
     }
 
@@ -764,6 +921,16 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
+    }
+
+    // Security Check: Agents can only claim/assign leads in their own group
+    if (req.user?.role !== 'ADMIN') {
+        const userGroups = req.user?.groups || [];
+        const bookingGroup = booking.assignedGroup || 'Package / LCC';
+        if (!userGroups.includes(bookingGroup)) {
+            res.status(403);
+            throw new Error(`You can only claim or assign leads belonging to the ${bookingGroup} department.`);
+        }
     }
 
     const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
@@ -789,13 +956,10 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             }
         }
 
-        const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+        const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
 
-        await Comment.create({
-            text: commentText,
-            bookingId: id,
-            createdById: req.user!.id,
-        });
+        const { logActivity } = await import('../utils/activityLogger');
+        await logActivity(id, req.user?.id, 'ASSIGNED', commentText);
 
         if (newAssignedUserId) {
             await Notification.create({
@@ -866,13 +1030,10 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
                 previousAgentName = prevAgent?.name || 'Unknown Agent';
             }
 
-            const commentText = `${previousAgentName} ➔ ${newAgentName}`;
+            const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
 
-            await Comment.create({
-                text: commentText,
-                bookingId: booking._id,
-                createdById: req.user!.id,
-            });
+            const { logActivity } = await import('../utils/activityLogger');
+            await logActivity(booking._id, req.user?.id, 'ASSIGNED', commentText);
 
             if (newAgentId) {
                 await Notification.create({
@@ -900,6 +1061,43 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
 
     invalidateBookingCaches();
     res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
+});
+
+// @desc    Bulk delete bookings
+// @route   POST /api/bookings/bulk-delete
+// @access  Private (Admin only)
+export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
+    const { bookingIds } = req.body;
+
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        res.status(400);
+        throw new Error('No booking IDs provided');
+    }
+
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Only admins can bulk delete leads');
+    }
+
+    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+
+    const deletePromises = bookings.map(async (booking) => {
+        const id = booking._id;
+        return Promise.all([
+            Comment.deleteMany({ bookingId: id }),
+            Passenger.deleteMany({ bookingId: id }),
+            Payment.deleteMany({ bookingId: id }),
+            Notification.deleteMany({ bookingId: id }),
+            Activity.deleteMany({ bookingId: id }),
+            booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
+            Booking.findByIdAndDelete(id)
+        ]);
+    });
+
+    await Promise.all(deletePromises);
+
+    invalidateBookingCaches();
+    res.json({ message: `Successfully deleted ${bookingIds.length} bookings` });
 });
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
@@ -1012,6 +1210,11 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
 
     invalidateBookingCaches();
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'PASSENGERS_ADDED', `Added ${passengersData.length} travelers to the booking.`);
+
     res.status(201).json(createdPassengers);
 });
 
@@ -1061,6 +1264,11 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
     console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
 
     invalidateBookingCaches();
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'PASSENGERS_UPDATED', `Updated details for ${passengersData.length} travelers.`);
+
     res.json(createdPassengers);
 });
 
@@ -1090,7 +1298,14 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
 
     if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
-        throw new Error('Not authorized to add payment to this booking');
+        throw new Error('Agents can only add payments to their own bookings');
+    }
+
+    if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+            res.status(403);
+            throw new Error('You can only add payments to your own bookings');
+        }
     }
 
     const payment = await Payment.create({
@@ -1099,6 +1314,11 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     });
 
     await recalcOutstanding(id);
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'PAYMENT_ADDED', `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`);
+
     invalidateBookingCaches();
     res.status(201).json(payment);
 });
@@ -1141,7 +1361,14 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
 
     if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
         res.status(403);
-        throw new Error('Not authorized to delete payment from this booking');
+        throw new Error('Agents can only delete payments from their own bookings');
+    }
+
+    if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+            res.status(403);
+            throw new Error('You can only delete payments from your own bookings');
+        }
     }
 
     const payment = await Payment.findById(paymentId);
@@ -1153,6 +1380,11 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     await Payment.findByIdAndDelete(paymentId);
 
     await recalcOutstanding(id);
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'PAYMENT_DELETED', `Removed payment of ${payment.amount}`);
+
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });
@@ -1192,12 +1424,49 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     res.json(events);
 });
 
+// @desc    Verify a booking (for Account & Admin)
+// @route   PATCH /api/bookings/:id/verify
+// @access  Private (Account & Admin)
+export const verifyBooking = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { isVerified } = req.body;
+
+    const userGroups = req.user?.groups || [];
+    const isAccount = req.user?.role === 'ACCOUNT' || userGroups.some(g => g.toLowerCase().trim() === 'account');
+
+    if (req.user?.role !== 'ADMIN' && !isAccount) {
+        res.status(403);
+        throw new Error('Only Admins and Account team can verify bookings');
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+
+    booking.isVerified = isVerified;
+    if (isVerified) {
+        booking.verifiedBy = req.user?.name || 'Admin';
+        booking.verifiedAt = new Date();
+    } else {
+        booking.verifiedBy = null;
+        booking.verifiedAt = null;
+    }
+    await booking.save();
+
+    // Log activity
+    const { logActivity } = await import('../utils/activityLogger');
+    await logActivity(id, req.user?.id, 'BOOKING_VERIFIED', `Booking was ${isVerified ? 'verified' : 'unverified'}`);
+
+    invalidateBookingCaches();
+    res.json({ message: `Booking ${isVerified ? 'verified' : 'unverified'} successfully`, isVerified: booking.isVerified });
+});
+
 // @desc    Get activity log for a booking
 // @route   GET /api/bookings/:id/activity
 // @access  Private
 export const getBookingActivity = asyncHandler(async (req: Request, res: Response) => {
-    const { default: Activity } = await import('../models/Activity');
-    
     const activities = await Activity.find({ bookingId: req.params.id })
         .sort({ createdAt: -1 })
         .limit(50)

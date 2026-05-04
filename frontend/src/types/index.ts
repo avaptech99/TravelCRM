@@ -2,9 +2,15 @@ export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'ADMIN' | 'AGENT' | 'MARKETER';
+    role: 'ADMIN' | 'AGENT' | 'MARKETER' | 'OPERATION' | 'ACCOUNT' | 'VISA' | 'TICKETING';
+    groups?: string[];
     isOnline?: boolean;
     lastSeen?: string;
+    permissions?: {
+        canAssignLeads?: boolean;
+        canDeleteLeads?: boolean;
+        canVerifyFinancials?: boolean;
+    };
 }
 
 export interface Traveler {
@@ -55,7 +61,7 @@ export interface Booking {
     requirements?: string;
     status: 'Pending' | 'Working' | 'Sent' | 'Booked' | 'Follow Up';
     assignedToUser?: User;
-    assignedToUserId?: string;
+    assignedToUserId?: any;
     createdByUser: User;
     createdByUserId: string;
     isConvertedToEDT: boolean;
@@ -89,6 +95,17 @@ export interface Booking {
     amount?: number;
     outstanding?: number;
     activities?: Activity[];
+    assignedGroup?: string;
+    companyName?: string;
+    company?: string;
+    estimatedCosts?: { costType: string; price: number; source: string }[];
+    estimatedMargin?: number;
+    actualCosts?: { costType: string; price: number; source: string }[];
+    actualMargin?: number;
+    actualAmount?: number;
+    isVerified?: boolean;
+    verifiedBy?: string;
+    verifiedAt?: string;
 }
 
 export interface Activity {

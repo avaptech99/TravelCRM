@@ -2,7 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../../api/client';
 import {
     Dialog,
@@ -20,6 +20,7 @@ const bookingSchema = z.object({
     contactNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
     requirements: z.string().min(1, 'Requirements are compulsory'),
     bookingType: z.enum(['B2B', 'B2C']),
+    assignedGroup: z.string().min(1, 'Please select a group'),
 });
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
@@ -31,6 +32,21 @@ interface NewBookingModalProps {
 
 export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClose }) => {
     const queryClient = useQueryClient();
+
+    const { data: dropdownSettings } = useQuery({
+        queryKey: ['dropdown-settings'],
+        queryFn: async () => {
+            const { data } = await api.get('/settings/dropdowns');
+            return data as Record<string, string[]>;
+        },
+        enabled: isOpen,
+    });
+
+    const groupOptions = (dropdownSettings?.groups || ['Package / LCC', 'Ticketing INT', 'Visa', 'Operation', 'Account'])
+        .filter((group: string) => {
+            const g = group.toLowerCase().trim();
+            return g !== 'account' && g !== 'operation';
+        });
 
     const {
         register,
@@ -45,6 +61,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
             contactNumber: '',
             requirements: '',
             bookingType: 'B2C',
+            assignedGroup: 'Package / LCC',
         },
     });
 
@@ -89,31 +106,51 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Booking Type <span className="text-red-500">*</span></label>
-                        <div className="flex gap-4">
-                            <label className="inline-flex items-center cursor-pointer">
-                                <input
-                                    type="radio"
-                                    value="B2B"
-                                    {...register('bookingType')}
-                                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
-                                />
-                                <span className="ml-2 text-sm font-medium text-slate-700">Agent (B2B)</span>
-                            </label>
-                            <label className="inline-flex items-center cursor-pointer">
-                                <input
-                                    type="radio"
-                                    value="B2C"
-                                    {...register('bookingType')}
-                                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
-                                />
-                                <span className="ml-2 text-sm font-medium text-slate-700">Direct (B2C)</span>
-                            </label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Booking Type <span className="text-red-500">*</span></label>
+                            <div className="flex gap-4">
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        value="B2B"
+                                        {...register('bookingType')}
+                                        className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
+                                    />
+                                    <span className="ml-2 text-sm font-medium text-slate-700">B2B</span>
+                                </label>
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        value="B2C"
+                                        {...register('bookingType')}
+                                        className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
+                                    />
+                                    <span className="ml-2 text-sm font-medium text-slate-700">B2C</span>
+                                </label>
+                            </div>
+                            {errors.bookingType && (
+                                <p className="text-red-500 text-xs mt-1">{errors.bookingType.message}</p>
+                            )}
                         </div>
-                        {errors.bookingType && (
-                            <p className="text-red-500 text-xs mt-1">{errors.bookingType.message}</p>
-                        )}
+
+                        <div className="space-y-1.5">
+                            <label htmlFor="assignedGroup" className="text-sm font-medium text-slate-700">
+                                Assign to Group <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                id="assignedGroup"
+                                {...register('assignedGroup')}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+                            >
+                                {groupOptions.map(group => (
+                                    <option key={group} value={group}>{group}</option>
+                                ))}
+                            </select>
+                            {errors.assignedGroup && (
+                                <p className="text-red-500 text-xs mt-1">{errors.assignedGroup.message}</p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -157,9 +194,6 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                         </div>
                         {errors.contactNumber && (
                             <p className="text-red-500 text-xs mt-1">{errors.contactNumber.message}</p>
-                        )}
-                        {errors.countryCode && (
-                            <p className="text-red-500 text-xs mt-1">{errors.countryCode.message}</p>
                         )}
                     </div>
 

@@ -9,15 +9,19 @@ export const Sidebar: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
 
+
+
+
     const navItems = [
         { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
-        { label: 'All Bookings', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'My Leads', path: '/my-bookings', icon: <UserSquare size={20} />, roles: ['AGENT', 'MARKETER'] },
-        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'All Leads', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT', 'VISA', 'TICKETING'] },
+        { label: 'My Leads', path: '/mybooking', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING'] },
+        { label: 'Unassigned', path: '/unassignedbooking', icon: <Users size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT', 'OPERATION', 'ACCOUNT'] },
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },
-        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
-        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
+        { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN', 'ACCOUNT'] },
+        { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT'] },
     ];
 
     const visibleItems = navItems.filter(item => item.roles.includes(user?.role || ''));
@@ -35,7 +39,17 @@ export const Sidebar: React.FC = () => {
             </div>
             <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
                 {visibleItems.map((item) => {
-                    const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+                    const currentPath = location.pathname + location.search;
+                    
+                    // Specific logic for All Leads vs Sub-filters (My Leads / Unassigned)
+                    const isSubFilterActive = visibleItems.some(other => 
+                        other.path.includes('?') && currentPath.includes(other.path.split('?')[1])
+                    );
+                    
+                    const isActive = currentPath === item.path || 
+                        (item.path === '/bookings' && !isSubFilterActive && location.pathname === '/bookings') ||
+                        (item.path !== '/' && !item.path.includes('?') && item.path !== '/bookings' && location.pathname.startsWith(item.path));
+                        
                     return (
                         <Link
                             key={item.path}
@@ -54,7 +68,9 @@ export const Sidebar: React.FC = () => {
                         </Link>
                     );
                 })}
+
             </nav>
+
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                 <div className="flex items-center space-x-3">
