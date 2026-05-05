@@ -231,15 +231,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             // Ignore invalid object ids
         }
 
-        if (hasUnassigned && objectIds.length > 0) {
-            query.$or = [
-                { assignedToUserId: null },
-                { assignedToUserId: { $in: objectIds } }
-            ];
-        } else if (hasUnassigned) {
-            query.assignedToUserId = null;
-        } else if (objectIds.length > 0) {
-            query.assignedToUserId = { $in: objectIds };
+        const targetAgentIds: (mongoose.Types.ObjectId | null)[] = objectIds;
+        if (hasUnassigned) {
+            targetAgentIds.push(null);
+        }
+
+        if (targetAgentIds.length > 0) {
+            query.assignedToUserId = { $in: targetAgentIds };
         }
     }
 
@@ -523,15 +521,15 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     console.time(`deleteBooking_${req.params.id}`);
-    // Parallel deletion of all related records
-    await Promise.all([
-        Timeline.deleteMany({ bookingId: req.params.id }),
-        Passenger.deleteMany({ bookingId: req.params.id }),
-        Payment.deleteMany({ bookingId: req.params.id }),
-        Notification.deleteMany({ bookingId: req.params.id }),
-        booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
-        Booking.findByIdAndDelete(req.params.id)
-    ]);
+    // Sequential deletion to preserve connection pool
+    await Timeline.deleteMany({ bookingId: req.params.id });
+    await Passenger.deleteMany({ bookingId: req.params.id });
+    await Payment.deleteMany({ bookingId: req.params.id });
+    await Notification.deleteMany({ bookingId: req.params.id });
+    if (booking.primaryContactId) {
+        await PrimaryContact.findByIdAndDelete(booking.primaryContactId);
+    }
+    await Booking.findByIdAndDelete(req.params.id);
     console.timeEnd(`deleteBooking_${req.params.id}`);
 
     invalidateBookingCaches();

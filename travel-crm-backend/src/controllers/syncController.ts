@@ -32,42 +32,40 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         recentQuery.createdByUserId = userId;
     }
 
-    // Run all queries in parallel
-    const [statsResult, recentBookings, notifications, agentsData] = await Promise.all([
-        // 1. Stats aggregation
-        Booking.aggregate([
-            { $match: statsQuery },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: 1 },
-                    booked: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-                    pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                    working: { $sum: { $cond: [{ $eq: ['$status', 'Working'] }, 1, 0] } },
-                    sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
-                }
+    // Run all queries sequentially to preserve connection pool
+    // 1. Stats aggregation (The heaviest - run first)
+    const statsResult = await Booking.aggregate([
+        { $match: statsQuery },
+        {
+            $group: {
+                _id: null,
+                total: { $sum: 1 },
+                booked: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
+                pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                working: { $sum: { $cond: [{ $eq: ['$status', 'Working'] }, 1, 0] } },
+                sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
             }
-        ]),
-
-        // 2. Recent bookings (latest 5)
-        Booking.find(recentQuery)
-            .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .populate('assignedToUser', 'name')
-            .lean(),
-
-        // 3. Notifications (latest 20)
-        Notification.find({ userId })
-            .sort({ createdAt: -1 })
-            .limit(20)
-            .lean(),
-
-        // 4. Agent count (admin only)
-        userRole === 'ADMIN'
-            ? User.find({ role: 'AGENT' }).select('_id').lean()
-            : Promise.resolve([]),
+        }
     ]);
+
+    // 2. Recent bookings (latest 5)
+    const recentBookings = await Booking.find(recentQuery)
+        .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('assignedToUser', 'name')
+        .lean();
+
+    // 3. Notifications (latest 20)
+    const notifications = await Notification.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
+
+    // 4. Agent count (admin only)
+    const agentsCount = userRole === 'ADMIN'
+        ? await User.countDocuments({ role: 'AGENT' })
+        : 0;
 
     const stats = statsResult.length > 0 ? {
         total: statsResult[0].total,
@@ -104,12 +102,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     const result = {
         stats: {
             ...stats,
-            agents: agentsData.length,
+            agents: agentsCount,
         },
         recentBookings: mappedBookings,
         notifications: mappedNotifications,
     };
 
-    appCache.set(cacheKey, result, 30); // Cache for 30 seconds
+    appCache.set(cacheKey, result, 60); // Cache for 60 seconds
     res.json(result);
 });
