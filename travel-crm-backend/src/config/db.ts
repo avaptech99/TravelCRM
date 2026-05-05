@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Booking from '../models/Booking';
 import Payment from '../models/Payment';
+import cache from '../utils/cache';
 
 const connectDB = async () => {
     try {
@@ -13,6 +14,11 @@ const connectDB = async () => {
 
         mongoose.connection.once('connected', async () => {
             console.log('MongoDB Connected. Synchronizing indexes...');
+            
+            // EMERGENCY: Flush all cached items on startup to clear any bad "null" values
+            cache.flushAll();
+            console.log('🧹 Cache flushed on startup.');
+
             try {
                 // Forces MongoDB to create missing indexes AND drop unused stale indexes
                 await Booking.syncIndexes();

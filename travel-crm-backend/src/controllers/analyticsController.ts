@@ -14,7 +14,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
     
     const cacheKey = `analytics_bookings_${fromDate}_${toDate}_${companyName}`;
     const cached = cache.get(cacheKey);
-    if (cached !== undefined) {
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }
@@ -60,7 +60,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
         }
     ]);
 
-    const result = stats[0];
+    const result = stats[0] || { byStatus: [], byType: [], byInterest: [] };
     cache.set(cacheKey, result, 300);
     res.json(result);
 });
@@ -73,7 +73,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
 
     const cacheKey = `analytics_payments_${fromDate}_${toDate}_${companyName}`;
     const cached = cache.get(cacheKey);
-    if (cached !== undefined) {
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }
@@ -139,7 +139,7 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 
     const cacheKey = `analytics_revenue_${interval}_${companyName}`;
     const cached = cache.get(cacheKey);
-    if (cached !== undefined) {
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }
@@ -157,8 +157,9 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
         { $sort: { _id: 1 } }
     ]);
 
-    cache.set(cacheKey, trends, 300);
-    res.json(trends);
+    const result = trends ?? [];
+    cache.set(cacheKey, result, 300);
+    res.json(result);
 });
 
 // @desc    Get agent performance analytics
@@ -169,7 +170,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
 
     const cacheKey = `analytics_agents_${fromDate}_${toDate}_${companyName}`;
     const cached = cache.get(cacheKey);
-    if (cached !== undefined) {
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }
@@ -241,8 +242,9 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
         { $sort: { totalRevenue: -1 } }
     ]);
 
-    cache.set(cacheKey, agentStats, 300);
-    res.json(agentStats);
+    const result = agentStats ?? [];
+    cache.set(cacheKey, result, 300);
+    res.json(result);
 });
 
 // @desc    Get detailed payment breakdown (pending and received)
@@ -253,7 +255,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     
     const cacheKey = `analytics_breakdown_${fromDate}_${toDate}_${companyName}`;
     const cached = cache.get(cacheKey);
-    if (cached !== undefined) {
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }

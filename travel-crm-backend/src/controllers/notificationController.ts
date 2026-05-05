@@ -13,17 +13,21 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
     const userId = req.user?.id;
     const cacheKey = `notifications_${userId}`;
     
-    const cached = appCache.get(cacheKey);
-    if (cached !== undefined) {
+    const cached = appCache.get<any[]>(cacheKey);
+    if (cached !== undefined && cached !== null) {
         res.json(cached);
         return;
     }
 
     // If a request is already in-flight for this user, wait for it
     if (inFlight.has(cacheKey)) {
-        const data = await inFlight.get(cacheKey);
-        res.json(data);
-        return;
+        try {
+            const data = await inFlight.get(cacheKey);
+            res.json(data ?? []);
+            return;
+        } catch (err) {
+            // If in-flight fails, fall through to retry once
+        }
     }
 
     // This is the first request — create the promise and share it
@@ -33,20 +37,21 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
             .limit(20)
             .lean();
 
-        const mappedNotifications = notifications.map(n => ({
+        return notifications.map(n => ({
             ...n,
             id: n._id.toString()
         }));
-
-        appCache.set(cacheKey, mappedNotifications, 30); // Cache for 30 seconds
-        return mappedNotifications;
     })();
 
     inFlight.set(cacheKey, promise);
 
     try {
         const result = await promise;
-        res.json(result);
+        const safeData = result ?? [];
+        appCache.set(cacheKey, safeData, 30); // Cache for 30 seconds
+        res.json(safeData);
+    } catch (err) {
+        res.status(500).json([]); // Always return array even on error to prevent UI crash
     } finally {
         inFlight.delete(cacheKey); // Always clean up
     }
