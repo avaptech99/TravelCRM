@@ -222,16 +222,23 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         const agentArray = (assignedTo as string).split(',').map(a => a.trim());
         const hasUnassigned = agentArray.includes('unassigned');
         const realAgentIds = agentArray.filter(a => a !== 'unassigned');
+        
+        let objectIds: mongoose.Types.ObjectId[] = [];
+        try {
+            objectIds = realAgentIds.map(id => new mongoose.Types.ObjectId(id));
+        } catch (e) {
+            // Ignore invalid object ids
+        }
 
-        if (hasUnassigned && realAgentIds.length > 0) {
+        if (hasUnassigned && objectIds.length > 0) {
             query.$or = [
                 { assignedToUserId: null },
-                { assignedToUserId: { $in: realAgentIds } }
+                { assignedToUserId: { $in: objectIds } }
             ];
         } else if (hasUnassigned) {
             query.assignedToUserId = null;
-        } else {
-            query.assignedToUserId = { $in: realAgentIds };
+        } else if (objectIds.length > 0) {
+            query.assignedToUserId = { $in: objectIds };
         }
     }
 
@@ -351,21 +358,19 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
 
-    const [rawBookings, count] = await Promise.all([
-        Booking.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
-            .sort({ lastInteractionAt: -1 })
-            .skip(skip)
-            .limit(limitNum)
-            .populate('assignedToUserId', 'name')
-            .populate('createdByUserId', 'name')
-            .lean(),
-        // Use estimatedDocumentCount for unfiltered queries (reads metadata, ~0ms)
-        // Use countDocuments only when filters are applied
-        Object.keys(query).length === 0
-            ? Booking.estimatedDocumentCount()
-            : Booking.countDocuments(query),
-    ]);
+    const count = Object.keys(query).length === 0
+        ? await Booking.estimatedDocumentCount()
+        : await Booking.countDocuments(query);
+
+    const rawBookings = await Booking.find(query)
+        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+        .sort({ lastInteractionAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('assignedToUserId', 'name')
+        .populate('createdByUserId', 'name')
+        .lean();
+
     bookings = rawBookings;
     total = count;
     console.timeEnd(`getBookingsQuery_${reqId}`);
@@ -1066,23 +1071,23 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    
+    if (bookings.length > 0) {
+        const validBookingIds = bookings.map(b => b._id);
+        const contactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
 
-    const deletePromises = bookings.map(async (booking) => {
-        const id = booking._id;
-        return Promise.all([
-            Timeline.deleteMany({ bookingId: id }),
-            Passenger.deleteMany({ bookingId: id }),
-            Payment.deleteMany({ bookingId: id }),
-            Notification.deleteMany({ bookingId: id }),
-            booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
-            Booking.findByIdAndDelete(id)
+        await Promise.all([
+            Timeline.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Passenger.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Payment.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Notification.deleteMany({ bookingId: { $in: validBookingIds } }),
+            contactIds.length > 0 ? PrimaryContact.deleteMany({ _id: { $in: contactIds } }) : Promise.resolve(),
+            Booking.deleteMany({ _id: { $in: validBookingIds } })
         ]);
-    });
-
-    await Promise.all(deletePromises);
+    }
 
     invalidateBookingCaches();
-    res.json({ message: `Successfully deleted ${bookingIds.length} bookings` });
+    res.json({ message: `Successfully deleted ${bookings.length} bookings` });
 });
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
