@@ -263,8 +263,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         }
 
         if (interestFilters.length > 0) {
-            const interestValues = interestFilters.map(f => f === 'Interested' ? 'Yes' : 'No');
-            primaryContactQuery.interested = { $in: interestValues };
+            query['contact.interested'] = { $in: interestFilters.map(f => f === 'Interested') };
         }
     }
 
@@ -311,83 +310,31 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     if (search) {
         const searchStr = search as string;
         const searchRegex = new RegExp(searchStr, 'i');
-        const contactSearchConditions = [
-            { contactName: searchRegex },
-            { contactPhoneNo: searchRegex },
-            { requirements: searchRegex },
-        ];
-
-        if (primaryContactQuery.$or) {
-            primaryContactQuery.$or.push(...contactSearchConditions);
-        } else {
-            primaryContactQuery.$or = contactSearchConditions;
-        }
-    }
-
-    let contactIds: mongoose.Types.ObjectId[] = [];
-    if (Object.keys(primaryContactQuery).length > 0) {
-        const matchingContacts = await PrimaryContact.find(primaryContactQuery).select('_id').lean();
-        contactIds = matchingContacts.map(c => (c as any)._id);
         
-        if (contactIds.length === 0) {
-            res.json({
-                data: [],
-                meta: {
-                    total: 0,
-                    page: Number(page),
-                    limit: Number(limit),
-                    totalPages: 0,
-                },
-            });
-            return;
-        }
-        query.primaryContactId = { $in: contactIds };
-    }
-
-    if (search) {
-        const searchStr = search as string;
-        const searchRegex = new RegExp(searchStr, 'i');
-        const bookingSearchFields = [
+        // Search directly against embedded contact snapshot and flight fields
+        const searchConditions = [
+            { 'contact.name': searchRegex },
+            { 'contact.phone': searchRegex },
             { flightFrom: searchRegex },
             { flightTo: searchRegex },
+            { destination: searchRegex },
+            { uniqueCode: searchRegex }
         ];
 
-        // If we have contactIds from the search, we want (contactMatch OR flightMatch)
-        // BUT we also need to respect existing query filters (like status, agent)
-        if (query.primaryContactId) {
-            const searchOr = [
-                { primaryContactId: query.primaryContactId },
-                ...bookingSearchFields
+        if (query.$or) {
+            // If we already have $or (like myBookings or Agent assignment), wrap in $and
+            const existingOr = query.$or;
+            delete query.$or;
+            query.$and = [
+                { $or: existingOr },
+                { $or: searchConditions }
             ];
-            
-            // Remove the single primaryContactId from query and use it in OR
-            delete query.primaryContactId;
-            
-            if (query.$or) {
-                // If we already have $or (like myBookings or Agent assignment), wrap in $and
-                const existingOr = query.$or;
-                delete query.$or;
-                query.$and = [
-                    { $or: existingOr },
-                    { $or: searchOr }
-                ];
-            } else {
-                query.$or = searchOr;
-            }
         } else {
-            // Just flight search
-            if (query.$or) {
-                const existingOr = query.$or;
-                delete query.$or;
-                query.$and = [
-                    { $or: existingOr },
-                    { $or: bookingSearchFields }
-                ];
-            } else {
-                query.$or = bookingSearchFields;
-            }
+            query.$or = searchConditions;
         }
     }
+
+
 
     // Outstanding filter - simple field check
     if (String(outstandingOnly) === 'true') {
@@ -769,6 +716,13 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         }));
     }
 
+    // Sync embedded contact snapshot
+    if (!booking.contact) {
+        booking.contact = { name: '', phone: '', type: '', interested: false };
+    }
+    if (result.data.interested !== undefined) booking.contact.interested = result.data.interested === 'Yes';
+    if (result.data.bookingType !== undefined) booking.contact.type = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
+
     await booking.save();
 
     // Log activity
@@ -797,11 +751,12 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         await recalcOutstanding(id);
     }
 
-    // Update PrimaryContact fields if provided
-    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
+    // Update PrimaryContact fields if provided (Legacy Sync)
+    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined || result.data.bookingType !== undefined)) {
         const updateData: any = {};
         if (result.data.requirements !== undefined) updateData.requirements = result.data.requirements;
-        if (result.data.interested !== undefined) updateData.interested = result.data.interested;
+        if (result.data.interested !== undefined) updateData.interested = result.data.interested === 'Yes';
+        if (result.data.bookingType !== undefined) updateData.bookingType = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
         await PrimaryContact.findByIdAndUpdate(booking.primaryContactId, updateData);
     }
 
@@ -811,20 +766,25 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         .populate('createdByUserId', 'name')
         .lean();
 
+    if (!updatedBooking) {
+        res.status(404);
+        throw new Error('Booking not found after update');
+    }
+
     const resultBooking = {
         ...updatedBooking,
-        id: updatedBooking!._id.toString(),
-        createdOn: updatedBooking!.createdAt,
-        contactPerson: (updatedBooking as any).primaryContact?.contactName,
-        contactNumber: (updatedBooking as any).primaryContact?.contactPhoneNo,
+        id: updatedBooking._id.toString(),
+        createdOn: updatedBooking.createdAt,
+        contactPerson: updatedBooking.contact?.name || (updatedBooking as any).primaryContact?.contactName,
+        contactNumber: updatedBooking.contact?.phone || (updatedBooking as any).primaryContact?.contactPhoneNo,
         requirements: (updatedBooking as any).primaryContact?.requirements,
-        interested: (updatedBooking as any).primaryContact?.interested,
-        bookingType: (updatedBooking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: updatedBooking!.destination,
-        travellers: updatedBooking!.travellers,
+        interested: updatedBooking.contact?.interested ? 'Yes' : 'No',
+        bookingType: updatedBooking.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: updatedBooking.destination,
+        travellers: updatedBooking.travellers,
         travelers: (updatedBooking as any).passengers,
-        createdByUser: updatedBooking!.createdByUserId,
-        assignedToUser: updatedBooking!.assignedToUserId,
+        createdByUser: updatedBooking.createdByUserId,
+        assignedToUser: updatedBooking.assignedToUserId,
     };
 
     invalidateBookingCaches();
