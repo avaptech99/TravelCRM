@@ -16,7 +16,12 @@ const connectDB = async () => {
             console.log('MongoDB Connected. Synchronizing indexes...');
             
             // EMERGENCY: Flush all cached items on startup to clear any bad "null" values
-            cache.flushAll();
+            // Using a safe check to work with different cache library versions/types
+            if (typeof (cache as any).flushAll === 'function') {
+                (cache as any).flushAll();
+            } else if (typeof (cache as any).reset === 'function') {
+                (cache as any).reset();
+            }
             console.log('🧹 Cache flushed on startup.');
 
             try {
