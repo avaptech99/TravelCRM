@@ -77,16 +77,24 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         sent: statsResult[0].sent,
     } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-    const mappedBookings = (recentBookings as any[]).map(b => ({
-        ...b,
-        id: b._id.toString(),
-        contactPerson: b.contact?.name,
-        contactNumber: b.contact?.phone,
-        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        interested: b.contact?.interested ? 'Yes' : 'No',
-        destinationCity: b.destination,
-        travellers: b.travellers,
-    }));
+    const mappedBookings = (recentBookings as any[]).map(b => {
+        // Fallback for older bookings that don't have the embedded 'contact' snapshot yet
+        const contactName = b.contact?.name || 'Unknown';
+        const contactPhone = b.contact?.phone || '';
+        const contactType = b.contact?.type || 'B2C';
+        const contactInterested = b.contact?.interested ?? false;
+
+        return {
+            ...b,
+            id: b._id.toString(),
+            contactPerson: contactName,
+            contactNumber: contactPhone,
+            bookingType: contactType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            interested: contactInterested ? 'Yes' : 'No',
+            destinationCity: b.destination,
+            travellers: b.travellers,
+        };
+    });
 
     const mappedNotifications = notifications.map(n => ({
         ...n,

@@ -19,8 +19,10 @@ const notificationRoutes_1 = __importDefault(require("./routes/notificationRoute
 const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
 const syncRoutes_1 = __importDefault(require("./routes/syncRoutes"));
 const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
+const settingsRoutes_1 = __importDefault(require("./routes/settingsRoutes"));
 const db_1 = __importDefault(require("./config/db"));
 const keepWarm_1 = require("./utils/keepWarm");
+const followUpCron_1 = require("./utils/followUpCron");
 // Socket.io is available in ./socket.ts for future real-time upgrades
 const User_1 = __importDefault(require("./models/User"));
 const Booking_1 = __importDefault(require("./models/Booking"));
@@ -63,6 +65,7 @@ app.use('/api/notifications', notificationRoutes_1.default);
 app.use('/api/analytics', analyticsRoutes_1.default);
 app.use('/api/sync', syncRoutes_1.default);
 app.use('/api/external', externalRoutes_1.default);
+app.use('/api/settings', settingsRoutes_1.default);
 // Ping route for keeping server warm
 app.get('/api/ping', (req, res) => {
     res.status(200).send('pong');
@@ -135,14 +138,7 @@ mongoose_1.default.connection.once('open', async () => {
         catch (error) {
             console.error('[Startup Task Error]:', error);
         }
-<<<<<<< Updated upstream
-    }
-    catch (error) {
-        console.error('Startup tasks error:', error);
-    }
-=======
     })();
->>>>>>> Stashed changes
 });
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

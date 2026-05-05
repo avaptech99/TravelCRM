@@ -24,7 +24,7 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
         return;
     }
     const agents = await User_1.default.find({ role: 'AGENT' })
-        .select('name email lastSeen')
+        .select('name email lastSeen groups')
         .sort({ name: 1 })
         .lean();
     const now = Date.now();
@@ -52,7 +52,7 @@ exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
         return;
     }
     const users = await User_1.default.find()
-        .select('name email role lastSeen createdAt')
+        .select('name email role lastSeen createdAt groups')
         .sort({ role: 1, createdAt: -1 })
         .lean();
     const now = Date.now();
@@ -90,7 +90,7 @@ exports.createUser = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Invalid input');
     }
-    const { name, email, password, role } = result.data;
+    const { name, email, password, role, groups } = result.data;
     const userExists = await User_1.default.findOne({ email });
     if (userExists) {
         res.status(400);
@@ -102,6 +102,7 @@ exports.createUser = (0, express_async_handler_1.default)(async (req, res) => {
         email,
         passwordHash,
         role,
+        groups: groups || [],
     });
     // Invalidate user caches
     cache_1.default.invalidateByPrefix('users_');
@@ -110,6 +111,7 @@ exports.createUser = (0, express_async_handler_1.default)(async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        groups: user.groups,
         createdAt: user.createdAt,
     });
 });
@@ -205,7 +207,7 @@ exports.updateProfile = (0, express_async_handler_1.default)(async (req, res) =>
 // @access  Private/Admin
 exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) => {
     const { id } = req.params;
-    const { name, email, role, password } = req.body;
+    const { name, email, role, password, groups } = req.body;
     const user = await User_1.default.findById(id);
     if (!user) {
         res.status(404);
@@ -222,6 +224,8 @@ exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) =
     user.email = email || user.email;
     if (role)
         user.role = role;
+    if (groups)
+        user.groups = groups;
     if (password) {
         if (password.length < 6) {
             res.status(400);
@@ -237,6 +241,7 @@ exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) =
         name: user.name,
         email: user.email,
         role: user.role,
+        groups: user.groups,
     });
 });
 // @desc    Update user status (Online/Offline)

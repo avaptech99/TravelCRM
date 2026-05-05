@@ -40,16 +40,12 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
                         }
                     },
                     { $unwind: '$contact' },
-<<<<<<< Updated upstream
-                    { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
-=======
                     {
                         $group: {
                             _id: { $cond: [{ $eq: ['$contact.interested', true] }, 'Yes', 'No'] },
                             count: { $sum: 1 }
                         }
                     }
->>>>>>> Stashed changes
                 ]
             }
         }

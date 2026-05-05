@@ -34,24 +34,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const userSchema = new mongoose_1.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    passwordHash: { type: String, required: true },
-    role: { type: String, default: 'AGENT' },
-    groups: { type: [String], default: [] },
-    isOnline: { type: Boolean, default: false },
-    lastSeen: { type: Date, default: Date.now },
-    permissions: {
-        leadVisibility: { type: String, enum: ['own', 'all'], default: 'own' },
-        canAssignLeads: { type: Boolean, default: false },
-        canEditActualCost: { type: Boolean, default: false },
-        canVerifyBookings: { type: Boolean, default: false },
-    },
-    createdAt: { type: Date, default: Date.now },
+const settingSchema = new mongoose_1.Schema({
+    key: { type: String, required: true, unique: true },
+    values: { type: [String], default: [] },
 }, {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    timestamps: true,
 });
-const User = mongoose_1.default.model('User', userSchema);
-exports.default = User;
+const Setting = mongoose_1.default.model('Setting', settingSchema);
+exports.default = Setting;

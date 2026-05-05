@@ -79,6 +79,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         contactPerson: b.contact?.name,
         contactNumber: b.contact?.phone,
         bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        interested: b.contact?.interested ? 'Yes' : 'No',
         destinationCity: b.destination,
         travellers: b.travellers,
     }));

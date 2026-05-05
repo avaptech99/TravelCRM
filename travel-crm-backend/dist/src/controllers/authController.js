@@ -26,7 +26,7 @@ exports.loginUser = (0, express_async_handler_1.default)(async (req, res) => {
     // Find user by email - use lean() for performance and select only needed fields
     const dbStartTime = Date.now();
     const user = await User_1.default.findOne({ email })
-        .select('passwordHash name email role')
+        .select('passwordHash name email role groups')
         .lean();
     const dbEndTime = Date.now();
     // Verify user exists and password matches
@@ -54,6 +54,7 @@ exports.loginUser = (0, express_async_handler_1.default)(async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                groups: user.groups,
                 isOnline: true,
                 token: (0, jwt_1.generateToken)(user),
             });

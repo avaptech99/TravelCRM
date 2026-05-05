@@ -10,7 +10,8 @@ exports.createUserSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(6),
-    role: zod_1.z.enum(['ADMIN', 'AGENT', 'MARKETER']),
+    role: zod_1.z.enum(['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT']),
+    groups: zod_1.z.array(zod_1.z.string()).optional(),
 });
 exports.createBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().min(2, 'Contact Person must be at least 2 characters'),
@@ -33,6 +34,7 @@ exports.createBookingSchema = zod_1.z.object({
     includesFlight: zod_1.z.boolean().optional(),
     includesAdditionalServices: zod_1.z.boolean().optional(),
     additionalServicesDetails: zod_1.z.string().optional().nullable(),
+    assignedGroup: zod_1.z.string().optional(),
 });
 exports.updateBookingSchema = zod_1.z.object({
     destination: zod_1.z.string().optional().nullable(),
@@ -56,9 +58,22 @@ exports.updateBookingSchema = zod_1.z.object({
     includesFlight: zod_1.z.boolean().optional(),
     includesAdditionalServices: zod_1.z.boolean().optional(),
     additionalServicesDetails: zod_1.z.string().optional().nullable(),
+    followUpDate: zod_1.z.string().optional().nullable(),
+    company: zod_1.z.string().optional().nullable(),
+    assignedGroup: zod_1.z.string().optional(),
+    estimatedCosts: zod_1.z.array(zod_1.z.object({
+        costType: zod_1.z.string(),
+        price: zod_1.z.number(),
+        source: zod_1.z.string()
+    })).optional(),
+    actualCosts: zod_1.z.array(zod_1.z.object({
+        costType: zod_1.z.string(),
+        price: zod_1.z.number(),
+        source: zod_1.z.string()
+    })).optional(),
 });
 exports.updateBookingStatusSchema = zod_1.z.object({
-    status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked']),
+    status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked', 'Follow Up']),
 });
 exports.assignBookingSchema = zod_1.z.object({
     assignedToUserId: zod_1.z.string().nullable().optional(),

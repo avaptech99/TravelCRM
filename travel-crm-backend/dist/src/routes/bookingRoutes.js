@@ -14,6 +14,7 @@ router.get('/stats', bookingController_1.getBookingStats);
 router.get('/recent', bookingController_1.getRecentBookings);
 router.get('/calendar', bookingController_1.getCalendarBookings);
 router.post('/bulk-assign', auth_1.adminGuard, bookingController_1.bulkAssign);
+router.post('/bulk-delete', auth_1.adminGuard, bookingController_1.bulkDelete);
 router.route('/')
     .get(bookingController_1.getBookings)
     .post(bookingController_1.createBooking);
@@ -32,6 +33,7 @@ router.route('/:id/passengers')
     .post(bookingController_1.addPassengers)
     .put(bookingController_1.updatePassengers);
 router.get('/:id/activity', bookingController_1.getBookingActivity);
+router.patch('/:id/verify', bookingController_1.verifyBooking);
 router.route('/:id/payments')
     .get(bookingController_1.getPayments)
     .post(bookingController_1.addPayment);

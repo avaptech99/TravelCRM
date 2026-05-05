@@ -304,7 +304,7 @@ export const Dashboard: React.FC = () => {
                                 <div className="flex justify-between items-start pr-20">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center font-bold text-lg border border-slate-100">
-                                            {booking.contactPerson.charAt(0).toUpperCase()}
+                                            {(booking.contactPerson || 'U').charAt(0).toUpperCase()}
                                         </div>
                                         <div>
                                             <h3 className="text-sm font-semibold text-slate-800 leading-tight">{booking.contactPerson}</h3>

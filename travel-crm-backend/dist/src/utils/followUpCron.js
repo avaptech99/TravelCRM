@@ -106,9 +106,9 @@ async function processFollowUpReminders() {
  * Start the follow-up cron job. Runs every 1 hour to catch due follow-ups.
  */
 function startFollowUpCron() {
-    console.log('[FollowUp Cron] Started — checking every 12 hours for due follow-ups.');
+    console.log('[FollowUp Cron] Started — checking every hour for due follow-ups.');
     // Run immediately once on startup
     processFollowUpReminders();
-    // Then run every 12 hours (43200000ms)
-    setInterval(processFollowUpReminders, 12 * 60 * 60 * 1000);
+    // Then run every hour (3600000ms)
+    setInterval(processFollowUpReminders, 60 * 60 * 1000);
 }

@@ -44,6 +44,7 @@ const bookingSchema = new mongoose_1.Schema({
         name: { type: String },
         phone: { type: String },
         type: { type: String },
+        interested: { type: Boolean, default: false },
     },
     uniqueCode: { type: String, unique: true },
     destination: { type: String, default: null },
@@ -61,7 +62,8 @@ const bookingSchema = new mongoose_1.Schema({
     totalAmount: { type: Number, default: 0 },
     finalQuotation: { type: String, default: null },
     travellers: { type: Number, default: null },
-    status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked'], default: 'Pending' },
+    status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked', 'Follow Up'], default: 'Pending' },
+    followUpDate: { type: Date, default: null },
     includesFlight: { type: Boolean, default: true },
     includesAdditionalServices: { type: Boolean, default: false },
     additionalServicesDetails: { type: String, default: null },
@@ -69,11 +71,6 @@ const bookingSchema = new mongoose_1.Schema({
     outstanding: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
-<<<<<<< Updated upstream
-}, {
-    timestamps: true,
-    toJSON: { virtuals: true },
-=======
     assignedGroup: { type: String, default: 'Package / LCC' },
     company: { type: String, default: null },
     isVerified: { type: Boolean, default: false },
@@ -101,28 +98,28 @@ const bookingSchema = new mongoose_1.Schema({
                 ret.contactPerson = ret.contact.name;
                 ret.contactNumber = ret.contact.phone;
                 ret.bookingType = ret.contact.type === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                ret.interested = ret.contact.interested ? 'Yes' : 'No';
             }
             else if (ret.primaryContact) {
                 ret.contactPerson = ret.primaryContact.contactName;
                 ret.contactNumber = ret.primaryContact.contactPhoneNo;
                 ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                ret.interested = ret.primaryContact.interested ? 'Yes' : 'No';
             }
             if (ret.primaryContact) {
                 ret.contactEmail = ret.primaryContact.contactEmail;
                 ret.requirements = ret.primaryContact.requirements;
-                ret.interested = ret.primaryContact.interested;
             }
             // Flatten user names for display
-            if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
+            if (ret.assignedToUserId && typeof ret.assignedToUserId.name === 'string') {
                 ret.assignedToUser = ret.assignedToUserId.name;
             }
-            if (ret.createdByUserId && typeof ret.createdByUserId === 'object' && !ret.createdByUser) {
+            if (ret.createdByUserId && typeof ret.createdByUserId.name === 'string' && !ret.createdByUser) {
                 ret.createdByUser = ret.createdByUserId.name;
             }
             return ret;
         }
     },
->>>>>>> Stashed changes
     toObject: { virtuals: true },
 });
 bookingSchema.pre('save', async function () {
