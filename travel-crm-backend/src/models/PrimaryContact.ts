@@ -6,7 +6,7 @@ export interface IPrimaryContact extends Document {
     contactEmail?: string | null;
     bookingType: 'Agent (B2B)' | 'Direct (B2C)';
     requirements: string | null;
-    interested: string;
+    interested: boolean;
 }
 
 const primaryContactSchema = new Schema<IPrimaryContact>(
@@ -16,7 +16,7 @@ const primaryContactSchema = new Schema<IPrimaryContact>(
         contactEmail: { type: String, default: null },
         bookingType: { type: String, enum: ['Agent (B2B)', 'Direct (B2C)'], required: true, default: 'Direct (B2C)' },
         requirements: { type: String, default: null },
-        interested: { type: String, enum: ['Yes', 'No'], default: 'No' },
+        interested: { type: Boolean, default: false },
     },
     {
         timestamps: true,

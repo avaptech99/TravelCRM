@@ -34,36 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const notificationSchema = new mongoose_1.Schema({
-    userId: {
-        type: mongoose_1.default.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
-    },
-    bookingId: {
-        type: mongoose_1.default.Schema.Types.ObjectId,
-        ref: 'Booking',
-    },
-    message: {
-        type: String,
-        required: true,
-    },
-    read: {
-        type: Boolean,
-        default: false,
-    },
-    isDismissed: {
-        type: Boolean,
-        default: false,
-    },
-    expireAt: {
-        type: Date,
-        index: { expireAfterSeconds: 0 },
-    },
+const timelineSchema = new mongoose_1.Schema({
+    bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
+    userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    type: { type: String, enum: ['comment', 'activity'], required: true },
+    text: { type: String },
+    action: { type: String },
+    details: { type: String },
+    expireAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 }, {
-    timestamps: true,
+    timestamps: true
 });
-notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
-notificationSchema.index({ userId: 1, createdAt: -1 });
-notificationSchema.index({ bookingId: 1 });
-exports.default = mongoose_1.default.model('Notification', notificationSchema);
+// Compound index for efficient fetching
+timelineSchema.index({ bookingId: 1, type: 1, createdAt: -1 });
+const Timeline = mongoose_1.default.model('Timeline', timelineSchema);
+exports.default = Timeline;

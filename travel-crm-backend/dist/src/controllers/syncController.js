@@ -51,11 +51,10 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         ]),
         // 2. Recent bookings (latest 5)
         Booking_1.default.find(recentQuery)
-            .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt travellers')
+            .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
             .sort({ createdAt: -1 })
             .limit(5)
             .populate('assignedToUser', 'name')
-            .populate('primaryContact', 'contactName contactPhoneNo bookingType')
             .lean(),
         // 3. Notifications (latest 20)
         Notification_1.default.find({ userId })
@@ -77,9 +76,9 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
     const mappedBookings = recentBookings.map(b => ({
         ...b,
         id: b._id.toString(),
-        contactPerson: b.primaryContact?.contactName,
-        contactNumber: b.primaryContact?.contactPhoneNo,
-        bookingType: b.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        contactPerson: b.contact?.name,
+        contactNumber: b.contact?.phone,
+        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
         destinationCity: b.destination,
         travellers: b.travellers,
     }));

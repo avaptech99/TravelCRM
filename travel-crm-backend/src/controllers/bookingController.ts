@@ -2,13 +2,12 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
-import Comment from '../models/Comment';
+import Timeline from '../models/Timeline';
 import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
-import Activity from '../models/Activity';
 import appCache from '../utils/cache';
 import {
     createBookingSchema,
@@ -403,15 +402,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const [rawBookings, count] = await Promise.all([
         Booking.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId outstanding createdAt')
-            .sort({ createdAt: -1 })
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+            .sort({ lastInteractionAt: -1 })
             .skip(skip)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
             .populate('createdByUserId', 'name')
-            .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
-            .populate('passengers', 'name')
-            .populate('payments', 'amount')
             .lean(),
         Booking.countDocuments(query),
     ]);
@@ -424,15 +420,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             ...b,
             id: b._id.toString(),
             createdOn: b.createdAt,
-            contactPerson: (b as any).primaryContact?.contactName,
-            contactNumber: (b as any).primaryContact?.contactPhoneNo,
-            contactEmail: (b as any).primaryContact?.contactEmail,
-            requirements: (b as any).primaryContact?.requirements,
-            interested: (b as any).primaryContact?.interested,
-            bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            contactPerson: b.contact?.name,
+            contactNumber: b.contact?.phone,
+            bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            interested: b.contact?.interested ? 'Yes' : 'No',
             destinationCity: b.destination,
             travellers: b.travellers,
-            travelers: (b as any).passengers,
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
         };
@@ -505,19 +498,13 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking.findById(id)
-        .populate('assignedToUserId', 'name email')
-        .populate('createdByUserId', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
+        .populate('assignedToUserId', 'name role')
+        .populate('createdByUserId', 'name role')
+        .populate('primaryContact')
+        .populate('passengers')
+        .populate('payments')
         .populate({
-            path: 'comments',
-            populate: { path: 'createdBy', select: 'name role' },
-            options: { sort: { createdAt: -1 } },
-            select: 'text createdById createdAt'
-        })
-        .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
-        .populate('payments', 'amount paymentMethod date remarks transactionId')
-        .populate({
-            path: 'activities',
+            path: 'timeline',
             populate: { path: 'userId', select: 'name role' },
             options: { sort: { createdAt: -1 } }
         });
@@ -576,11 +563,10 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     console.time(`deleteBooking_${req.params.id}`);
     // Parallel deletion of all related records
     await Promise.all([
-        Comment.deleteMany({ bookingId: req.params.id }),
+        Timeline.deleteMany({ bookingId: req.params.id }),
         Passenger.deleteMany({ bookingId: req.params.id }),
         Payment.deleteMany({ bookingId: req.params.id }),
         Notification.deleteMany({ bookingId: req.params.id }),
-        Activity.deleteMany({ bookingId: req.params.id }),
         booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
         Booking.findByIdAndDelete(req.params.id)
     ]);
@@ -623,8 +609,13 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Create booking
-    const dbStart = Date.now();
     const booking = await Booking.create({
+        primaryContactId: primaryContact._id,
+        contact: {
+            name: primaryContact.contactName,
+            phone: primaryContact.contactPhoneNo,
+            type: primaryContact.bookingType,
+        },
         destination: finalDestination,
         travelDate: finalTravelDate,
         flightFrom: result.data.flightFrom || null,
@@ -632,7 +623,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         tripType: result.data.tripType || 'one-way',
         amount: result.data.amount || 0,
         travellers: finalTravellers,
-        primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null,
         includesFlight: result.data.includesFlight ?? true,
@@ -641,10 +631,16 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         pricePerTicket: result.data.pricePerTicket || 0,
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
-    const dbTime = Date.now() - dbStart;
 
-    const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
+    // Log the creation activity in Timeline
+    await Timeline.create({
+        bookingId: booking._id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_CREATED',
+        details: `Booking created by ${req.user?.name}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     // Populate for response
     const populatedBooking = await Booking.findById(booking._id)
@@ -671,10 +667,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     };
 
     invalidateBookingCaches();
-
-    // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(booking._id, req.user?.id, 'BOOKING_CREATED', `Booking created for ${(populatedBooking as any).primaryContact?.contactName || 'Customer'}`);
 
     res.status(201).json(resultBooking);
 });
@@ -776,7 +768,6 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     await booking.save();
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
     const updates: string[] = [];
     
     if (result.data.amount !== undefined || result.data.totalAmount !== undefined) updates.push('Financials');
@@ -788,7 +779,14 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (result.data.assignedGroup !== undefined) updates.push(`Group (${result.data.assignedGroup})`);
     
     const details = updates.length > 0 ? `Updated: ${updates.join(', ')}` : 'Booking details were modified.';
-    await logActivity(id, req.user?.id, 'BOOKING_UPDATED', details);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_UPDATED',
+        details,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     // Recalculate outstanding if amount fields changed
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
@@ -866,8 +864,14 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const updatedBooking = await existingBooking.save();
     
     // Log status change activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'STATUS_CHANGE', `Status updated from ${oldStatus} to ${status}`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'STATUS_CHANGE',
+        details: `Status updated from ${oldStatus} to ${status}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
     
     // Notify Marketer if their lead status changed
     if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
@@ -958,8 +962,14 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
         const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
 
-        const { logActivity } = await import('../utils/activityLogger');
-        await logActivity(id, req.user?.id, 'ASSIGNED', commentText);
+        await Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'ASSIGNED',
+            details: commentText,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
 
         if (newAssignedUserId) {
             await Notification.create({
@@ -1032,8 +1042,14 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
 
             const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
 
-            const { logActivity } = await import('../utils/activityLogger');
-            await logActivity(booking._id, req.user?.id, 'ASSIGNED', commentText);
+            await Timeline.create({
+                bookingId: booking._id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'ASSIGNED',
+                details: commentText,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
 
             if (newAgentId) {
                 await Notification.create({
@@ -1084,11 +1100,10 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
     const deletePromises = bookings.map(async (booking) => {
         const id = booking._id;
         return Promise.all([
-            Comment.deleteMany({ bookingId: id }),
+            Timeline.deleteMany({ bookingId: id }),
             Passenger.deleteMany({ bookingId: id }),
             Payment.deleteMany({ bookingId: id }),
             Notification.deleteMany({ bookingId: id }),
-            Activity.deleteMany({ bookingId: id }),
             booking.primaryContactId ? PrimaryContact.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
             Booking.findByIdAndDelete(id)
         ]);
@@ -1104,6 +1119,8 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
 // @access  Private
 export const addComment = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+    const userId = req.user!.id;
+    const { text } = req.body;
     const result = createCommentSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -1123,13 +1140,15 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Not authorized to comment on this booking');
     }
 
-    let comment = await Comment.create({
-        text: result.data.text,
+    const timeline = await Timeline.create({
         bookingId: id,
-        createdById: req.user!.id,
+        userId: userId,
+        type: 'comment',
+        text: text,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     });
 
-    comment = await comment.populate('createdBy', 'name role');
+    await Booking.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
 
     // Notification Logic
     if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
@@ -1142,7 +1161,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     }
 
     invalidateBookingCaches();
-    res.status(201).json(comment);
+    res.status(201).json(timeline);
 });
 
 // @desc    Get comments for a booking
@@ -1158,8 +1177,8 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    const comments = await Comment.find({ bookingId: id })
-        .populate('createdBy', 'name role')
+    const comments = await Timeline.find({ bookingId: id, type: 'comment' })
+        .populate('userId', 'name role')
         .sort({ createdAt: -1 });
 
     res.json(comments);
@@ -1212,8 +1231,14 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     invalidateBookingCaches();
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'PASSENGERS_ADDED', `Added ${passengersData.length} travelers to the booking.`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PASSENGERS_ADDED',
+        details: `Added ${passengersData.length} travelers to the booking.`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     res.status(201).json(createdPassengers);
 });
@@ -1266,8 +1291,14 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
     invalidateBookingCaches();
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'PASSENGERS_UPDATED', `Updated details for ${passengersData.length} travelers.`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PASSENGERS_UPDATED',
+        details: `Updated details for ${passengersData.length} travelers.`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     res.json(createdPassengers);
 });
@@ -1316,8 +1347,14 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     await recalcOutstanding(id);
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'PAYMENT_ADDED', `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PAYMENT_ADDED',
+        details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     invalidateBookingCaches();
     res.status(201).json(payment);
@@ -1382,8 +1419,14 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     await recalcOutstanding(id);
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'PAYMENT_DELETED', `Removed payment of ${payment.amount}`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PAYMENT_DELETED',
+        details: `Removed payment of ${payment.amount}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
@@ -1409,13 +1452,12 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     }
 
     const bookings = await Booking.find(query)
-        .select('uniqueCode status destination travelDate primaryContactId')
-        .populate('primaryContact', 'contactName')
+        .select('uniqueCode status destination travelDate contact')
         .lean();
 
     const events = bookings.map(b => ({
         id: b._id.toString(),
-        title: (b as any).primaryContact?.contactName || b.uniqueCode || 'Booking',
+        title: b.contact?.name || b.uniqueCode || 'Booking',
         date: b.travelDate,
         status: b.status,
         destination: b.destination || '',
@@ -1456,8 +1498,14 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
     await booking.save();
 
     // Log activity
-    const { logActivity } = await import('../utils/activityLogger');
-    await logActivity(id, req.user?.id, 'BOOKING_VERIFIED', `Booking was ${isVerified ? 'verified' : 'unverified'}`);
+    await Timeline.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_VERIFIED',
+        details: `Booking was ${isVerified ? 'verified' : 'unverified'}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
 
     invalidateBookingCaches();
     res.json({ message: `Booking ${isVerified ? 'verified' : 'unverified'} successfully`, isVerified: booking.isVerified });
@@ -1467,17 +1515,17 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
 // @route   GET /api/bookings/:id/activity
 // @access  Private
 export const getBookingActivity = asyncHandler(async (req: Request, res: Response) => {
-    const activities = await Activity.find({ bookingId: req.params.id })
+    const activities = await Timeline.find({ bookingId: req.params.id, type: 'activity' })
         .sort({ createdAt: -1 })
         .limit(50)
         .populate('userId', 'name')
         .lean();
 
-    const mapped = activities.map(a => ({
-        id: (a as any)._id.toString(),
+    const mapped = activities.map((a: any) => ({
+        id: a._id.toString(),
         action: a.action,
         details: a.details,
-        user: (a as any).userId?.name || 'System',
+        user: a.userId?.name || 'System',
         createdAt: a.createdAt,
     }));
 

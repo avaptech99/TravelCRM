@@ -6,6 +6,7 @@ export interface INotification extends Document {
     message: string;
     read: boolean;
     isDismissed: boolean;
+    expireAt: Date;
     createdAt: Date;
 }
 
@@ -32,14 +33,18 @@ const notificationSchema: Schema = new Schema(
             type: Boolean,
             default: false,
         },
+        expireAt: {
+            type: Date,
+            index: { expireAfterSeconds: 0 },
+        },
     },
     {
         timestamps: true,
     }
 );
 
-notificationSchema.index({ userId: 1, read: 1 });
-notificationSchema.index({ userId: 1, createdAt: -1 }); // Covers sync dashboard query
+notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ bookingId: 1 });
 
 export default mongoose.model<INotification>('Notification', notificationSchema);

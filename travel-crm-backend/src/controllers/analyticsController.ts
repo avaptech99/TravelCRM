@@ -38,7 +38,12 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                         }
                     },
                     { $unwind: '$contact' },
-                    { $group: { _id: { $ifNull: ['$contact.interested', 'No'] }, count: { $sum: 1 } } }
+                    { 
+                        $group: { 
+                            _id: { $cond: [{ $eq: ['$contact.interested', true] }, 'Yes', 'No'] }, 
+                            count: { $sum: 1 } 
+                        } 
+                    }
                 ]
             }
         }
@@ -181,4 +186,55 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
     ]);
 
     res.json(agentStats);
+});
+
+// @desc    Get detailed payment breakdown (pending and received)
+// @route   GET /api/analytics/payment-breakdown
+// @access  Private/Admin
+export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Response) => {
+    // 1. Get Pending Bookings (outstanding > 0)
+    const pendingBookings = await Booking.find({ outstanding: { $gt: 0 } })
+        .select('uniqueCode contact amount outstanding')
+        .sort({ outstanding: -1 })
+        .limit(50)
+        .lean();
+
+    const pending = pendingBookings.map((b: any) => ({
+        bookingId: b._id,
+        uniqueCode: b.uniqueCode,
+        contactPerson: b.contact?.name || 'Unknown',
+        totalAmount: b.amount || 0,
+        totalPaid: (b.amount || 0) - (b.outstanding || 0),
+        outstanding: b.outstanding || 0
+    }));
+
+    // 2. Get Recent Received Payments
+    const recentPayments = await Payment.find()
+        .populate({
+            path: 'bookingId',
+            populate: { path: 'primaryContactId' }
+        })
+        .sort({ date: -1 })
+        .limit(50)
+        .lean();
+
+    const received = recentPayments.map((p: any) => ({
+        uniqueCode: p.bookingId?.uniqueCode || 'N/A',
+        contactPerson: p.bookingId?.primaryContactId?.contactName || 'Unknown',
+        companyName: p.bookingId?.primaryContactId?.companyName || '',
+        paymentMethod: p.method || 'Unknown',
+        amount: p.amount || 0,
+        date: p.date
+    }));
+
+    // 3. Totals
+    const totalPending = pending.reduce((sum, b) => sum + b.outstanding, 0);
+    const totalReceived = received.reduce((sum, p) => sum + p.amount, 0);
+
+    res.json({
+        pending,
+        totalPending,
+        received,
+        totalReceived
+    });
 });

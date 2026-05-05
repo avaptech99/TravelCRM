@@ -40,6 +40,11 @@ const mongoose_1 = __importStar(require("mongoose"));
 const Counter_1 = __importDefault(require("./Counter"));
 const bookingSchema = new mongoose_1.Schema({
     primaryContactId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'PrimaryContact', required: true },
+    contact: {
+        name: { type: String },
+        phone: { type: String },
+        type: { type: String },
+    },
     uniqueCode: { type: String, unique: true },
     destination: { type: String, default: null },
     travelDate: { type: Date, default: null },
@@ -64,9 +69,60 @@ const bookingSchema = new mongoose_1.Schema({
     outstanding: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
+<<<<<<< Updated upstream
 }, {
     timestamps: true,
     toJSON: { virtuals: true },
+=======
+    assignedGroup: { type: String, default: 'Package / LCC' },
+    company: { type: String, default: null },
+    isVerified: { type: Boolean, default: false },
+    verifiedBy: { type: String, default: null },
+    verifiedAt: { type: Date, default: null },
+    lastInteractionAt: { type: Date, default: Date.now },
+    estimatedCosts: [{
+            costType: { type: String },
+            price: { type: Number },
+            source: { type: String }
+        }],
+    actualCosts: [{
+            costType: { type: String },
+            price: { type: Number },
+            source: { type: String }
+        }],
+}, {
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: (doc, ret) => {
+            ret.id = ret._id;
+            // Flatten primaryContact fields from embedded snapshot if exists
+            if (ret.contact) {
+                ret.contactPerson = ret.contact.name;
+                ret.contactNumber = ret.contact.phone;
+                ret.bookingType = ret.contact.type === 'Agent (B2B)' ? 'B2B' : 'B2C';
+            }
+            else if (ret.primaryContact) {
+                ret.contactPerson = ret.primaryContact.contactName;
+                ret.contactNumber = ret.primaryContact.contactPhoneNo;
+                ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
+            }
+            if (ret.primaryContact) {
+                ret.contactEmail = ret.primaryContact.contactEmail;
+                ret.requirements = ret.primaryContact.requirements;
+                ret.interested = ret.primaryContact.interested;
+            }
+            // Flatten user names for display
+            if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
+                ret.assignedToUser = ret.assignedToUserId.name;
+            }
+            if (ret.createdByUserId && typeof ret.createdByUserId === 'object' && !ret.createdByUser) {
+                ret.createdByUser = ret.createdByUserId.name;
+            }
+            return ret;
+        }
+    },
+>>>>>>> Stashed changes
     toObject: { virtuals: true },
 });
 bookingSchema.pre('save', async function () {
@@ -84,12 +140,12 @@ bookingSchema.pre('save', async function () {
         }
     }
 });
-// Indexes to speed up queries
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ status: 1 });
-bookingSchema.index({ assignedToUserId: 1 });
-bookingSchema.index({ createdByUserId: 1 });
-bookingSchema.index({ primaryContactId: 1 });
+// Indexes to speed up queries - Refined for performance
+bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
+bookingSchema.index({ status: 1, travelDate: 1 });
+bookingSchema.index({ primaryContactId: 1, createdAt: -1 });
+bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
+bookingSchema.index({ uniqueCode: 1 }, { sparse: true });
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
@@ -109,8 +165,8 @@ bookingSchema.virtual('primaryContact', {
     foreignField: '_id',
     justOne: true,
 });
-bookingSchema.virtual('comments', {
-    ref: 'Comment',
+bookingSchema.virtual('timeline', {
+    ref: 'Timeline',
     localField: '_id',
     foreignField: 'bookingId',
 });

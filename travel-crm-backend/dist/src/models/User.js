@@ -41,6 +41,12 @@ const userSchema = new mongoose_1.Schema({
     role: { type: String, default: 'AGENT' },
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
+    permissions: {
+        leadVisibility: { type: String, enum: ['own', 'all'], default: 'own' },
+        canAssignLeads: { type: Boolean, default: false },
+        canEditActualCost: { type: Boolean, default: false },
+        canVerifyBookings: { type: Boolean, default: false },
+    },
     createdAt: { type: Date, default: Date.now },
 }, {
     toJSON: { virtuals: true },

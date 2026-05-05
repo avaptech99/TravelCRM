@@ -34,15 +34,21 @@ export interface IBooking extends Document {
     verifiedBy: string | null;
     verifiedAt: Date | null;
     estimatedCosts: {
-        type: string;
+        costType: string;
         price: number;
         source: string;
     }[];
     actualCosts: {
-        type: string;
+        costType: string;
         price: number;
         source: string;
     }[];
+    lastInteractionAt: Date;
+        name: string;
+        phone: string;
+        type: string;
+        interested: boolean;
+    };
     createdAt: Date;
     updatedAt: Date;
 }
@@ -50,6 +56,12 @@ export interface IBooking extends Document {
 const bookingSchema = new Schema<IBooking>(
     {
         primaryContactId: { type: Schema.Types.ObjectId, ref: 'PrimaryContact', required: true },
+        contact: {
+            name: { type: String },
+            phone: { type: String },
+            type: { type: String },
+            interested: { type: Boolean, default: false },
+        },
         uniqueCode: { type: String, unique: true },
         destination: { type: String, default: null },
         travelDate: { type: Date, default: null },
@@ -80,6 +92,7 @@ const bookingSchema = new Schema<IBooking>(
         isVerified: { type: Boolean, default: false },
         verifiedBy: { type: String, default: null },
         verifiedAt: { type: Date, default: null },
+        lastInteractionAt: { type: Date, default: Date.now },
         estimatedCosts: [{
             costType: { type: String },
             price: { type: Number },
@@ -97,15 +110,24 @@ const bookingSchema = new Schema<IBooking>(
             virtuals: true,
             transform: (doc, ret) => {
                 ret.id = ret._id;
-                // Flatten primaryContact fields
-                if (ret.primaryContact) {
+                // Flatten primaryContact fields from embedded snapshot if exists
+                if (ret.contact) {
+                    ret.contactPerson = ret.contact.name;
+                    ret.contactNumber = ret.contact.phone;
+                    ret.bookingType = ret.contact.type === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                    ret.interested = ret.contact.interested ? 'Yes' : 'No';
+                } else if (ret.primaryContact) {
                     ret.contactPerson = ret.primaryContact.contactName;
                     ret.contactNumber = ret.primaryContact.contactPhoneNo;
+                    ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                    ret.interested = ret.primaryContact.interested ? 'Yes' : 'No';
+                }
+                
+                if (ret.primaryContact) {
                     ret.contactEmail = ret.primaryContact.contactEmail;
                     ret.requirements = ret.primaryContact.requirements;
-                    ret.interested = ret.primaryContact.interested || 'No';
-                    ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
                 }
+                
                 // Flatten user names for display
                 if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
                     ret.assignedToUser = ret.assignedToUserId.name;
@@ -140,12 +162,12 @@ bookingSchema.pre('save', async function (this: any) {
     }
 });
 
-// Indexes to speed up queries
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ status: 1 });
-bookingSchema.index({ assignedToUserId: 1 });
-bookingSchema.index({ createdByUserId: 1 });
-bookingSchema.index({ primaryContactId: 1 });
+// Indexes to speed up queries - Refined for performance
+bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
+bookingSchema.index({ status: 1, travelDate: 1 });
+bookingSchema.index({ primaryContactId: 1, createdAt: -1 });
+bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
+bookingSchema.index({ uniqueCode: 1 }, { sparse: true });
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
@@ -169,8 +191,8 @@ bookingSchema.virtual('primaryContact', {
     justOne: true,
 });
 
-bookingSchema.virtual('comments', {
-    ref: 'Comment',
+bookingSchema.virtual('timeline', {
+    ref: 'Timeline',
     localField: '_id',
     foreignField: 'bookingId',
 });
@@ -183,12 +205,6 @@ bookingSchema.virtual('payments', {
 
 bookingSchema.virtual('passengers', {
     ref: 'Passenger',
-    localField: '_id',
-    foreignField: 'bookingId',
-});
-
-bookingSchema.virtual('activities', {
-    ref: 'Activity',
     localField: '_id',
     foreignField: 'bookingId',
 });

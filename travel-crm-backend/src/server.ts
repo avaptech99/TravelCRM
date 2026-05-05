@@ -24,7 +24,6 @@ import { startFollowUpCron } from './utils/followUpCron';
 import User from './models/User';
 import Booking from './models/Booking';
 import Payment from './models/Payment';
-import Activity from './models/Activity';
 import bcrypt from 'bcrypt';
 
 const app: Express = express();
@@ -114,43 +113,41 @@ const PORT = process.env.PORT || 5000;
 
 // Auto-seed admin user + backfill outstanding on startup
 mongoose.connection.once('open', async () => {
-    try {
-        // Auto-seed admin if DB is empty
-        const count = await User.countDocuments();
-        if (count === 0) {
-            console.log('Auto-Seeder: Database is empty! Creating default admin user...');
-            const adminPasswordHash = await bcrypt.hash('admin123', 10);
-            await User.create({
-                name: 'System Admin',
-                email: 'admin@travel.com',
-                passwordHash: adminPasswordHash,
-                role: 'ADMIN',
-            });
-            console.log('Auto-Seeder: Admin user created successfully. You can now log in.');
-        }
-
-        // One-time migration: backfill outstanding field on all bookings
-        const missingOutstanding = await Booking.countDocuments({ outstanding: { $exists: false } });
-        if (missingOutstanding > 0) {
-            console.log(`[Migration] Backfilling outstanding for ${missingOutstanding} bookings...`);
-            const bookings = await Booking.find({ outstanding: { $exists: false } }).lean();
-            for (const booking of bookings) {
-                const payments = await Payment.find({ bookingId: booking._id }).lean();
-                const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-                const bookingTotal = booking.totalAmount || booking.amount || 0;
-                const outstanding = Math.max(bookingTotal - totalPaid, 0);
-                await Booking.updateOne({ _id: booking._id }, { $set: { outstanding } });
+    // Run heavy migrations and startup tasks in background to avoid blocking server readiness
+    (async () => {
+        try {
+            const count = await User.countDocuments();
+            if (count === 0) {
+                const hashedPassword = await bcrypt.hash('admin123', 10);
+                await User.create({
+                    name: 'Admin',
+                    email: 'admin@travel.com',
+                    passwordHash: hashedPassword,
+                    role: 'ADMIN',
+                });
+                console.log('Default admin user created');
             }
-            console.log(`[Migration] Backfilled outstanding for ${bookings.length} bookings.`);
-        } else {
-            console.log('[Migration] Outstanding field already present on all bookings.');
-        }
-    } catch (error) {
-        console.error('Startup tasks error:', error);
-    }
 
-    // Start the follow-up reminder cron job
-    startFollowUpCron();
+            const missingOutstanding = await Booking.countDocuments({ outstanding: { $exists: false } });
+            if (missingOutstanding > 0) {
+                console.log(`[Migration] Backfilling outstanding field for ${missingOutstanding} bookings...`);
+                // Process in small batches to avoid connection saturation
+                const bookings = await Booking.find({ outstanding: { $exists: false } }).select('_id totalAmount amount').lean();
+                for (const booking of bookings) {
+                    const payments = await Payment.find({ bookingId: booking._id }).select('amount').lean();
+                    const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+                    const bookingTotal = (booking as any).totalAmount || (booking as any).amount || 0;
+                    const outstanding = Math.max(bookingTotal - totalPaid, 0);
+                    await Booking.updateOne({ _id: booking._id }, { $set: { outstanding } });
+                }
+                console.log('[Migration] Outstanding field backfill complete');
+            }
+
+            startFollowUpCron();
+        } catch (error) {
+            console.error('[Startup Task Error]:', error);
+        }
+    })();
 });
 
 app.listen(Number(PORT), '0.0.0.0', () => {

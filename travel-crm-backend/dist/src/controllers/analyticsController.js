@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAgentAnalytics = exports.getRevenueTrends = exports.getPaymentAnalytics = exports.getBookingAnalytics = void 0;
+exports.getPaymentBreakdown = exports.getAgentAnalytics = exports.getRevenueTrends = exports.getPaymentAnalytics = exports.getBookingAnalytics = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Payment_1 = __importDefault(require("../models/Payment"));
@@ -40,7 +40,16 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
                         }
                     },
                     { $unwind: '$contact' },
+<<<<<<< Updated upstream
                     { $group: { _id: '$contact.interested', count: { $sum: 1 } } }
+=======
+                    {
+                        $group: {
+                            _id: { $cond: [{ $eq: ['$contact.interested', true] }, 'Yes', 'No'] },
+                            count: { $sum: 1 }
+                        }
+                    }
+>>>>>>> Stashed changes
                 ]
             }
         }
@@ -174,4 +183,49 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
         { $sort: { totalRevenue: -1 } }
     ]);
     res.json(agentStats);
+});
+// @desc    Get detailed payment breakdown (pending and received)
+// @route   GET /api/analytics/payment-breakdown
+// @access  Private/Admin
+exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, res) => {
+    // 1. Get Pending Bookings (outstanding > 0)
+    const pendingBookings = await Booking_1.default.find({ outstanding: { $gt: 0 } })
+        .select('uniqueCode contact amount outstanding')
+        .sort({ outstanding: -1 })
+        .limit(50)
+        .lean();
+    const pending = pendingBookings.map((b) => ({
+        bookingId: b._id,
+        uniqueCode: b.uniqueCode,
+        contactPerson: b.contact?.name || 'Unknown',
+        totalAmount: b.amount || 0,
+        totalPaid: (b.amount || 0) - (b.outstanding || 0),
+        outstanding: b.outstanding || 0
+    }));
+    // 2. Get Recent Received Payments
+    const recentPayments = await Payment_1.default.find()
+        .populate({
+        path: 'bookingId',
+        populate: { path: 'primaryContactId' }
+    })
+        .sort({ date: -1 })
+        .limit(50)
+        .lean();
+    const received = recentPayments.map((p) => ({
+        uniqueCode: p.bookingId?.uniqueCode || 'N/A',
+        contactPerson: p.bookingId?.primaryContactId?.contactName || 'Unknown',
+        companyName: p.bookingId?.primaryContactId?.companyName || '',
+        paymentMethod: p.method || 'Unknown',
+        amount: p.amount || 0,
+        date: p.date
+    }));
+    // 3. Totals
+    const totalPending = pending.reduce((sum, b) => sum + b.outstanding, 0);
+    const totalReceived = received.reduce((sum, p) => sum + p.amount, 0);
+    res.json({
+        pending,
+        totalPending,
+        received,
+        totalReceived
+    });
 });

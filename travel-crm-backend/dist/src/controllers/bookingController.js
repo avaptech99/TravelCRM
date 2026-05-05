@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -40,7 +7,7 @@ exports.getBookingActivity = exports.getCalendarBookings = exports.deletePayment
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
-const Comment_1 = __importDefault(require("../models/Comment"));
+const Timeline_1 = __importDefault(require("../models/Timeline"));
 const Passenger_1 = __importDefault(require("../models/Passenger"));
 const User_1 = __importDefault(require("../models/User"));
 const Payment_1 = __importDefault(require("../models/Payment"));
@@ -327,15 +294,12 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     console.time(`getBookingsQuery_${reqId}`);
     const [rawBookings, count] = await Promise.all([
         Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId createdByUser assignedToUser primaryContactId outstanding createdAt')
-            .sort({ createdAt: -1 })
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+            .sort({ lastInteractionAt: -1 })
             .skip(skip)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
             .populate('createdByUserId', 'name')
-            .populate('primaryContact', 'contactName contactPhoneNo requirements interested bookingType')
-            .populate('passengers', 'name')
-            .populate('payments', 'amount')
             .lean(),
         Booking_1.default.countDocuments(query),
     ]);
@@ -347,15 +311,11 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             ...b,
             id: b._id.toString(),
             createdOn: b.createdAt,
-            contactPerson: b.primaryContact?.contactName,
-            contactNumber: b.primaryContact?.contactPhoneNo,
-            contactEmail: b.primaryContact?.contactEmail,
-            requirements: b.primaryContact?.requirements,
-            interested: b.primaryContact?.interested,
-            bookingType: b.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            contactPerson: b.contact?.name,
+            contactNumber: b.contact?.phone,
+            bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
             destinationCity: b.destination,
             travellers: b.travellers,
-            travelers: b.passengers,
             createdByUser: b.createdByUserId,
             assignedToUser: b.assignedToUserId,
         };
@@ -403,10 +363,13 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     console.log(`[GET] /api/bookings/${id}`);
     console.time(`getBookingById_${id}`);
     const booking = await Booking_1.default.findById(id)
-        .populate('assignedToUserId', 'name email')
-        .populate('createdByUserId', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
+        .populate('assignedToUserId', 'name role')
+        .populate('createdByUserId', 'name role')
+        .populate('primaryContact')
+        .populate('passengers')
+        .populate('payments')
         .populate({
+<<<<<<< Updated upstream
         path: 'comments',
         populate: { path: 'createdBy', select: 'name role' },
         options: { sort: { createdAt: -1 } },
@@ -415,6 +378,12 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         .populate('passengers', 'name phoneNumber email dob anniversary country flightFrom flightTo departureTime arrivalTime tripType returnDate returnDepartureTime returnArrivalTime')
         .populate('payments', 'amount paymentMethod date remarks transactionId')
         .lean();
+=======
+        path: 'timeline',
+        populate: { path: 'userId', select: 'name role' },
+        options: { sort: { createdAt: -1 } }
+    });
+>>>>>>> Stashed changes
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -462,7 +431,7 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
     console.time(`deleteBooking_${req.params.id}`);
     // Parallel deletion of all related records
     await Promise.all([
-        Comment_1.default.deleteMany({ bookingId: req.params.id }),
+        Timeline_1.default.deleteMany({ bookingId: req.params.id }),
         Passenger_1.default.deleteMany({ bookingId: req.params.id }),
         Payment_1.default.deleteMany({ bookingId: req.params.id }),
         Notification_1.default.deleteMany({ bookingId: req.params.id }),
@@ -504,8 +473,13 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
             finalTravellers = parsedData.travellers;
     }
     // Create booking
-    const dbStart = Date.now();
     const booking = await Booking_1.default.create({
+        primaryContactId: primaryContact._id,
+        contact: {
+            name: primaryContact.contactName,
+            phone: primaryContact.contactPhoneNo,
+            type: primaryContact.bookingType,
+        },
         destination: finalDestination,
         travelDate: finalTravelDate,
         flightFrom: result.data.flightFrom || null,
@@ -513,7 +487,6 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         tripType: result.data.tripType || 'one-way',
         amount: result.data.amount || 0,
         travellers: finalTravellers,
-        primaryContactId: primaryContact._id,
         createdByUserId: req.user?.id,
         assignedToUserId: req.user?.role === 'AGENT' ? req.user.id : null,
         includesFlight: result.data.includesFlight ?? true,
@@ -521,9 +494,15 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         additionalServicesDetails: result.data.additionalServicesDetails || null,
         pricePerTicket: result.data.pricePerTicket || 0,
     });
-    const dbTime = Date.now() - dbStart;
-    const totalTime = Date.now() - startTime;
-    console.log(`[BOOKING PERF] Create Booking - Total: ${totalTime}ms | DB: ${dbTime}ms`);
+    // Log the creation activity in Timeline
+    await Timeline_1.default.create({
+        bookingId: booking._id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_CREATED',
+        details: `Booking created by ${req.user?.name}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
     // Populate for response
     const populatedBooking = await Booking_1.default.findById(booking._id)
         .populate('createdByUserId', 'name')
@@ -617,6 +596,34 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         }));
     }
     await booking.save();
+<<<<<<< Updated upstream
+=======
+    // Log activity
+    const updates = [];
+    if (result.data.amount !== undefined || result.data.totalAmount !== undefined)
+        updates.push('Financials');
+    if (result.data.estimatedCosts !== undefined)
+        updates.push('Estimated Costs');
+    if (result.data.actualCosts !== undefined)
+        updates.push('Actual Costs');
+    if (result.data.finalQuotation !== undefined)
+        updates.push(`Quotation (${result.data.finalQuotation})`);
+    if (result.data.company !== undefined)
+        updates.push(`Company (${result.data.company})`);
+    if (result.data.followUpDate !== undefined)
+        updates.push(`Follow-up (${result.data.followUpDate || 'none'})`);
+    if (result.data.assignedGroup !== undefined)
+        updates.push(`Group (${result.data.assignedGroup})`);
+    const details = updates.length > 0 ? `Updated: ${updates.join(', ')}` : 'Booking details were modified.';
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_UPDATED',
+        details,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     // Recalculate outstanding if amount fields changed
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
         await recalcOutstanding(id);
@@ -679,6 +686,18 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     const { status } = result.data;
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
+<<<<<<< Updated upstream
+=======
+    // Log status change activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'STATUS_CHANGE',
+        details: `Status updated from ${oldStatus} to ${status}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     // Notify Marketer if their lead status changed
     if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
         const creator = await User_1.default.findById(existingBooking.createdByUserId);
@@ -735,11 +754,22 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 newAgentName = newAgent.name;
             }
         }
+<<<<<<< Updated upstream
         const commentText = `${previousAgentName} ➔ ${newAgentName}`;
         await Comment_1.default.create({
             text: commentText,
             bookingId: id,
             createdById: req.user.id,
+=======
+        const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
+        await Timeline_1.default.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'ASSIGNED',
+            details: commentText,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+>>>>>>> Stashed changes
         });
         if (newAssignedUserId) {
             await Notification_1.default.create({
@@ -798,11 +828,22 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
                 const prevAgent = await User_1.default.findById(previousAssignedUserId);
                 previousAgentName = prevAgent?.name || 'Unknown Agent';
             }
+<<<<<<< Updated upstream
             const commentText = `${previousAgentName} ➔ ${newAgentName}`;
             await Comment_1.default.create({
                 text: commentText,
                 bookingId: booking._id,
                 createdById: req.user.id,
+=======
+            const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
+            await Timeline_1.default.create({
+                bookingId: booking._id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'ASSIGNED',
+                details: commentText,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+>>>>>>> Stashed changes
             });
             if (newAgentId) {
                 await Notification_1.default.create({
@@ -828,11 +869,45 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
     invalidateBookingCaches();
     res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
 });
+<<<<<<< Updated upstream
+=======
+// @desc    Bulk delete bookings
+// @route   POST /api/bookings/bulk-delete
+// @access  Private (Admin only)
+exports.bulkDelete = (0, express_async_handler_1.default)(async (req, res) => {
+    const { bookingIds } = req.body;
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        res.status(400);
+        throw new Error('No booking IDs provided');
+    }
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Only admins can bulk delete leads');
+    }
+    const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } });
+    const deletePromises = bookings.map(async (booking) => {
+        const id = booking._id;
+        return Promise.all([
+            Timeline_1.default.deleteMany({ bookingId: id }),
+            Passenger_1.default.deleteMany({ bookingId: id }),
+            Payment_1.default.deleteMany({ bookingId: id }),
+            Notification_1.default.deleteMany({ bookingId: id }),
+            booking.primaryContactId ? PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
+            Booking_1.default.findByIdAndDelete(id)
+        ]);
+    });
+    await Promise.all(deletePromises);
+    invalidateBookingCaches();
+    res.json({ message: `Successfully deleted ${bookingIds.length} bookings` });
+});
+>>>>>>> Stashed changes
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
 // @access  Private
 exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
     const { id } = req.params;
+    const userId = req.user.id;
+    const { text } = req.body;
     const result = types_1.createCommentSchema.safeParse(req.body);
     if (!result.success) {
         res.status(400);
@@ -847,12 +922,14 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(403);
         throw new Error('Not authorized to comment on this booking');
     }
-    let comment = await Comment_1.default.create({
-        text: result.data.text,
+    const timeline = await Timeline_1.default.create({
         bookingId: id,
-        createdById: req.user.id,
+        userId: userId,
+        type: 'comment',
+        text: text,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     });
-    comment = await comment.populate('createdBy', 'name role');
+    await Booking_1.default.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
     // Notification Logic
     if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
         // Notify the assigned agent when marketer comments
@@ -863,7 +940,7 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         });
     }
     invalidateBookingCaches();
-    res.status(201).json(comment);
+    res.status(201).json(timeline);
 });
 // @desc    Get comments for a booking
 // @route   GET /api/bookings/:id/comments
@@ -875,8 +952,8 @@ exports.getComments = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-    const comments = await Comment_1.default.find({ bookingId: id })
-        .populate('createdBy', 'name role')
+    const comments = await Timeline_1.default.find({ bookingId: id, type: 'comment' })
+        .populate('userId', 'name role')
         .sort({ createdAt: -1 });
     res.json(comments);
 });
@@ -915,6 +992,18 @@ exports.addPassengers = (0, express_async_handler_1.default)(async (req, res) =>
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
     invalidateBookingCaches();
+<<<<<<< Updated upstream
+=======
+    // Log activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PASSENGERS_ADDED',
+        details: `Added ${passengersData.length} travelers to the booking.`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     res.status(201).json(createdPassengers);
 });
 // @desc    Update (replace) passengers for a booking
@@ -953,6 +1042,18 @@ exports.updatePassengers = (0, express_async_handler_1.default)(async (req, res)
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
     invalidateBookingCaches();
+<<<<<<< Updated upstream
+=======
+    // Log activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PASSENGERS_UPDATED',
+        details: `Updated details for ${passengersData.length} travelers.`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     res.json(createdPassengers);
 });
 // @desc    Add a payment to a booking
@@ -983,6 +1084,18 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
         bookingId: id,
     });
     await recalcOutstanding(id);
+<<<<<<< Updated upstream
+=======
+    // Log activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PAYMENT_ADDED',
+        details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     invalidateBookingCaches();
     res.status(201).json(payment);
 });
@@ -1024,6 +1137,18 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
     }
     await Payment_1.default.findByIdAndDelete(paymentId);
     await recalcOutstanding(id);
+<<<<<<< Updated upstream
+=======
+    // Log activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'PAYMENT_DELETED',
+        details: `Removed payment of ${payment.amount}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+>>>>>>> Stashed changes
     invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
 });
@@ -1043,29 +1168,74 @@ exports.getCalendarBookings = (0, express_async_handler_1.default)(async (req, r
         query.assignedToUserId = req.user.id;
     }
     const bookings = await Booking_1.default.find(query)
-        .select('uniqueCode status destination travelDate primaryContactId')
-        .populate('primaryContact', 'contactName')
+        .select('uniqueCode status destination travelDate contact')
         .lean();
     const events = bookings.map(b => ({
         id: b._id.toString(),
-        title: b.primaryContact?.contactName || b.uniqueCode || 'Booking',
+        title: b.contact?.name || b.uniqueCode || 'Booking',
         date: b.travelDate,
         status: b.status,
         destination: b.destination || '',
     }));
     res.json(events);
 });
+<<<<<<< Updated upstream
+=======
+// @desc    Verify a booking (for Account & Admin)
+// @route   PATCH /api/bookings/:id/verify
+// @access  Private (Account & Admin)
+exports.verifyBooking = (0, express_async_handler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const { isVerified } = req.body;
+    const userGroups = req.user?.groups || [];
+    const isAccount = req.user?.role === 'ACCOUNT' || userGroups.some(g => g.toLowerCase().trim() === 'account');
+    if (req.user?.role !== 'ADMIN' && !isAccount) {
+        res.status(403);
+        throw new Error('Only Admins and Account team can verify bookings');
+    }
+    const booking = await Booking_1.default.findById(id);
+    if (!booking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    booking.isVerified = isVerified;
+    if (isVerified) {
+        booking.verifiedBy = req.user?.name || 'Admin';
+        booking.verifiedAt = new Date();
+    }
+    else {
+        booking.verifiedBy = null;
+        booking.verifiedAt = null;
+    }
+    await booking.save();
+    // Log activity
+    await Timeline_1.default.create({
+        bookingId: id,
+        userId: req.user?.id,
+        type: 'activity',
+        action: 'BOOKING_VERIFIED',
+        details: `Booking was ${isVerified ? 'verified' : 'unverified'}`,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+    invalidateBookingCaches();
+    res.json({ message: `Booking ${isVerified ? 'verified' : 'unverified'} successfully`, isVerified: booking.isVerified });
+});
+>>>>>>> Stashed changes
 // @desc    Get activity log for a booking
 // @route   GET /api/bookings/:id/activity
 // @access  Private
 exports.getBookingActivity = (0, express_async_handler_1.default)(async (req, res) => {
+<<<<<<< Updated upstream
     const { default: Activity } = await Promise.resolve().then(() => __importStar(require('../models/Activity')));
     const activities = await Activity.find({ bookingId: req.params.id })
+=======
+    const activities = await Timeline_1.default.find({ bookingId: req.params.id, type: 'activity' })
+>>>>>>> Stashed changes
         .sort({ createdAt: -1 })
         .limit(50)
         .populate('userId', 'name')
         .lean();
-    const mapped = activities.map(a => ({
+    const mapped = activities.map((a) => ({
         id: a._id.toString(),
         action: a.action,
         details: a.details,

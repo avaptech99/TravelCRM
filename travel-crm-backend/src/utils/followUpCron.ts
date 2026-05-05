@@ -17,7 +17,7 @@ export async function processFollowUpReminders(): Promise<void> {
             status: 'Follow Up',
             followUpDate: { $lte: endOfToday, $ne: null },
         })
-            .populate('primaryContact', 'name phone')
+            .select('uniqueCode assignedToUserId createdByUserId contact')
             .lean();
 
         if (dueBookings.length === 0) {
@@ -30,12 +30,12 @@ export async function processFollowUpReminders(): Promise<void> {
             const targetUserId = booking.assignedToUserId || booking.createdByUserId;
             if (!targetUserId) continue;
 
-            const contactName = (booking as any).primaryContact?.name || 'Unknown Contact';
+            const contactName = (booking as any).contact?.name || 'Unknown Contact';
 
             // Check if we already sent a notification for this booking today
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
             const existingNotification = await Notification.findOne({
-                bookingId: booking._id,
+                bookingId: (booking as any)._id,
                 userId: targetUserId,
                 message: { $regex: /Follow-up reminder/i },
                 createdAt: { $gte: startOfToday },
@@ -43,19 +43,28 @@ export async function processFollowUpReminders(): Promise<void> {
 
             if (existingNotification) continue; // Already notified today
 
+            const expireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
             await Notification.create({
                 userId: targetUserId,
-                bookingId: booking._id,
-                message: `Follow-up reminder: ${contactName} — Booking ${booking.uniqueCode} is due for follow-up today.`,
+                bookingId: (booking as any)._id,
+                message: `Follow-up reminder: ${contactName} — Booking ${(booking as any).uniqueCode} is due for follow-up today.`,
                 read: false,
                 isDismissed: false,
+                expireAt,
             });
 
-            // Log activity
-            const { logActivity } = await import('./activityLogger');
-            await logActivity(booking._id, null, 'FOLLOW_UP_REMINDER', `Automatic reminder sent for booking ${booking.uniqueCode}`);
+            // Log activity in Timeline
+            const Timeline = (await import('../models/Timeline')).default;
+            await Timeline.create({
+                bookingId: (booking as any)._id,
+                userId: targetUserId, // Attributing to the agent
+                type: 'activity',
+                action: 'FOLLOW_UP_REMINDER',
+                details: `Automatic reminder sent for booking ${(booking as any).uniqueCode}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
 
-            console.log(`[FollowUp Cron] Notified agent for booking ${booking.uniqueCode}`);
+            console.log(`[FollowUp Cron] Notified agent for booking ${(booking as any).uniqueCode}`);
         }
     } catch (error) {
         console.error('[FollowUp Cron] Error processing follow-up reminders:', error);
