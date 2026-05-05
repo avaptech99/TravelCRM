@@ -211,9 +211,9 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
 
     const received = recentPayments.map((p: any) => ({
         uniqueCode: p.bookingId?.uniqueCode || 'N/A',
-        contactPerson: p.bookingId?.primaryContactId?.contactName || 'Unknown',
-        companyName: p.bookingId?.primaryContactId?.companyName || '',
-        paymentMethod: p.method || 'Unknown',
+        contactPerson: p.bookingId?.contact?.name || 'Unknown',
+        companyName: p.bookingId?.contact?.company || '',
+        paymentMethod: p.paymentMethod || 'Unknown',
         amount: p.amount || 0,
         date: p.date
     }));

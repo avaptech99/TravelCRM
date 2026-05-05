@@ -3,7 +3,8 @@ import {
     getBookingAnalytics, 
     getPaymentAnalytics, 
     getRevenueTrends, 
-    getAgentAnalytics 
+    getAgentAnalytics,
+    getPaymentBreakdown
 } from '../controllers/analyticsController';
 import { protect, adminGuard } from '../middleware/auth';
 
@@ -17,5 +18,6 @@ router.get('/bookings', getBookingAnalytics);
 router.get('/payments', getPaymentAnalytics);
 router.get('/revenue-trends', getRevenueTrends);
 router.get('/agents', getAgentAnalytics);
+router.get('/payment-breakdown', getPaymentBreakdown);
 
 export default router;
