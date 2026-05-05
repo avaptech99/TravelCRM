@@ -168,7 +168,6 @@ bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
 bookingSchema.index({ status: 1, travelDate: 1 });
 bookingSchema.index({ primaryContactId: 1, createdAt: -1 });
 bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
-bookingSchema.index({ uniqueCode: 1 }, { sparse: true });
 bookingSchema.index({ 'contact.name': 1 });
 bookingSchema.index({ 'contact.phone': 1 });
 bookingSchema.index({ 'contact.interested': 1 });
