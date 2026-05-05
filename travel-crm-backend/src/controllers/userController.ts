@@ -355,7 +355,7 @@ export const unassignOfflineBookings = asyncHandler(async (req: Request, res: Re
     const offlineAgents = await User.find({
         role: 'AGENT',
         isOnline: false
-    }).select('_id');
+    }).select('_id').lean();
 
     const offlineAgentIds = offlineAgents.map(a => a._id);
 

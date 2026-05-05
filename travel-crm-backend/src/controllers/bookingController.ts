@@ -30,13 +30,14 @@ const invalidateBookingCaches = () => {
 
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId: string) => {
-    const payments = await Payment.find({ bookingId });
+    const payments = await Payment.find({ bookingId }).select('amount').lean();
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findById(bookingId).select('totalAmount amount').lean();
+    
     if (booking) {
         const bookingTotal = booking.totalAmount || booking.amount || 0;
-        booking.outstanding = Math.max(bookingTotal - totalPaid, 0);
-        await booking.save();
+        const outstanding = Math.max(bookingTotal - totalPaid, 0);
+        await Booking.updateOne({ _id: bookingId }, { $set: { outstanding } });
     }
 };
 
@@ -467,7 +468,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             path: 'timeline',
             populate: { path: 'userId', select: 'name role' },
             options: { sort: { createdAt: -1 } }
-        });
+        })
+        .lean();
 
     if (!booking) {
         res.status(404);
@@ -484,7 +486,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     const outstanding = ((booking as any).amount || 0) - totalPaid;
 
     const result = {
-        ...booking.toJSON(),
+        ...booking,
         id: booking!._id.toString(),
         createdOn: booking.createdAt,
         outstanding,
@@ -1107,7 +1109,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Invalid comment input');
     }
 
-    const booking = await Booking.findById(id).populate('primaryContact', 'contactName');
+    const booking = await Booking.findById(id).populate('primaryContact', 'contactName').lean();
 
     if (!booking) {
         res.status(404);
@@ -1158,7 +1160,8 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
 
     const comments = await Timeline.find({ bookingId: id, type: 'comment' })
         .populate('userId', 'name role')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
     res.json(comments);
 });
@@ -1352,7 +1355,7 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    const payments = await Payment.find({ bookingId: id }).sort({ date: -1 });
+    const payments = await Payment.find({ bookingId: id }).sort({ date: -1 }).lean();
 
     res.json(payments);
 });
