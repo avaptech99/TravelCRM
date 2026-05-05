@@ -29,15 +29,6 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                     { $group: { _id: '$tripType', count: { $sum: 1 } } }
                 ],
                 byInterest: [
-                    {
-                        $lookup: {
-                            from: 'primarycontacts',
-                            localField: 'primaryContactId',
-                            foreignField: '_id',
-                            as: 'contact'
-                        }
-                    },
-                    { $unwind: '$contact' },
                     { 
                         $group: { 
                             _id: { $cond: [{ $eq: ['$contact.interested', true] }, 'Yes', 'No'] }, 

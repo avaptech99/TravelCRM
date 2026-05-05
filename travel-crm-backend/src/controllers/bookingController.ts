@@ -545,6 +545,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         contactPhoneNo: result.data.contactNumber,
         bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
         requirements: result.data.requirements || null,
+        interested: result.data.interested === 'Yes',
     });
 
     // Extract info if not provided
@@ -566,6 +567,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
             name: primaryContact.contactName,
             phone: primaryContact.contactPhoneNo,
             type: primaryContact.bookingType,
+            interested: primaryContact.interested,
         },
         destination: finalDestination,
         travelDate: finalTravelDate,

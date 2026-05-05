@@ -35,6 +35,7 @@ export const createBookingSchema = z.object({
     includesAdditionalServices: z.boolean().optional(),
     additionalServicesDetails: z.string().optional().nullable(),
     assignedGroup: z.string().optional(),
+    interested: z.enum(['Yes', 'No']).optional(),
 });
 
 export const updateBookingSchema = z.object({
