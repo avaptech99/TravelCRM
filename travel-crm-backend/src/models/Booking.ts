@@ -121,7 +121,7 @@ const bookingSchema = new Schema<IBooking>(
                     ret.contactPerson = ret.primaryContact.contactName;
                     ret.contactNumber = ret.primaryContact.contactPhoneNo;
                     ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
-                    ret.interested = ret.primaryContact.interested ? 'Yes' : 'No';
+                    ret.interested = (ret.primaryContact.interested === 'Yes' || ret.primaryContact.interested === true) ? 'Yes' : 'No';
                 }
                 
                 if (ret.primaryContact) {
@@ -163,14 +163,23 @@ bookingSchema.pre('save', async function (this: any) {
     }
 });
 
-// Indexes to speed up queries - Refined for performance
+// Indexes — sorted by priority
+// 1. STANDALONE SORT INDEX — covers ALL queries that sort by lastInteractionAt
+//    Without this, any query that can't use the compound index does a full COLLSCAN
+bookingSchema.index({ lastInteractionAt: -1 });
+
+// 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
-bookingSchema.index({ status: 1, travelDate: 1 });
-bookingSchema.index({ primaryContactId: 1, createdAt: -1 });
-bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
+
+// 3. Status filter + sort (status tabs like "Pending", "Booked", etc.)
+bookingSchema.index({ status: 1, lastInteractionAt: -1 });
+
+// 4. Creator queries (marketer view)
+bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
+
+// 5. Contact search fields
 bookingSchema.index({ 'contact.name': 1 });
 bookingSchema.index({ 'contact.phone': 1 });
-bookingSchema.index({ 'contact.interested': 1 });
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

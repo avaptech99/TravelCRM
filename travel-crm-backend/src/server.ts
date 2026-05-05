@@ -128,22 +128,9 @@ mongoose.connection.once('open', async () => {
                 console.log('Default admin user created');
             }
 
-            const missingOutstanding = await Booking.countDocuments({ outstanding: { $exists: false } });
-            if (missingOutstanding > 0) {
-                console.log(`[Migration] Backfilling outstanding field for ${missingOutstanding} bookings...`);
-                // Process in small batches to avoid connection saturation
-                const bookings = await Booking.find({ outstanding: { $exists: false } }).select('_id totalAmount amount').lean();
-                for (const booking of bookings) {
-                    const payments = await Payment.find({ bookingId: booking._id }).select('amount').lean();
-                    const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-                    const bookingTotal = (booking as any).totalAmount || (booking as any).amount || 0;
-                    const outstanding = Math.max(bookingTotal - totalPaid, 0);
-                    await Booking.updateOne({ _id: booking._id }, { $set: { outstanding } });
-                }
-                console.log('[Migration] Outstanding field backfill complete');
-            }
-
             startFollowUpCron();
+            
+            console.log('🚀 Startup tasks complete. System ready.');
         } catch (error) {
             console.error('[Startup Task Error]:', error);
         }
@@ -153,9 +140,11 @@ mongoose.connection.once('open', async () => {
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 
-    // Start self-pinging to keep server warm (if BASE_URL is provided)
+    // Start self-pinging to keep server warm
     if (process.env.BASE_URL) {
         startSelfPinging(process.env.BASE_URL);
+    } else {
+        console.warn('⚠️  BASE_URL not set. Server may go to sleep on Render Free Tier.');
     }
 });
 
