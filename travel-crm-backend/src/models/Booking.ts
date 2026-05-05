@@ -171,13 +171,19 @@ bookingSchema.index({ lastInteractionAt: -1 });
 // 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
 
-// 3. Status filter + sort (status tabs like "Pending", "Booked", etc.)
+// 3. Agent dashboard fallback — optimal for single-agent WITHOUT status
+bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
+
+// 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
 
-// 4. Creator queries (marketer view)
+// 5. Creator queries (marketer view)
 bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
 
-// 5. Contact search fields
+// 6. Analytics queries (payment breakdown)
+bookingSchema.index({ outstanding: -1 });
+
+// 7. Contact search fields
 bookingSchema.index({ 'contact.name': 1 });
 bookingSchema.index({ 'contact.phone': 1 });
 

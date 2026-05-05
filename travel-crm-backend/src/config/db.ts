@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 
+// Disable autoIndex in production — Mongoose tries to create all schema indexes
+// on every startup, which blocks the connection pool for 5-10+ seconds on Atlas M0.
+// Indexes should be created manually via Atlas Shell or a migration script.
+if (process.env.NODE_ENV === 'production') {
+    mongoose.set('autoIndex', false);
+}
+
 const connectDB = async () => {
     try {
         const mongoURI = process.env.MONGODB_URI || process.env.DATABASE_URL;
@@ -15,7 +22,7 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 5,     // Right-sized for free tier (0.1 CPU, 15 users)
+            maxPoolSize: 10,    // Atlas M0 allows 500 connections; 10 prevents pool starvation
             minPoolSize: 2,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
