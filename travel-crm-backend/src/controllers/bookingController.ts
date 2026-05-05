@@ -154,6 +154,10 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
     const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, group } = req.query;
 
     const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
@@ -1119,7 +1123,11 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
 // @access  Private
 export const addComment = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const userId = req.user!.id;
+    if (!req.user) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
+    const userId = req.user.id;
     const { text } = req.body;
     const result = createCommentSchema.safeParse(req.body);
 

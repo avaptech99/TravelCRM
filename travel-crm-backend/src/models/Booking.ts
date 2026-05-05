@@ -44,6 +44,7 @@ export interface IBooking extends Document {
         source: string;
     }[];
     lastInteractionAt: Date;
+    contact: {
         name: string;
         phone: string;
         type: string;
@@ -108,7 +109,7 @@ const bookingSchema = new Schema<IBooking>(
         timestamps: true,
         toJSON: { 
             virtuals: true,
-            transform: (doc, ret) => {
+            transform: (doc, ret: any) => {
                 ret.id = ret._id;
                 // Flatten primaryContact fields from embedded snapshot if exists
                 if (ret.contact) {
@@ -129,10 +130,10 @@ const bookingSchema = new Schema<IBooking>(
                 }
                 
                 // Flatten user names for display
-                if (ret.assignedToUserId && typeof ret.assignedToUserId === 'object') {
-                    ret.assignedToUser = ret.assignedToUserId.name;
+                if (ret.assignedToUserId && typeof (ret.assignedToUserId as any).name === 'string') {
+                    ret.assignedToUser = (ret.assignedToUserId as any).name;
                 }
-                if (ret.createdByUserId && typeof ret.createdByUserId === 'object' && !ret.createdByUser) {
+                if (ret.createdByUserId && typeof (ret.createdByUserId as any).name === 'string' && !ret.createdByUser) {
                     ret.createdByUser = (ret.createdByUserId as any).name;
                 }
                 return ret;
