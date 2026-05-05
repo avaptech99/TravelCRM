@@ -1,20 +1,27 @@
 import mongoose from 'mongoose';
-
-// Disable autoIndex in production — Mongoose tries to create all schema indexes
-// on every startup, which blocks the connection pool for 5-10+ seconds on Atlas M0.
-// Indexes should be created manually via Atlas Shell or a migration script.
-if (process.env.NODE_ENV === 'production') {
-    mongoose.set('autoIndex', false);
-}
+import Booking from '../models/Booking';
+import Payment from '../models/Payment';
 
 const connectDB = async () => {
     try {
         const mongoURI = process.env.MONGODB_URI || process.env.DATABASE_URL;
 
         if (!mongoURI) {
-            console.error('Error: MONGODB_URI or DATABASE_URL environment variable is not defined.');
+            console.error('Error: MONGODB_URI or DATABASE_URL is not defined in environment variables.');
             process.exit(1);
         }
+
+        mongoose.connection.once('connected', async () => {
+            console.log('MongoDB Connected. Synchronizing indexes...');
+            try {
+                // Forces MongoDB to create missing indexes AND drop unused stale indexes
+                await Booking.syncIndexes();
+                await Payment.syncIndexes();
+                console.log('✅ Index synchronization complete (all performance indexes applied)');
+            } catch (err) {
+                console.error('⚠️ Index sync error:', err);
+            }
+        });
 
         if (mongoose.connection.readyState >= 1) {
             console.log('MongoDB is already connected.');
@@ -22,10 +29,11 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 10,    // Atlas M0 allows 500 connections; 10 prevents pool starvation
-            minPoolSize: 2,
+            maxPoolSize: 20,    // Increased to handle parallel bursts
+            minPoolSize: 5,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            autoIndex: true,    // Must be true so schemas register indexes
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {

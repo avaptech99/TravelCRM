@@ -187,6 +187,9 @@ bookingSchema.index({ outstanding: -1 });
 bookingSchema.index({ 'contact.name': 1 });
 bookingSchema.index({ 'contact.phone': 1 });
 
+// 8. Calendar queries
+bookingSchema.index({ travelDate: 1 });
+
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
