@@ -3,30 +3,53 @@ import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification';
 import appCache from '../utils/cache';
 
+// Module-level map to track in-flight requests and prevent cache stampedes
+const inFlight = new Map<string, Promise<any>>();
+
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
 export const getMyNotifications = asyncHandler(async (req: Request, res: Response) => {
-    const cacheKey = `notifications_${req.user?.id}`;
+    const userId = req.user?.id;
+    const cacheKey = `notifications_${userId}`;
+    
     const cached = appCache.get(cacheKey);
-    if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+    if (cached !== undefined) {
         res.json(cached);
         return;
     }
 
-    const notifications = await Notification.find({ userId: req.user?.id })
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .lean();
+    // If a request is already in-flight for this user, wait for it
+    if (inFlight.has(cacheKey)) {
+        const data = await inFlight.get(cacheKey);
+        res.json(data);
+        return;
+    }
 
-    const mappedNotifications = notifications.map(n => ({
-        ...n,
-        id: n._id.toString()
-    }));
+    // This is the first request — create the promise and share it
+    const promise = (async () => {
+        const notifications = await Notification.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .lean();
 
-    appCache.set(cacheKey, mappedNotifications, 30); // Cache for 30 seconds
-    res.json(mappedNotifications);
+        const mappedNotifications = notifications.map(n => ({
+            ...n,
+            id: n._id.toString()
+        }));
+
+        appCache.set(cacheKey, mappedNotifications, 30); // Cache for 30 seconds
+        return mappedNotifications;
+    })();
+
+    inFlight.set(cacheKey, promise);
+
+    try {
+        const result = await promise;
+        res.json(result);
+    } finally {
+        inFlight.delete(cacheKey); // Always clean up
+    }
 });
 
 // @desc    Mark notification as read

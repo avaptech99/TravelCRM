@@ -159,9 +159,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, group } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, group, cursor } = req.query;
 
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -170,7 +170,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const query: any = {};
-    const primaryContactQuery: any = {};
 
     // 1. Mandatory Visibility Restrictions (Based on Role or Group/Department)
     const userGroups = req.user?.groups || [];
@@ -180,8 +179,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const isSpecialized = userGroups.includes('Visa') || userGroups.includes('Ticketing') || 
                          req.user?.role === 'VISA' || req.user?.role === 'TICKETING';
     
-    const isPackageLCC = userGroups.includes('Package / LCC');
-
     if (req.user?.role === 'ADMIN') {
         // Admin sees all
     } else if (isAccount || isOperation) {
@@ -241,19 +238,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
-    // Role-based visibility exclusion: 
-    // "Other users cannot view their queries of any group which one created by them" 
-    // for Visa/Ticketing. This means if a Visa user creates a lead, Agents/Admin (maybe?) shouldn't see it?
-    // Actually, "User can see all leads" for Agent. 
-    // Let's re-read: "Other users cannot view their queries of any group which one created by them" 
-    // for VISA and TICKETING.
-    // This sounds like if VISA creates a query, it's private.
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'VISA' && req.user?.role !== 'TICKETING') {
-        // For other roles (Agent, Marketer, Operation, Account), 
-        // they should NOT see queries created by Visa/Ticketing users unless assigned?
-        // Actually, let's keep it simple for now as per the "can see only their own" rule for them.
-    }
-
     if (status) {
         const statusArray = (status as string).split(',').map(s => s.trim());
         const bookingStatuses = statusArray.filter(s => !['Interested', 'Not Interested'].includes(s));
@@ -310,9 +294,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         query.assignedGroup = group as string;
     }
 
-
-
-
     if (search) {
         const searchStr = search as string;
         const searchRegex = new RegExp(searchStr, 'i');
@@ -340,29 +321,32 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
-
-
     // Outstanding filter - simple field check
     if (String(outstandingOnly) === 'true') {
         query.outstanding = { $gt: 0 };
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    // Cursor support
+    if (cursor) {
+        query.lastInteractionAt = { $lt: new Date(cursor as string) };
+    }
+
+    const skip = cursor ? 0 : (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit);
 
     let bookings: any[];
     let total: number;
 
     const reqId = Date.now().toString(36);
-    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
+    console.log(`[GET] /api/bookings - Page: ${page}, Cursor: ${cursor || 'none'}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
 
-    const count = Object.keys(query).length === 0
+    const count = Object.keys(query).length === 0 || cursor
         ? await Booking.estimatedDocumentCount()
         : await Booking.countDocuments(query);
 
     const rawBookings = await Booking.find(query)
-        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
         .sort({ lastInteractionAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -390,6 +374,10 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
+    const nextCursor = mappedBookings.length === limitNum
+        ? (bookings[bookings.length - 1].lastInteractionAt as Date)?.toISOString()
+        : null;
+
     const result = {
         data: mappedBookings,
         meta: {
@@ -397,6 +385,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             page: Number(page),
             limit: Number(limit),
             totalPages: Math.ceil(total / Number(limit)),
+            nextCursor,
+            hasMore: mappedBookings.length === limitNum
         },
     };
 
