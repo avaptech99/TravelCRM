@@ -166,9 +166,10 @@ bookingSchema.pre('save', async function (this: any) {
 });
 
 // Indexes — sorted by priority
-// 1. STANDALONE SORT INDEX — covers ALL queries that sort by lastInteractionAt
-//    Without this, any query that can't use the compound index does a full COLLSCAN
+// 1. STANDALONE SORT INDEXES — covers primary sort orders
+bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ lastInteractionAt: -1 });
+
 
 // 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });

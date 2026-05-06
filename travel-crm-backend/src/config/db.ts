@@ -12,8 +12,10 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 50,    // Increased to handle background tasks without starvation
-            minPoolSize: 5,
+            maxPoolSize: 15,    // Right-sized (following CRM 1.0 method) to prevent CPU context-switch overhead
+            minPoolSize: 2,
+            waitQueueTimeoutMS: 5000, // Error out if waiting too long instead of hanging
+
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
             autoIndex: false,   // Better for production performance

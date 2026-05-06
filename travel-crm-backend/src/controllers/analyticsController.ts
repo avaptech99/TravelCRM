@@ -74,17 +74,36 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         if (toDate) matchQuery.date.$lte = new Date(toDate as string);
     }
 
-    // Total collected from Payments
-    const paymentStats = await Payment.aggregate([
-        { $match: matchQuery },
-        {
-            $group: {
-                _id: null,
-                totalCollected: { $sum: '$amount' },
-                count: { $sum: 1 }
+    // Total collected from Payments (Filtered by company if provided)
+    const paymentPipeline: any[] = [];
+    if (company) {
+        paymentPipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
+        });
+        paymentPipeline.push({ $unwind: '$booking' });
+        paymentPipeline.push({ $match: { 'booking.company': company } });
+    }
+    
+    // Add date filter to payment pipeline
+    if (Object.keys(matchQuery).length > 0) {
+        paymentPipeline.push({ $match: matchQuery });
+    }
+
+    paymentPipeline.push({
+        $group: {
+            _id: null,
+            totalCollected: { $sum: '$amount' },
+            count: { $sum: 1 }
         }
-    ]);
+    });
+
+    const paymentStats = await Payment.aggregate(paymentPipeline);
+
 
     // Total expected from Bookings (amount)
     const bookingMatch: any = {};
@@ -255,8 +274,9 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     const pendingBookings = await Booking.find(bookingQuery)
         .select('uniqueCode contact amount outstanding company')
         .sort({ outstanding: -1 })
-        .limit(50)
+        .limit(20) // Reduced from 50 for faster load
         .lean();
+
 
     const pending = pendingBookings.map((b: any) => ({
         bookingId: b._id,
@@ -307,8 +327,10 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     const result = {
         pending,
         totalPending,
-        received: received.slice(0, 50),
+        totalPending,
+        received: received.slice(0, 20), // Reduced from 50 for faster load
         totalReceived
+
     };
 
     res.json(result);

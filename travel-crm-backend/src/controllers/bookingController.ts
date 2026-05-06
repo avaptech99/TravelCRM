@@ -166,7 +166,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder } = req.query;
+
 
     const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
     
@@ -260,7 +261,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const limitNum = Math.min(parseInt(limit as string, 10), 50);
     const pageNum = parseInt(page as string, 10);
+    const sortField = (sortBy as string) || 'createdAt';
+    const sortDir = sortOrder === 'asc' ? 1 : -1;
+    const sortQuery = { [sortField]: sortDir };
+
     const reqId = Date.now().toString(36);
+
 
     console.time(`getBookingsQuery_${reqId}`);
     
@@ -269,7 +275,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         cursor ? Promise.resolve(0) : Booking.countDocuments(query),
         Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
-            .sort({ lastInteractionAt: -1 })
+            .sort(sortQuery as any)
+
             .skip(cursor ? 0 : (pageNum - 1) * limitNum)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
@@ -391,9 +398,10 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             .populate({
                 path: 'timeline',
                 populate: { path: 'userId', select: 'name role' },
-                options: { sort: { createdAt: -1 } }
+                options: { sort: { createdAt: -1 }, limit: 20 }
             })
             .lean();
+
 
         if (!booking) return null;
 
