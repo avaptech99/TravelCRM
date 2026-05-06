@@ -185,6 +185,9 @@ bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
 // 5. Creator queries (marketer view)
 bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
 
+// 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
+bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
+
 // 6. Analytics queries (payment breakdown)
 bookingSchema.index({ outstanding: -1 });
 

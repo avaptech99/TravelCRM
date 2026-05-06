@@ -360,18 +360,19 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
 
-    const count = Object.keys(query).length === 0
-        ? await Booking.estimatedDocumentCount()
-        : await Booking.countDocuments(query);
-
-    const rawBookings = await Booking.find(query)
-        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
-        .sort({ lastInteractionAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .populate('assignedToUserId', 'name')
-        .populate('createdByUserId', 'name')
-        .lean();
+    const [count, rawBookings] = await Promise.all([
+        Object.keys(query).length === 0
+            ? Booking.estimatedDocumentCount()
+            : Booking.countDocuments(query),
+        Booking.find(query)
+            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+            .sort({ lastInteractionAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
+            .lean()
+    ]);
 
     bookings = rawBookings;
     total = count;
@@ -1258,19 +1259,24 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
 
-    invalidateBookingCaches();
-
-    // Log activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PASSENGERS_ADDED',
-        details: `Added ${passengersData.length} travelers to the booking.`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-
     res.status(201).json(createdPassengers);
+
+    // BACKGROUND: Logging and cache invalidation
+    setImmediate(async () => {
+        try {
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PASSENGERS_ADDED',
+                details: `Added ${passengersData.length} travelers to the booking.`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] addPassengers side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Update (replace) passengers for a booking
@@ -1318,19 +1324,24 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
 
-    invalidateBookingCaches();
-
-    // Log activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PASSENGERS_UPDATED',
-        details: `Updated details for ${passengersData.length} travelers.`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-
     res.json(createdPassengers);
+
+    // BACKGROUND: Logging and cache invalidation
+    setImmediate(async () => {
+        try {
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PASSENGERS_UPDATED',
+                details: `Updated details for ${passengersData.length} travelers.`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] updatePassengers side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Add a payment to a booking
@@ -1454,20 +1465,28 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
 
     await Payment.findByIdAndDelete(paymentId);
 
-    await recalcOutstanding(id);
-
-    // Log activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PAYMENT_DELETED',
-        details: `Removed payment of ${payment.amount}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-
-    invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
+
+    // BACKGROUND: Payment removal side effects
+    setImmediate(async () => {
+        try {
+            await recalcOutstanding(id);
+
+            // Log activity
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PAYMENT_DELETED',
+                details: `Removed payment of ${payment.amount}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] deletePayment side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Get calendar bookings for a given month
