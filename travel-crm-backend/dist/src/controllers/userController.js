@@ -23,8 +23,8 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
         res.json(cached);
         return;
     }
-    const agents = await User_1.default.find({ role: 'AGENT' })
-        .select('name email lastSeen groups')
+    const agents = await User_1.default.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
+        .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
     const now = Date.now();
@@ -37,7 +37,7 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedAgents, 30); // Lower cache time for online status
+    cache_1.default.set(cacheKey, mappedAgents, 600); // 10 minute TTL — agents rarely change
     res.json(mappedAgents);
 });
 // @desc    Get all users (Admin only)
@@ -65,21 +65,16 @@ exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedUsers, 30);
+    cache_1.default.set(cacheKey, mappedUsers, 600); // 10 minute TTL
     res.json(mappedUsers);
 });
 // @desc    Update user lastSeen (Heartbeat)
 // @route   POST /api/users/heartbeat
 // @access  Private
 exports.heartbeat = (0, express_async_handler_1.default)(async (req, res) => {
-    const user = await User_1.default.findById(req.user?.id);
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
-    }
-    user.lastSeen = new Date();
-    await user.save();
-    res.json({ success: true, lastSeen: user.lastSeen });
+    const lastSeen = new Date();
+    await User_1.default.updateOne({ _id: req.user?.id }, { $set: { lastSeen } });
+    res.json({ success: true, lastSeen });
 });
 // @desc    Create a new user (Admin only)
 // @route   POST /api/users

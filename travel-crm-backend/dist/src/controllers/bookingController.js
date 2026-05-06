@@ -16,6 +16,8 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
 const types_1 = require("../types");
 const extractTravelInfo_1 = require("../utils/extractTravelInfo");
+// Request deduplication for booking fetches
+const bookingFetchInFlight = new Map();
 // Helper to clear all booking-related caches
 const invalidateBookingCaches = () => {
     cache_1.default.invalidateByPrefix('bookings_');
@@ -25,9 +27,11 @@ const invalidateBookingCaches = () => {
 };
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId) => {
-    const payments = await Payment_1.default.find({ bookingId }).select('amount').lean();
-    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const booking = await Booking_1.default.findById(bookingId).select('totalAmount amount').lean();
+    const [payments, booking] = await Promise.all([
+        Payment_1.default.find({ bookingId }).select('amount').lean(),
+        Booking_1.default.findById(bookingId).select('totalAmount amount').lean()
+    ]);
+    const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     if (booking) {
         const bookingTotal = booking.totalAmount || booking.amount || 0;
         const outstanding = Math.max(bookingTotal - totalPaid, 0);
@@ -143,8 +147,9 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, group } = req.query;
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder } = req.query;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
+    // Cache check
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -152,209 +157,125 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         return;
     }
     const query = {};
-    const primaryContactQuery = {};
-    // 1. Mandatory Visibility Restrictions (Based on Role or Group/Department)
     const userGroups = req.user?.groups || [];
-    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
-    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
-    const isSpecialized = userGroups.includes('Visa') || userGroups.includes('Ticketing') ||
-        req.user?.role === 'VISA' || req.user?.role === 'TICKETING';
-    const isPackageLCC = userGroups.includes('Package / LCC');
-    if (req.user?.role === 'ADMIN') {
-        // Admin sees all
+    // 1. Mandatory Visibility Restrictions
+    if (req.user?.role !== 'ADMIN') {
+        const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
+        const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
+        if (isAccount || isOperation) {
+            query.status = 'Booked';
+        }
+        else if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+            query.$or = [
+                { assignedToUserId: new mongoose_1.default.Types.ObjectId(req.user.id) },
+                { createdByUserId: new mongoose_1.default.Types.ObjectId(req.user.id) },
+                { assignedGroup: { $in: userGroups } }
+            ];
+        }
+        else if (req.user?.role === 'MARKETER') {
+            query.createdByUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
+        }
     }
-    else if (isAccount || isOperation) {
-        // Account and Operation can see all 'Booked' queries from any group
-        query.status = 'Booked';
-    }
-    else if (req.user?.role === 'AGENT' || isSpecialized) {
-        // Agents and specialized departments (Visa/Ticketing) see:
-        // 1. Leads assigned to them
-        // 2. Leads created by them
-        // 3. ALL leads belonging to their departmental group(s)
-        query.$or = [
-            { assignedToUserId: new mongoose_1.default.Types.ObjectId(req.user.id) },
-            { createdByUserId: new mongoose_1.default.Types.ObjectId(req.user.id) },
-            { assignedGroup: { $in: userGroups } }
-        ];
-    }
-    else if (req.user?.role === 'MARKETER') {
-        query.createdByUserId = new mongoose_1.default.Types.ObjectId(req.user.id);
-    }
-    // 2. Tab/Filter-Based Visibility (e.g., "My Leads")
+    // 2. Filters
     if (myBookings === 'true') {
         const userMatch = [
             { assignedToUserId: new mongoose_1.default.Types.ObjectId(req.user?.id) },
             { createdByUserId: new mongoose_1.default.Types.ObjectId(req.user?.id) },
         ];
         if (query.$or) {
-            // Combine existing $or with user-specific match
-            const existingOr = [...query.$or];
-            query.$and = [
-                { $or: existingOr },
-                { $or: userMatch }
-            ];
+            const existingOr = query.$or;
+            query.$and = [{ $or: existingOr }, { $or: userMatch }];
             delete query.$or;
         }
         else {
             query.$or = userMatch;
         }
     }
-    else if (assignedTo) {
-        const agentArray = assignedTo.split(',').map(a => a.trim());
-        const hasUnassigned = agentArray.includes('unassigned');
-        const realAgentIds = agentArray.filter(a => a !== 'unassigned');
-        let objectIds = [];
-        try {
-            objectIds = realAgentIds.map(id => new mongoose_1.default.Types.ObjectId(id));
-        }
-        catch (e) {
-            // Ignore invalid object ids
-        }
-        const targetAgentIds = objectIds;
-        if (hasUnassigned) {
-            targetAgentIds.push(null);
-        }
-        if (targetAgentIds.length > 0) {
-            query.assignedToUserId = { $in: targetAgentIds };
-        }
-    }
-    // Role-based visibility exclusion: 
-    // "Other users cannot view their queries of any group which one created by them" 
-    // for Visa/Ticketing. This means if a Visa user creates a lead, Agents/Admin (maybe?) shouldn't see it?
-    // Actually, "User can see all leads" for Agent. 
-    // Let's re-read: "Other users cannot view their queries of any group which one created by them" 
-    // for VISA and TICKETING.
-    // This sounds like if VISA creates a query, it's private.
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'VISA' && req.user?.role !== 'TICKETING') {
-        // For other roles (Agent, Marketer, Operation, Account), 
-        // they should NOT see queries created by Visa/Ticketing users unless assigned?
-        // Actually, let's keep it simple for now as per the "can see only their own" rule for them.
-    }
     if (status) {
         const statusArray = status.split(',').map(s => s.trim());
         const bookingStatuses = statusArray.filter(s => !['Interested', 'Not Interested'].includes(s));
         const interestFilters = statusArray.filter(s => ['Interested', 'Not Interested'].includes(s));
         if (bookingStatuses.length > 0) {
-            if (query.status === 'Booked') {
-                // If role is restricted to 'Booked', they can only see 'Booked' even if they filter for more
-                query.status = 'Booked';
-            }
-            else {
-                query.status = { $in: bookingStatuses };
-            }
+            query.status = bookingStatuses.length === 1 ? bookingStatuses[0] : { $in: bookingStatuses };
         }
         if (interestFilters.length > 0) {
             query['contact.interested'] = { $in: interestFilters.map(f => f === 'Interested') };
         }
     }
-    if (fromDate || toDate) {
-        query.createdAt = {};
-        if (fromDate)
-            query.createdAt.$gte = new Date(fromDate);
-        if (toDate)
-            query.createdAt.$lte = new Date(toDate);
-    }
-    if (travelDateFilter && travelDateFilter !== 'all') {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const futureDate = new Date(now);
-        if (travelDateFilter === 'upcoming_7_days') {
-            futureDate.setDate(now.getDate() + 7);
-        }
-        else if (travelDateFilter === 'upcoming_10_days') {
-            futureDate.setDate(now.getDate() + 10);
-        }
-        else if (travelDateFilter === 'upcoming_15_days') {
-            futureDate.setDate(now.getDate() + 15);
-        }
-        else if (travelDateFilter === 'upcoming_30_days') {
-            futureDate.setDate(now.getDate() + 30);
-        }
-        futureDate.setHours(23, 59, 59, 999);
-        query.travelDate = {
-            $gte: now,
-            $lte: futureDate
-        };
-    }
-    if (req.query.company) {
-        query.company = req.query.company;
-    }
-    if (group) {
-        query.assignedGroup = group;
+    if (assignedTo) {
+        const agentArray = assignedTo.split(',').map(a => a.trim());
+        const targetAgentIds = agentArray.map(id => id === 'unassigned' ? null : new mongoose_1.default.Types.ObjectId(id));
+        query.assignedToUserId = { $in: targetAgentIds };
     }
     if (search) {
-        const searchStr = search;
-        const searchRegex = new RegExp(searchStr, 'i');
-        // Search directly against embedded contact snapshot and flight fields
+        const searchRegex = new RegExp(search, 'i');
         const searchConditions = [
             { 'contact.name': searchRegex },
             { 'contact.phone': searchRegex },
-            { flightFrom: searchRegex },
-            { flightTo: searchRegex },
-            { destination: searchRegex },
-            { uniqueCode: searchRegex }
+            { uniqueCode: searchRegex },
+            { destination: searchRegex }
         ];
         if (query.$or) {
-            // If we already have $or (like myBookings or Agent assignment), wrap in $and
             const existingOr = query.$or;
+            query.$and = (query.$and || []).concat([{ $or: existingOr }, { $or: searchConditions }]);
             delete query.$or;
-            query.$and = [
-                { $or: existingOr },
-                { $or: searchConditions }
-            ];
         }
         else {
             query.$or = searchConditions;
         }
     }
-    // Outstanding filter - simple field check
-    if (String(outstandingOnly) === 'true') {
+    if (outstandingOnly === 'true')
         query.outstanding = { $gt: 0 };
+    if (group)
+        query.assignedGroup = group;
+    // 3. Cursor Logic (O(1) pagination)
+    if (cursor) {
+        query.lastInteractionAt = { $lt: new Date(cursor) };
     }
-    const skip = (Number(page) - 1) * Number(limit);
-    const limitNum = Number(limit);
-    let bookings;
-    let total;
+    const limitNum = Math.min(parseInt(limit, 10), 50);
+    const pageNum = parseInt(page, 10);
+    const sortField = sortBy || 'createdAt';
+    const sortDir = sortOrder === 'asc' ? 1 : -1;
+    const sortQuery = { [sortField]: sortDir };
     const reqId = Date.now().toString(36);
-    console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
-    const count = Object.keys(query).length === 0
-        ? await Booking_1.default.estimatedDocumentCount()
-        : await Booking_1.default.countDocuments(query);
-    const rawBookings = await Booking_1.default.find(query)
-        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
-        .sort({ lastInteractionAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .populate('assignedToUserId', 'name')
-        .populate('createdByUserId', 'name')
-        .lean();
-    bookings = rawBookings;
-    total = count;
+    // If using cursor, we skip total count entirely to save a heavy query
+    const [total, rawBookings] = await Promise.all([
+        cursor ? Promise.resolve(0) : Booking_1.default.countDocuments(query),
+        Booking_1.default.find(query)
+            .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
+            .sort(sortQuery)
+            .skip(cursor ? 0 : (pageNum - 1) * limitNum)
+            .limit(limitNum)
+            .populate('assignedToUserId', 'name')
+            .populate('createdByUserId', 'name')
+            .lean()
+    ]);
     console.timeEnd(`getBookingsQuery_${reqId}`);
-    const mappedBookings = bookings.map(b => {
-        return {
-            ...b,
-            id: b._id.toString(),
-            createdOn: b.createdAt,
-            contactPerson: b.contact?.name || b.primaryContact?.contactName,
-            contactNumber: b.contact?.phone || b.primaryContact?.contactPhoneNo,
-            bookingType: (b.contact?.type || b.primaryContact?.bookingType) === 'Agent (B2B)' ? 'B2B' : 'B2C',
-            interested: (b.contact?.interested !== undefined ? b.contact.interested : b.primaryContact?.interested) ? 'Yes' : 'No',
-            destinationCity: b.destination,
-            travellers: b.travellers,
-            createdByUser: b.createdByUserId,
-            assignedToUser: b.assignedToUserId,
-        };
-    });
+    const mappedBookings = rawBookings.map(b => ({
+        ...b,
+        id: b._id.toString(),
+        createdOn: b.createdAt,
+        contactPerson: b.contact?.name,
+        contactNumber: b.contact?.phone,
+        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        interested: b.contact?.interested ? 'Yes' : 'No',
+        destinationCity: b.destination,
+        assignedToUser: b.assignedToUserId,
+        createdByUser: b.createdByUserId, // FIXED: Added createdByUser for leads table
+    }));
+    const nextCursor = rawBookings.length === limitNum
+        ? rawBookings[rawBookings.length - 1].lastInteractionAt.toISOString()
+        : null;
     const result = {
         data: mappedBookings,
+        nextCursor,
         meta: {
-            total,
-            page: Number(page),
-            limit: Number(limit),
-            totalPages: Math.ceil(total / Number(limit)),
+            total: cursor ? undefined : total,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: cursor ? undefined : Math.ceil(total / limitNum),
+            hasMore: !!nextCursor
         },
     };
     cache_1.default.set(cacheKey, result, 60);
@@ -370,6 +291,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         throw new Error('Invalid Booking ID');
     }
     const cacheKey = `booking_${id}`;
+    // Check cache first
     const cached = cache_1.default.get(cacheKey);
     const checkAuth = (b) => {
         if (req.user?.role === 'ADMIN')
@@ -379,7 +301,6 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         const bookingGroup = b.assignedGroup || 'Package / LCC';
         const userGroups = req.user?.groups || [];
         if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            // Can see if creator, assigned, or in same department group
             return creatorId === String(req.user?.id) ||
                 assignedId === String(req.user?.id) ||
                 userGroups.includes(bookingGroup);
@@ -401,56 +322,85 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         res.json(cached);
         return;
     }
-    console.log(`[GET] /api/bookings/${id}`);
-    console.time(`getBookingById_${id}`);
-    const booking = await Booking_1.default.findById(id)
-        .populate('assignedToUserId', 'name role')
-        .populate('createdByUserId', 'name role')
-        .populate('primaryContact')
-        .populate('passengers')
-        .populate('payments')
-        .populate({
-        path: 'timeline',
-        populate: { path: 'userId', select: 'name role' },
-        options: { sort: { createdAt: -1 } }
-    })
-        .lean();
-    if (!booking) {
-        res.status(404);
-        throw new Error('Booking not found');
+    // Backend Request Deduplication
+    if (bookingFetchInFlight.has(id)) {
+        try {
+            const data = await bookingFetchInFlight.get(id);
+            if (!checkAuth(data)) {
+                res.status(403);
+                throw new Error('Not authorized to view this booking');
+            }
+            console.log(`[DEDUPLICATED] Request for booking ${id} served from in-flight promise`);
+            res.json(data);
+            return;
+        }
+        catch (err) {
+            // If the shared promise failed, fall through to try a fresh one
+        }
     }
-    if (!checkAuth(booking)) {
-        res.status(403);
-        throw new Error('Not authorized to view this booking');
+    const fetchPromise = (async () => {
+        const booking = await Booking_1.default.findById(id)
+            .populate('assignedToUserId', 'name role')
+            .populate('createdByUserId', 'name role')
+            .populate('primaryContact')
+            .populate('passengers')
+            .populate('payments')
+            .populate({
+            path: 'timeline',
+            populate: { path: 'userId', select: 'name role' },
+            options: { sort: { createdAt: -1 }, limit: 20 }
+        })
+            .lean();
+        if (!booking)
+            return null;
+        const totalPaid = booking.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+        const outstanding = (booking.amount || 0) - totalPaid;
+        return {
+            ...booking,
+            id: booking._id.toString(),
+            createdOn: booking.createdAt,
+            outstanding,
+            contactPerson: booking.primaryContact?.contactName,
+            contactNumber: booking.primaryContact?.contactPhoneNo,
+            contactEmail: booking.primaryContact?.contactEmail,
+            requirements: booking.primaryContact?.requirements,
+            interested: booking.primaryContact?.interested,
+            bookingType: booking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            destinationCity: booking.destination,
+            travellers: booking.travellers,
+            travelers: booking.passengers,
+            createdByUser: booking.createdByUserId,
+            assignedToUser: booking.assignedToUserId,
+        };
+    })();
+    bookingFetchInFlight.set(id, fetchPromise);
+    try {
+        console.log(`[GET] /api/bookings/${id}`);
+        console.time(`getBookingById_${id}`);
+        const result = await fetchPromise;
+        console.timeEnd(`getBookingById_${id}`);
+        if (!result) {
+            res.status(404);
+            throw new Error('Booking not found');
+        }
+        if (!checkAuth(result)) {
+            res.status(403);
+            throw new Error('Not authorized to view this booking');
+        }
+        cache_1.default.set(cacheKey, result, 60);
+        res.json(result);
+        return;
     }
-    // Calculate outstanding for each payment context
-    const totalPaid = booking.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-    const outstanding = (booking.amount || 0) - totalPaid;
-    const result = {
-        ...booking,
-        id: booking._id.toString(),
-        createdOn: booking.createdAt,
-        outstanding,
-        contactPerson: booking.primaryContact?.contactName,
-        contactNumber: booking.primaryContact?.contactPhoneNo,
-        contactEmail: booking.primaryContact?.contactEmail,
-        requirements: booking.primaryContact?.requirements,
-        interested: booking.primaryContact?.interested,
-        bookingType: booking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: booking.destination,
-        travellers: booking.travellers,
-        travelers: booking.passengers,
-        createdByUser: booking.createdByUserId,
-        assignedToUser: booking.assignedToUserId,
-    };
-    cache_1.default.set(cacheKey, result, 60);
-    res.json(result);
+    finally {
+        bookingFetchInFlight.delete(id);
+    }
 });
 // @desc    Delete booking
 // @route   DELETE /api/bookings/:id
 // @access  Private
 exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) => {
-    const booking = await Booking_1.default.findById(req.params.id);
+    const { id } = req.params;
+    const booking = await Booking_1.default.findById(id).lean();
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -459,19 +409,34 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(403);
         throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
-    console.time(`deleteBooking_${req.params.id}`);
-    // Sequential deletion to preserve connection pool
-    await Timeline_1.default.deleteMany({ bookingId: req.params.id });
-    await Passenger_1.default.deleteMany({ bookingId: req.params.id });
-    await Payment_1.default.deleteMany({ bookingId: req.params.id });
-    await Notification_1.default.deleteMany({ bookingId: req.params.id });
-    if (booking.primaryContactId) {
-        await PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId);
-    }
-    await Booking_1.default.findByIdAndDelete(req.params.id);
-    console.timeEnd(`deleteBooking_${req.params.id}`);
-    invalidateBookingCaches();
-    res.json({ message: 'Booking and all related records removed successfully' });
+    // PRIMARY write — delete the booking document first
+    await Booking_1.default.findByIdAndDelete(id);
+    // ✅ RESPOND IMMEDIATELY
+    res.json({ message: 'Booking deletion initiated successfully', id });
+    // ✅ BACKGROUND CLEANUP
+    setImmediate(async () => {
+        console.time(`[BG] deleteBooking_cleanup_${id}`);
+        try {
+            const cleanupTasks = [
+                Timeline_1.default.deleteMany({ bookingId: id }),
+                Passenger_1.default.deleteMany({ bookingId: id }),
+                Payment_1.default.deleteMany({ bookingId: id }),
+                Notification_1.default.deleteMany({ bookingId: id }),
+            ];
+            if (booking.primaryContactId) {
+                cleanupTasks.push(PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId));
+            }
+            await Promise.all(cleanupTasks);
+            invalidateBookingCaches();
+            console.log(`[BG] Cleanup complete for booking ${id}`);
+        }
+        catch (err) {
+            console.error(`[BG] deleteBooking ${id} cleanup FAILED:`, err.message);
+        }
+        finally {
+            console.timeEnd(`[BG] deleteBooking_cleanup_${id}`);
+        }
+    });
 });
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -528,39 +493,32 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         pricePerTicket: result.data.pricePerTicket || 0,
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
-    // Log the creation activity in Timeline
-    await Timeline_1.default.create({
-        bookingId: booking._id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'BOOKING_CREATED',
-        details: `Booking created by ${req.user?.name}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
+    res.status(201).json(booking);
+    // ✅ BACKGROUND: Side effects and complex mapping/logging
+    setImmediate(async () => {
+        try {
+            await Promise.all([
+                Timeline_1.default.create({
+                    bookingId: booking._id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'BOOKING_CREATED',
+                    details: `Booking created by ${req.user?.name}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                }),
+                booking.assignedToUserId ? Notification_1.default.create({
+                    userId: booking.assignedToUserId,
+                    bookingId: booking._id,
+                    message: `New lead ${primaryContact.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
+                }) : Promise.resolve()
+            ]);
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] createBooking side-effects failed:', err);
+        }
     });
-    // Populate for response
-    const populatedBooking = await Booking_1.default.findById(booking._id)
-        .populate('createdByUserId', 'name')
-        .populate('assignedToUserId', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
-        .lean();
-    const resultBooking = {
-        ...populatedBooking,
-        id: populatedBooking._id.toString(),
-        createdOn: populatedBooking.createdAt,
-        contactPerson: populatedBooking.primaryContact?.contactName,
-        contactNumber: populatedBooking.primaryContact?.contactPhoneNo,
-        contactEmail: populatedBooking.primaryContact?.contactEmail,
-        requirements: populatedBooking.primaryContact?.requirements,
-        interested: populatedBooking.primaryContact?.interested,
-        bookingType: populatedBooking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: populatedBooking.destination,
-        travellers: populatedBooking.travellers,
-        travelers: populatedBooking.passengers,
-        createdByUser: populatedBooking.createdByUserId,
-        assignedToUser: populatedBooking.assignedToUserId,
-    };
-    invalidateBookingCaches();
-    res.status(201).json(resultBooking);
 });
 // @desc    Update a booking
 // @route   PUT /api/bookings/:id
@@ -572,158 +530,63 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(400);
         throw new Error('Invalid input');
     }
-    const booking = await Booking_1.default.findById(id);
+    // Role-based auth check (we need the booking first to check creator/assignee)
+    const booking = await Booking_1.default.findById(id).lean();
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'ADMIN' || req.user?.role === 'AGENT' || req.user?.role === 'OPERATION') {
-        // Admins, Agents, and Operation team can update any booking
-    }
-    else if (req.user?.role === 'ACCOUNT') {
-        // Account team can update actualCosts and payments (handled in specific routes)
-        const allowedFields = ['actualCosts', 'totalAmount', 'amount'];
-        const keys = Object.keys(req.body);
-        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
-        if (forbiddenKeys.length > 0) {
-            res.status(403);
-            throw new Error('Account team is authorized to update Actual Costs and Amount fields only');
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'AGENT' && req.user?.role !== 'OPERATION') {
+        if (req.user?.role === 'ACCOUNT') {
+            const allowedFields = ['actualCosts', 'totalAmount', 'amount'];
+            const forbiddenKeys = Object.keys(req.body).filter(k => !allowedFields.includes(k));
+            if (forbiddenKeys.length > 0) {
+                res.status(403);
+                throw new Error('Account team is authorized to update Actual Costs and Amount fields only');
+            }
         }
-    }
-    else if (req.user?.role === 'MARKETER') {
-        if (booking.assignedToUserId) {
-            res.status(403);
-            throw new Error('Not authorized to update an assigned booking');
+        else if (req.user?.role === 'MARKETER') {
+            if (booking.assignedToUserId) {
+                res.status(403);
+                throw new Error('Not authorized to update an assigned booking');
+            }
+            const forbiddenKeys = Object.keys(req.body).filter(k => k !== 'requirements');
+            if (forbiddenKeys.length > 0) {
+                res.status(403);
+                throw new Error('Marketers are only authorized to update Detailed Requirements');
+            }
         }
-        const allowedFields = ['requirements'];
-        const keys = Object.keys(req.body);
-        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
-        if (forbiddenKeys.length > 0) {
-            res.status(403);
-            throw new Error('Marketers are only authorized to update Detailed Requirements');
-        }
-    }
-    else if (req.user?.role === 'OPERATION') {
-        const allowedFields = ['actualCosts'];
-        const keys = Object.keys(req.body);
-        const forbiddenKeys = keys.filter(k => !allowedFields.includes(k));
-        if (forbiddenKeys.length > 0) {
-            res.status(403);
-            throw new Error('Operation team is only authorized to update Actual Costs');
-        }
-    }
-    else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
-            res.status(403);
-            throw new Error('You can only update your own queries');
-        }
-    }
-    else {
-        res.status(403);
-        throw new Error('Not authorized to update this booking');
-    }
-    // Update booking-level fields
-    if (result.data.destination !== undefined)
-        booking.destination = result.data.destination || null;
-    if (result.data.travelDate !== undefined)
-        booking.travelDate = result.data.travelDate ? new Date(result.data.travelDate) : null;
-    if (result.data.flightFrom !== undefined)
-        booking.flightFrom = result.data.flightFrom || null;
-    if (result.data.flightTo !== undefined)
-        booking.flightTo = result.data.flightTo || null;
-    if (result.data.tripType !== undefined)
-        booking.tripType = result.data.tripType || 'one-way';
-    if (result.data.amount !== undefined)
-        booking.amount = result.data.amount;
-    if (result.data.totalAmount !== undefined)
-        booking.totalAmount = result.data.totalAmount;
-    if (result.data.finalQuotation !== undefined)
-        booking.finalQuotation = result.data.finalQuotation;
-    if (result.data.travellers !== undefined)
-        booking.travellers = result.data.travellers || null;
-    if (result.data.pricePerTicket !== undefined)
-        booking.pricePerTicket = result.data.pricePerTicket;
-    if (result.data.followUpDate !== undefined)
-        booking.followUpDate = result.data.followUpDate ? new Date(result.data.followUpDate) : null;
-    if (result.data.includesFlight !== undefined)
-        booking.includesFlight = result.data.includesFlight;
-    if (result.data.includesAdditionalServices !== undefined)
-        booking.includesAdditionalServices = result.data.includesAdditionalServices;
-    if (result.data.additionalServicesDetails !== undefined)
-        booking.additionalServicesDetails = result.data.additionalServicesDetails || null;
-    if (result.data.company !== undefined)
-        booking.company = result.data.company;
-    if (result.data.assignedGroup !== undefined) {
-        if (booking.assignedGroup !== result.data.assignedGroup) {
-            booking.assignedGroup = result.data.assignedGroup;
-            booking.assignedToUserId = null;
+        else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+            if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+                res.status(403);
+                throw new Error('You can only update your own queries');
+            }
         }
         else {
-            booking.assignedGroup = result.data.assignedGroup;
+            res.status(403);
+            throw new Error('Not authorized to update this booking');
         }
     }
-    if (result.data.estimatedCosts !== undefined)
-        booking.estimatedCosts = result.data.estimatedCosts;
-    if (result.data.actualCosts !== undefined)
-        booking.actualCosts = result.data.actualCosts;
-    if (result.data.segments !== undefined) {
-        booking.segments = (result.data.segments || []).map(s => ({
+    // Prepare update object
+    const updateData = { ...req.body, lastInteractionAt: new Date() };
+    // Sync embedded contact snapshot if provided
+    if (req.body.interested !== undefined || req.body.bookingType !== undefined) {
+        updateData.contact = { ...(booking.contact || {}) };
+        if (req.body.interested !== undefined)
+            updateData.contact.interested = req.body.interested === 'Yes';
+        if (req.body.bookingType !== undefined)
+            updateData.contact.type = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
+    }
+    // Handle segments specifically if present
+    if (req.body.segments) {
+        updateData.segments = req.body.segments.map((s) => ({
             from: s.from || '',
             to: s.to || '',
             date: s.date ? new Date(s.date) : null
         }));
     }
-    // Sync embedded contact snapshot
-    if (!booking.contact) {
-        booking.contact = { name: '', phone: '', type: '', interested: false };
-    }
-    if (result.data.interested !== undefined)
-        booking.contact.interested = result.data.interested === 'Yes';
-    if (result.data.bookingType !== undefined)
-        booking.contact.type = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
-    await booking.save();
-    // Log activity
-    const updates = [];
-    if (result.data.amount !== undefined || result.data.totalAmount !== undefined)
-        updates.push('Financials');
-    if (result.data.estimatedCosts !== undefined)
-        updates.push('Estimated Costs');
-    if (result.data.actualCosts !== undefined)
-        updates.push('Actual Costs');
-    if (result.data.finalQuotation !== undefined)
-        updates.push(`Quotation (${result.data.finalQuotation})`);
-    if (result.data.company !== undefined)
-        updates.push(`Company (${result.data.company})`);
-    if (result.data.followUpDate !== undefined)
-        updates.push(`Follow-up (${result.data.followUpDate || 'none'})`);
-    if (result.data.assignedGroup !== undefined)
-        updates.push(`Group (${result.data.assignedGroup})`);
-    const details = updates.length > 0 ? `Updated: ${updates.join(', ')}` : 'Booking details were modified.';
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'BOOKING_UPDATED',
-        details,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-    // Recalculate outstanding if amount fields changed
-    if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
-        await recalcOutstanding(id);
-    }
-    // Update PrimaryContact fields if provided (Legacy Sync)
-    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined || result.data.bookingType !== undefined)) {
-        const updateData = {};
-        if (result.data.requirements !== undefined)
-            updateData.requirements = result.data.requirements;
-        if (result.data.interested !== undefined)
-            updateData.interested = result.data.interested === 'Yes';
-        if (result.data.bookingType !== undefined)
-            updateData.bookingType = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
-        await PrimaryContact_1.default.findByIdAndUpdate(booking.primaryContactId, updateData);
-    }
-    const updatedBooking = await Booking_1.default.findById(id)
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
+    // PRIMARY write
+    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { $set: updateData }, { new: true })
         .populate('assignedToUserId', 'name')
         .populate('createdByUserId', 'name')
         .lean();
@@ -731,23 +594,55 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found after update');
     }
-    const resultBooking = {
+    // ✅ RESPOND IMMEDIATELY
+    const responseData = {
         ...updatedBooking,
         id: updatedBooking._id.toString(),
         createdOn: updatedBooking.createdAt,
-        contactPerson: updatedBooking.contact?.name || updatedBooking.primaryContact?.contactName,
-        contactNumber: updatedBooking.contact?.phone || updatedBooking.primaryContact?.contactPhoneNo,
-        requirements: updatedBooking.primaryContact?.requirements,
-        interested: (updatedBooking.contact?.interested !== undefined ? updatedBooking.contact.interested : updatedBooking.primaryContact?.interested) ? 'Yes' : 'No',
-        bookingType: (updatedBooking.contact?.type || updatedBooking.primaryContact?.bookingType) === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        contactPerson: updatedBooking.contact?.name,
+        contactNumber: updatedBooking.contact?.phone,
+        interested: updatedBooking.contact?.interested ? 'Yes' : 'No',
+        bookingType: updatedBooking.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
         destinationCity: updatedBooking.destination,
-        travellers: updatedBooking.travellers,
-        travelers: updatedBooking.passengers,
         createdByUser: updatedBooking.createdByUserId,
         assignedToUser: updatedBooking.assignedToUserId,
     };
-    invalidateBookingCaches();
-    res.json(resultBooking);
+    res.json(responseData);
+    // ✅ BACKGROUND tasks
+    setImmediate(async () => {
+        try {
+            const backgroundTasks = [];
+            // 1. Recalc outstanding if financials changed
+            if (req.body.totalAmount !== undefined || req.body.amount !== undefined) {
+                backgroundTasks.push(recalcOutstanding(id));
+            }
+            // 2. Sync with Legacy PrimaryContact if needed
+            if (booking.primaryContactId && (req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined)) {
+                const legacyUpdate = {};
+                if (req.body.requirements !== undefined)
+                    legacyUpdate.requirements = req.body.requirements;
+                if (req.body.interested !== undefined)
+                    legacyUpdate.interested = req.body.interested === 'Yes';
+                if (req.body.bookingType !== undefined)
+                    legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
+                backgroundTasks.push(PrimaryContact_1.default.findByIdAndUpdate(booking.primaryContactId, legacyUpdate));
+            }
+            // 3. Log Activity
+            backgroundTasks.push(Timeline_1.default.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'BOOKING_UPDATED',
+                details: 'Booking details were modified.',
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            }));
+            await Promise.all(backgroundTasks);
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] updateBooking side-effects failed:', err);
+        }
+    });
 });
 // @desc    Update booking status
 // @route   PATCH /api/bookings/:id/status
@@ -759,50 +654,55 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
         res.status(400);
         throw new Error('Invalid status input');
     }
-    const existingBooking = await Booking_1.default.findById(id);
-    if (!existingBooking) {
+    const { status } = result.data;
+    // PRIMARY write only
+    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { status, lastInteractionAt: new Date() }, { new: true }).lean();
+    if (!updatedBooking) {
         res.status(404);
         throw new Error('Booking not found');
     }
-    if (req.user?.role === 'ADMIN' || req.user?.role === 'AGENT' || req.user?.role === 'OPERATION') {
-        // Admins, Agents, and Operation team can update status for any booking
-    }
-    else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-        if (getObjectIdString(existingBooking.assignedToUserId) !== req.user.id && getObjectIdString(existingBooking.createdByUserId) !== req.user.id) {
+    // Auth check (moved after find to avoid double query, though slightly different logic if not authorized)
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'AGENT' && req.user?.role !== 'OPERATION') {
+        if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
+            if (getObjectIdString(updatedBooking.assignedToUserId) !== req.user.id && getObjectIdString(updatedBooking.createdByUserId) !== req.user.id) {
+                res.status(403);
+                throw new Error('You can only update status for your own queries');
+            }
+        }
+        else {
             res.status(403);
-            throw new Error('You can only update status for your own queries');
+            throw new Error('Not authorized to update status for this booking');
         }
     }
-    else {
-        res.status(403);
-        throw new Error('Not authorized to update status for this booking');
-    }
-    const { status } = result.data;
-    const oldStatus = existingBooking.status;
-    existingBooking.status = status;
-    const updatedBooking = await existingBooking.save();
-    // Log status change activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'STATUS_CHANGE',
-        details: `Status updated from ${oldStatus} to ${status}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-    // Notify Marketer if their lead status changed
-    if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
-        const creator = await User_1.default.findById(existingBooking.createdByUserId);
-        if (creator?.role === 'MARKETER') {
-            await Notification_1.default.create({
-                userId: existingBooking.createdByUserId,
-                bookingId: id,
-                message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
-            });
-        }
-    }
-    invalidateBookingCaches();
+    // ✅ RESPOND IMMEDIATELY
     res.json(updatedBooking);
+    // ✅ BACKGROUND side effects
+    setImmediate(async () => {
+        try {
+            await Timeline_1.default.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'STATUS_CHANGE',
+                details: `Status updated to ${status}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
+                const creator = await User_1.default.findById(updatedBooking.createdByUserId);
+                if (creator?.role === 'MARKETER') {
+                    await Notification_1.default.create({
+                        userId: updatedBooking.createdByUserId,
+                        bookingId: id,
+                        message: `Status of your lead ${updatedBooking.destination} updated to ${status}.`,
+                    });
+                }
+            }
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] updateBookingStatus side-effects failed:', err);
+        }
+    });
 });
 // @desc    Assign an agent to a booking
 // @route   PATCH /api/bookings/:id/assign
@@ -1086,17 +986,24 @@ exports.addPassengers = (0, express_async_handler_1.default)(async (req, res) =>
     const dbTime = Date.now() - dbStart;
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
-    invalidateBookingCaches();
-    // Log activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PASSENGERS_ADDED',
-        details: `Added ${passengersData.length} travelers to the booking.`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
     res.status(201).json(createdPassengers);
+    // BACKGROUND: Logging and cache invalidation
+    setImmediate(async () => {
+        try {
+            await Timeline_1.default.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PASSENGERS_ADDED',
+                details: `Added ${passengersData.length} travelers to the booking.`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] addPassengers side-effects failed:', err);
+        }
+    });
 });
 // @desc    Update (replace) passengers for a booking
 // @route   PUT /api/bookings/:id/passengers
@@ -1133,17 +1040,24 @@ exports.updatePassengers = (0, express_async_handler_1.default)(async (req, res)
     const dbTime = Date.now() - dbStart;
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
-    invalidateBookingCaches();
-    // Log activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PASSENGERS_UPDATED',
-        details: `Updated details for ${passengersData.length} travelers.`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
     res.json(createdPassengers);
+    // BACKGROUND: Logging and cache invalidation
+    setImmediate(async () => {
+        try {
+            await Timeline_1.default.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PASSENGERS_UPDATED',
+                details: `Updated details for ${passengersData.length} travelers.`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] updatePassengers side-effects failed:', err);
+        }
+    });
 });
 // @desc    Add a payment to a booking
 // @route   POST /api/bookings/:id/payments
@@ -1178,18 +1092,27 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
         ...result.data,
         bookingId: id,
     });
-    await recalcOutstanding(id);
-    // Log activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PAYMENT_ADDED',
-        details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-    invalidateBookingCaches();
     res.status(201).json(payment);
+    // BACKGROUND: Payment side effects
+    setImmediate(async () => {
+        try {
+            await Promise.all([
+                recalcOutstanding(id),
+                Timeline_1.default.create({
+                    bookingId: id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'PAYMENT_ADDED',
+                    details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                })
+            ]);
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] addPayment side-effects failed:', err);
+        }
+    });
 });
 // @desc    Get payments for a booking
 // @route   GET /api/bookings/:id/payments
@@ -1234,18 +1157,27 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Payment not found for this booking');
     }
     await Payment_1.default.findByIdAndDelete(paymentId);
-    await recalcOutstanding(id);
-    // Log activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PAYMENT_DELETED',
-        details: `Removed payment of ${payment.amount}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-    invalidateBookingCaches();
     res.json({ message: 'Payment removed successfully' });
+    // BACKGROUND: Payment removal side effects
+    setImmediate(async () => {
+        try {
+            await Promise.all([
+                recalcOutstanding(id),
+                Timeline_1.default.create({
+                    bookingId: id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'PAYMENT_DELETED',
+                    details: `Removed payment of ${payment.amount}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                })
+            ]);
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] deletePayment side-effects failed:', err);
+        }
+    });
 });
 // @desc    Get calendar bookings for a given month
 // @route   GET /api/bookings/calendar
@@ -1301,17 +1233,38 @@ exports.verifyBooking = (0, express_async_handler_1.default)(async (req, res) =>
         booking.verifiedAt = null;
     }
     await booking.save();
-    // Log activity
-    await Timeline_1.default.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'BOOKING_VERIFIED',
-        details: `Booking was ${isVerified ? 'verified' : 'unverified'}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    res.json({
+        id: booking._id,
+        isVerified: booking.isVerified,
+        verifiedBy: booking.verifiedBy,
+        verifiedAt: booking.verifiedAt
     });
-    invalidateBookingCaches();
-    res.json({ message: `Booking ${isVerified ? 'verified' : 'unverified'} successfully`, isVerified: booking.isVerified });
+    // BACKGROUND: Logging and notifications
+    setImmediate(async () => {
+        try {
+            // Log activity
+            await Timeline_1.default.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'BOOKING_VERIFIED',
+                details: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            // Notify assigned agent if verified
+            if (isVerified && booking.assignedToUserId) {
+                await Notification_1.default.create({
+                    userId: booking.assignedToUserId,
+                    bookingId: id,
+                    message: `Your booking ${booking.uniqueCode} has been verified by the Accounts team.`,
+                });
+            }
+            invalidateBookingCaches();
+        }
+        catch (err) {
+            console.error('[Background] verifyBooking side-effects failed:', err);
+        }
+    });
 });
 // @desc    Get activity log for a booking
 // @route   GET /api/bookings/:id/activity

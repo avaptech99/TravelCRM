@@ -9,6 +9,7 @@ const cors_1 = __importDefault(require("cors"));
 const compression_1 = __importDefault(require("compression"));
 const morgan_1 = __importDefault(require("morgan"));
 const mongoose_1 = __importDefault(require("mongoose"));
+const perfMonitor_1 = require("./middleware/perfMonitor");
 // Load env vars
 dotenv_1.default.config();
 // Route files
@@ -29,10 +30,12 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
-// Gzip compression — ~70% smaller API responses
+// Gzip compression
 app.use((0, compression_1.default)());
 // Body parser
 app.use(express_1.default.json());
+// Performance monitoring middleware
+app.use(perfMonitor_1.perfMonitor);
 // Enable CORS
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {

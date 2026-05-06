@@ -48,5 +48,6 @@ const paymentSchema = new mongoose_1.Schema({
 });
 paymentSchema.index({ bookingId: 1 });
 paymentSchema.index({ date: -1 });
+paymentSchema.index({ updatedAt: -1 });
 const Payment = mongoose_1.default.model('Payment', paymentSchema);
 exports.default = Payment;

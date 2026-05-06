@@ -13,30 +13,37 @@ const connectDB = async () => {
             console.error('Error: MONGODB_URI or DATABASE_URL is not defined in environment variables.');
             process.exit(1);
         }
-        mongoose_1.default.connection.once('connected', async () => {
-            console.log('MongoDB Connected. Synchronizing indexes...');
+        const conn = await mongoose_1.default.connect(mongoURI, {
+            maxPoolSize: 15, // Right-sized (following CRM 1.0 method) to prevent CPU context-switch overhead
+            minPoolSize: 2,
+            waitQueueTimeoutMS: 5000, // Error out if waiting too long instead of hanging
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+            autoIndex: false, // Better for production performance
+        });
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        // BACKGROUND: Index synchronization
+        setImmediate(async () => {
+            console.log('Synchronizing indexes in background...');
             try {
-                // Forces MongoDB to create missing indexes AND drop unused stale indexes
-                await Booking_1.default.syncIndexes();
-                await Payment_1.default.syncIndexes();
-                console.log('✅ Index synchronization complete (all performance indexes applied)');
+                await Promise.all([
+                    Booking_1.default.syncIndexes(),
+                    Payment_1.default.syncIndexes()
+                ]);
+                console.log('✅ Index synchronization complete');
             }
             catch (err) {
                 console.error('⚠️ Index sync error:', err);
             }
         });
-        if (mongoose_1.default.connection.readyState >= 1) {
-            console.log('MongoDB is already connected.');
-            return;
-        }
-        const conn = await mongoose_1.default.connect(mongoURI, {
-            maxPoolSize: 20, // Increased to handle parallel bursts
-            minPoolSize: 5,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-            autoIndex: true, // Must be true so schemas register indexes
-        });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        // Graceful shutdown handlers
+        const gracefulExit = async () => {
+            await mongoose_1.default.connection.close();
+            console.log('MongoDB connection closed through app termination');
+            process.exit(0);
+        };
+        process.on('SIGINT', gracefulExit);
+        process.on('SIGTERM', gracefulExit);
     }
     catch (error) {
         if (error instanceof Error) {

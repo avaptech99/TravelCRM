@@ -327,11 +327,10 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     const result = {
         pending,
         totalPending,
-        totalPending,
         received: received.slice(0, 20), // Reduced from 50 for faster load
         totalReceived
-
     };
+
 
     res.json(result);
     appCache.set(cacheKey, result, 300);

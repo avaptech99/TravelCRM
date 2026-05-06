@@ -6,10 +6,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateDropdown = exports.getDropdowns = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Setting_1 = __importDefault(require("../models/Setting"));
+const cache_1 = __importDefault(require("../utils/cache"));
 // @desc    Get all dropdown settings
 // @route   GET /api/settings/dropdowns
 // @access  Private (Admin Only)
 exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => {
+    const cacheKey = 'settings_dropdowns';
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
     const settings = await Setting_1.default.find();
     const result = {};
     // Initialize default if empty
@@ -29,6 +37,8 @@ exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => 
             result[key] = defaults[key];
         }
     });
+    // Cache the merged result for 1 hour
+    cache_1.default.set(cacheKey, result, 3600);
     res.json(result);
 });
 // @desc    Update a specific dropdown setting
@@ -49,5 +59,7 @@ exports.updateDropdown = (0, express_async_handler_1.default)(async (req, res) =
     else {
         setting = await Setting_1.default.create({ key, values });
     }
+    // Invalidate dropdown cache
+    cache_1.default.del('settings_dropdowns');
     res.json({ message: `${key} updated successfully`, values: setting.values });
 });

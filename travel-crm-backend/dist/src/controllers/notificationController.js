@@ -7,27 +7,53 @@ exports.deleteNotification = exports.dismissAllNotifications = exports.dismissNo
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Notification_1 = __importDefault(require("../models/Notification"));
 const cache_1 = __importDefault(require("../utils/cache"));
+// Module-level map to track in-flight notification requests
+const notifInFlight = new Map();
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
 exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, res) => {
-    const cacheKey = `notifications_${req.user?.id}`;
+    const userId = req.user?.id;
+    if (!userId) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
+    const cacheKey = `notifications_${userId}`;
+    // 1. Cache hit — fastest path
     const cached = cache_1.default.get(cacheKey);
-    if (cached) {
+    if (cached !== undefined && cached !== null) {
         console.log(`[CACHE HIT] ${cacheKey}`);
         res.json(cached);
         return;
     }
-    const notifications = await Notification_1.default.find({ userId: req.user?.id })
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .lean();
-    const mappedNotifications = notifications.map(n => ({
-        ...n,
-        id: n._id.toString()
-    }));
-    cache_1.default.set(cacheKey, mappedNotifications, 300); // Cache for 5 minutes
-    res.json(mappedNotifications);
+    // 2. In-flight dedup — multiple users/requests wait for the same DB query
+    if (notifInFlight.has(cacheKey)) {
+        console.log(`[DEDUPLICATED] Notification request for ${userId} joined in-flight promise`);
+        const data = await notifInFlight.get(cacheKey);
+        res.json(data || []);
+        return;
+    }
+    // 3. First request — create the promise and share it
+    const fetchPromise = (async () => {
+        const notifications = await Notification_1.default.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(50) // increased from 20 for better user experience
+            .lean();
+        const mapped = notifications.map(n => ({
+            ...n,
+            id: n._id.toString()
+        }));
+        cache_1.default.set(cacheKey, mapped, 60); // Reduced to 1 minute for better real-time feel under single-flight
+        return mapped;
+    })();
+    notifInFlight.set(cacheKey, fetchPromise);
+    try {
+        const result = await fetchPromise;
+        res.json(result);
+    }
+    finally {
+        notifInFlight.delete(cacheKey); // Always clean up
+    }
 });
 // @desc    Mark notification as read
 // @route   PUT /api/notifications/:id/read

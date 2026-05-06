@@ -73,17 +73,32 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         if (toDate)
             matchQuery.date.$lte = new Date(toDate);
     }
-    // Total collected from Payments
-    const paymentStats = await Payment_1.default.aggregate([
-        { $match: matchQuery },
-        {
-            $group: {
-                _id: null,
-                totalCollected: { $sum: '$amount' },
-                count: { $sum: 1 }
+    // Total collected from Payments (Filtered by company if provided)
+    const paymentPipeline = [];
+    if (company) {
+        paymentPipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
+        });
+        paymentPipeline.push({ $unwind: '$booking' });
+        paymentPipeline.push({ $match: { 'booking.company': company } });
+    }
+    // Add date filter to payment pipeline
+    if (Object.keys(matchQuery).length > 0) {
+        paymentPipeline.push({ $match: matchQuery });
+    }
+    paymentPipeline.push({
+        $group: {
+            _id: null,
+            totalCollected: { $sum: '$amount' },
+            count: { $sum: 1 }
         }
-    ]);
+    });
+    const paymentStats = await Payment_1.default.aggregate(paymentPipeline);
     // Total expected from Bookings (amount)
     const bookingMatch = {};
     if (fromDate || toDate) {
@@ -126,15 +141,27 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
         return;
     } // 'day' or 'month'
     const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
-    const trends = await Payment_1.default.aggregate([
-        {
-            $group: {
-                _id: { $dateToString: { format: format, date: '$date' } },
-                revenue: { $sum: '$amount' }
+    const pipeline = [];
+    if (company) {
+        pipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
-        },
-        { $sort: { _id: 1 } }
-    ]);
+        });
+        pipeline.push({ $unwind: '$booking' });
+        pipeline.push({ $match: { 'booking.company': company } });
+    }
+    pipeline.push({
+        $group: {
+            _id: { $dateToString: { format: format, date: '$date' } },
+            revenue: { $sum: '$amount' }
+        }
+    });
+    pipeline.push({ $sort: { _id: 1 } });
+    const trends = await Payment_1.default.aggregate(pipeline);
     res.json(trends);
     cache_1.default.set(cacheKey, trends, 300);
 });
@@ -222,32 +249,47 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         return;
     }
     // 1. Get Pending Bookings (outstanding > 0)
-    const pendingBookings = await Booking_1.default.find({ outstanding: { $gt: 0 } })
-        .select('uniqueCode contact amount outstanding')
+    const bookingQuery = { outstanding: { $gt: 0 } };
+    if (company) {
+        bookingQuery.company = company;
+    }
+    const pendingBookings = await Booking_1.default.find(bookingQuery)
+        .select('uniqueCode contact amount outstanding company')
         .sort({ outstanding: -1 })
-        .limit(50)
+        .limit(20) // Reduced from 50 for faster load
         .lean();
     const pending = pendingBookings.map((b) => ({
         bookingId: b._id,
         uniqueCode: b.uniqueCode,
         contactPerson: b.contact?.name || 'Unknown',
+        companyName: b.company || '—',
         totalAmount: b.amount || 0,
         totalPaid: (b.amount || 0) - (b.outstanding || 0),
         outstanding: b.outstanding || 0
     }));
     // 2. Get Recent Received Payments
-    const recentPayments = await Payment_1.default.find()
-        .populate({
-        path: 'bookingId',
-        populate: { path: 'primaryContactId' }
-    })
-        .sort({ date: -1 })
-        .limit(50)
-        .lean();
+    const paymentPipeline = [
+        {
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
+            }
+        },
+        { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
+    ];
+    if (company) {
+        paymentPipeline.push({ $match: { 'booking.company': company } });
+    }
+    paymentPipeline.push({ $sort: { date: -1 } });
+    paymentPipeline.push({ $limit: 100 });
+    const recentPayments = await Payment_1.default.aggregate(paymentPipeline);
     const received = recentPayments.map((p) => ({
-        uniqueCode: p.bookingId?.uniqueCode || 'N/A',
-        contactPerson: p.bookingId?.contact?.name || 'Unknown',
-        companyName: p.bookingId?.contact?.company || '',
+        id: p._id.toString(),
+        uniqueCode: p.booking?.uniqueCode || 'N/A',
+        contactPerson: p.booking?.contact?.name || 'Unknown',
+        companyName: p.booking?.company || '—',
         paymentMethod: p.paymentMethod || 'Unknown',
         amount: p.amount || 0,
         date: p.date
@@ -258,7 +300,7 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
     const result = {
         pending,
         totalPending,
-        received,
+        received: received.slice(0, 20), // Reduced from 50 for faster load
         totalReceived
     };
     res.json(result);

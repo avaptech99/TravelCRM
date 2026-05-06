@@ -76,6 +76,7 @@ const bookingSchema = new mongoose_1.Schema({
     isVerified: { type: Boolean, default: false },
     verifiedBy: { type: String, default: null },
     verifiedAt: { type: Date, default: null },
+    isConvertedToEDT: { type: Boolean, default: false },
     lastInteractionAt: { type: Date, default: Date.now },
     estimatedCosts: [{
             costType: { type: String },
@@ -138,8 +139,8 @@ bookingSchema.pre('save', async function () {
     }
 });
 // Indexes — sorted by priority
-// 1. STANDALONE SORT INDEX — covers ALL queries that sort by lastInteractionAt
-//    Without this, any query that can't use the compound index does a full COLLSCAN
+// 1. STANDALONE SORT INDEXES — covers primary sort orders
+bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ lastInteractionAt: -1 });
 // 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
@@ -147,8 +148,13 @@ bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
 bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
 // 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
+// 4b. Status + EDT filter (Fixes 21s query)
+bookingSchema.index({ isConvertedToEDT: 1, status: 1, lastInteractionAt: -1 });
+bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
 // 5. Creator queries (marketer view)
 bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
+// 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
+bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
 // 6. Analytics queries (payment breakdown)
 bookingSchema.index({ outstanding: -1 });
 // 7. Contact search fields
@@ -156,8 +162,10 @@ bookingSchema.index({ 'contact.name': 1 });
 bookingSchema.index({ 'contact.phone': 1 });
 // 8. Calendar queries
 bookingSchema.index({ travelDate: 1 });
-// 9. Company filter for analytics
+// 9. Company filter (multi-tenant analytics)
 bookingSchema.index({ company: 1 });
+// 10. Delta updates / Last modified index
+bookingSchema.index({ updatedAt: -1 });
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
