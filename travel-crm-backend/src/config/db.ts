@@ -11,31 +11,29 @@ const connectDB = async () => {
             process.exit(1);
         }
 
-        mongoose.connection.once('connected', async () => {
-            console.log('MongoDB Connected. Synchronizing indexes...');
+        const conn = await mongoose.connect(mongoURI, {
+            maxPoolSize: 50,    // Increased to handle background tasks without starvation
+            minPoolSize: 5,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+            autoIndex: false,   // Better for production performance
+        });
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+        // BACKGROUND: Index synchronization
+        setImmediate(async () => {
+            console.log('Synchronizing indexes in background...');
             try {
-                // Forces MongoDB to create missing indexes AND drop unused stale indexes
-                await Booking.syncIndexes();
-                await Payment.syncIndexes();
-                console.log('✅ Index synchronization complete (all performance indexes applied)');
+                await Promise.all([
+                    Booking.syncIndexes(),
+                    Payment.syncIndexes()
+                ]);
+                console.log('✅ Index synchronization complete');
             } catch (err) {
                 console.error('⚠️ Index sync error:', err);
             }
         });
 
-        if (mongoose.connection.readyState >= 1) {
-            console.log('MongoDB is already connected.');
-            return;
-        }
-
-        const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 10,    // Optimized for Free Tier (prevents connection leaks)
-            minPoolSize: 2,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-            autoIndex: true,
-        });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
 
         // Graceful shutdown handlers
         const gracefulExit = async () => {

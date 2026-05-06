@@ -69,9 +69,10 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedUsers, 30);
+    appCache.set(cacheKey, mappedUsers, 600); // 10 minute TTL
     res.json(mappedUsers);
 });
+
 
 // @desc    Update user lastSeen (Heartbeat)
 // @route   POST /api/users/heartbeat

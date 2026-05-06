@@ -33,9 +33,12 @@ const invalidateBookingCaches = () => {
 
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId: string) => {
-    const payments = await Payment.find({ bookingId }).select('amount').lean();
-    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const booking = await Booking.findById(bookingId).select('totalAmount amount').lean();
+    const [payments, booking] = await Promise.all([
+        Payment.find({ bookingId }).select('amount').lean(),
+        Booking.findById(bookingId).select('totalAmount amount').lean()
+    ]);
+    
+    const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     
     if (booking) {
         const bookingTotal = booking.totalAmount || booking.amount || 0;
@@ -43,6 +46,7 @@ const recalcOutstanding = async (bookingId: string) => {
         await Booking.updateOne({ _id: bookingId }, { $set: { outstanding } });
     }
 };
+
 
 // @desc    Get booking stats (counts only, no data)
 // @route   GET /api/bookings/stats
@@ -260,8 +264,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     console.time(`getBookingsQuery_${reqId}`);
     
-    // If using cursor, we don't need total count for the response to be fast
-    // but the frontend might expect it. We'll do it in parallel.
+    // If using cursor, we skip total count entirely to save a heavy query
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking.countDocuments(query),
         Booking.find(query)
@@ -286,11 +289,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         interested: b.contact?.interested ? 'Yes' : 'No',
         destinationCity: b.destination,
         assignedToUser: b.assignedToUserId,
+        createdByUser: b.createdByUserId, // FIXED: Added createdByUser for leads table
     }));
 
     const nextCursor = rawBookings.length === limitNum 
         ? rawBookings[rawBookings.length - 1].lastInteractionAt.toISOString() 
         : null;
+
 
     const result = {
         data: mappedBookings,
@@ -554,28 +559,28 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     // ✅ BACKGROUND: Side effects and complex mapping/logging
     setImmediate(async () => {
         try {
-            await Timeline.create({
-                bookingId: booking._id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'BOOKING_CREATED',
-                details: `Booking created by ${req.user?.name}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
-
-            if (booking.assignedToUserId) {
-                await Notification.create({
+            await Promise.all([
+                Timeline.create({
+                    bookingId: booking._id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'BOOKING_CREATED',
+                    details: `Booking created by ${req.user?.name}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                }),
+                booking.assignedToUserId ? Notification.create({
                     userId: booking.assignedToUserId,
                     bookingId: booking._id,
                     message: `New lead ${primaryContact.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
-                });
-            }
+                }) : Promise.resolve()
+            ]);
 
             invalidateBookingCaches();
         } catch (err) {
             console.error('[Background] createBooking side-effects failed:', err);
         }
     });
+
 });
 
 
@@ -675,9 +680,11 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     // ✅ BACKGROUND tasks
     setImmediate(async () => {
         try {
+            const backgroundTasks = [];
+
             // 1. Recalc outstanding if financials changed
             if (req.body.totalAmount !== undefined || req.body.amount !== undefined) {
-                await recalcOutstanding(id);
+                backgroundTasks.push(recalcOutstanding(id));
             }
 
             // 2. Sync with Legacy PrimaryContact if needed
@@ -686,24 +693,26 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
                 if (req.body.requirements !== undefined) legacyUpdate.requirements = req.body.requirements;
                 if (req.body.interested !== undefined) legacyUpdate.interested = req.body.interested === 'Yes';
                 if (req.body.bookingType !== undefined) legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
-                await PrimaryContact.findByIdAndUpdate(booking.primaryContactId, legacyUpdate);
+                backgroundTasks.push(PrimaryContact.findByIdAndUpdate(booking.primaryContactId, legacyUpdate));
             }
 
             // 3. Log Activity
-            await Timeline.create({
+            backgroundTasks.push(Timeline.create({
                 bookingId: id,
                 userId: req.user?.id,
                 type: 'activity',
                 action: 'BOOKING_UPDATED',
                 details: 'Booking details were modified.',
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
+            }));
 
+            await Promise.all(backgroundTasks);
             invalidateBookingCaches();
         } catch (err) {
             console.error('[Background] updateBooking side-effects failed:', err);
         }
     });
+
 });
 
 
@@ -1255,23 +1264,24 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     // BACKGROUND: Payment side effects
     setImmediate(async () => {
         try {
-            await recalcOutstanding(id);
-
-            // Log activity
-            await Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'PAYMENT_ADDED',
-                details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
+            await Promise.all([
+                recalcOutstanding(id),
+                Timeline.create({
+                    bookingId: id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'PAYMENT_ADDED',
+                    details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                })
+            ]);
 
             invalidateBookingCaches();
         } catch (err) {
             console.error('[Background] addPayment side-effects failed:', err);
         }
     });
+
 });
 
 // @desc    Get payments for a booking
@@ -1335,23 +1345,24 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     // BACKGROUND: Payment removal side effects
     setImmediate(async () => {
         try {
-            await recalcOutstanding(id);
-
-            // Log activity
-            await Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'PAYMENT_DELETED',
-                details: `Removed payment of ${payment.amount}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
+            await Promise.all([
+                recalcOutstanding(id),
+                Timeline.create({
+                    bookingId: id,
+                    userId: req.user?.id,
+                    type: 'activity',
+                    action: 'PAYMENT_DELETED',
+                    details: `Removed payment of ${payment.amount}`,
+                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                })
+            ]);
 
             invalidateBookingCaches();
         } catch (err) {
             console.error('[Background] deletePayment side-effects failed:', err);
         }
     });
+
 });
 
 // @desc    Get calendar bookings for a given month
