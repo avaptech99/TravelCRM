@@ -454,7 +454,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             throw new Error('Not authorized to view this booking');
         }
         console.log(`[CACHE HIT] ${cacheKey}`);
-        return res.json(cached);
+        res.json(cached);
+        return;
     }
 
     // Backend Request Deduplication
