@@ -33,6 +33,7 @@ export interface IBooking extends Document {
     isVerified: boolean;
     verifiedBy: string | null;
     verifiedAt: Date | null;
+    isConvertedToEDT: boolean;
     estimatedCosts: {
         costType: string;
         price: number;
@@ -93,6 +94,7 @@ const bookingSchema = new Schema<IBooking>(
         isVerified: { type: Boolean, default: false },
         verifiedBy: { type: String, default: null },
         verifiedAt: { type: Date, default: null },
+        isConvertedToEDT: { type: Boolean, default: false },
         lastInteractionAt: { type: Date, default: Date.now },
         estimatedCosts: [{
             costType: { type: String },
@@ -176,6 +178,9 @@ bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
 
 // 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
+
+// 4b. Status + EDT filter (Fixes 21s query)
+bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
 
 // 5. Creator queries (marketer view)
 bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });

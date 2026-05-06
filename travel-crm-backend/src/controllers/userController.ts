@@ -77,16 +77,14 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 // @route   POST /api/users/heartbeat
 // @access  Private
 export const heartbeat = asyncHandler(async (req: Request, res: Response) => {
-    const user = await User.findById(req.user?.id);
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
-    }
+    const lastSeen = new Date();
+    
+    await User.updateOne(
+        { _id: req.user?.id },
+        { $set: { lastSeen } }
+    );
 
-    user.lastSeen = new Date();
-    await user.save();
-
-    res.json({ success: true, lastSeen: user.lastSeen });
+    res.json({ success: true, lastSeen });
 });
 
 // @desc    Create a new user (Admin only)

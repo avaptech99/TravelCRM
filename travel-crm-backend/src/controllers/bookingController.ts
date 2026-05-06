@@ -515,9 +515,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     try {
         console.log(`[GET] /api/bookings/${id}`);
         console.time(`getBookingById_${id}`);
-        
         const result = await fetchPromise;
-        
         console.timeEnd(`getBookingById_${id}`);
 
         if (!result) {
@@ -627,28 +625,20 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
 
-    // Populate for response
-    const populatedBooking = await Booking.findById(booking._id)
-        .populate('createdByUserId', 'name')
-        .populate('assignedToUserId', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail requirements interested bookingType')
-        .lean();
-
     const resultBooking = {
-        ...populatedBooking,
-        id: populatedBooking!._id.toString(),
-        createdOn: populatedBooking!.createdAt,
-        contactPerson: (populatedBooking as any).primaryContact?.contactName,
-        contactNumber: (populatedBooking as any).primaryContact?.contactPhoneNo,
-        contactEmail: (populatedBooking as any).primaryContact?.contactEmail,
-        requirements: (populatedBooking as any).primaryContact?.requirements,
-        interested: (populatedBooking as any).primaryContact?.interested,
-        bookingType: (populatedBooking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: populatedBooking!.destination,
-        travellers: populatedBooking!.travellers,
-        travelers: (populatedBooking as any).passengers,
-        createdByUser: populatedBooking!.createdByUserId,
-        assignedToUser: populatedBooking!.assignedToUserId,
+        ...booking.toObject(),
+        id: booking._id.toString(),
+        createdOn: booking.createdAt,
+        contactPerson: primaryContact.contactName,
+        contactNumber: primaryContact.contactPhoneNo,
+        contactEmail: primaryContact.contactEmail,
+        requirements: primaryContact.requirements,
+        interested: primaryContact.interested,
+        bookingType: primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        destinationCity: booking.destination,
+        travellers: booking.travellers,
+        createdByUser: { id: req.user?.id, name: req.user?.name },
+        assignedToUser: booking.assignedToUserId ? { id: booking.assignedToUserId } : null,
     };
 
     res.status(201).json(resultBooking);
@@ -1542,18 +1532,40 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
     }
     await booking.save();
 
-    // Log activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'BOOKING_VERIFIED',
-        details: `Booking was ${isVerified ? 'verified' : 'unverified'}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    res.json({
+        id: booking._id,
+        isVerified: booking.isVerified,
+        verifiedBy: booking.verifiedBy,
+        verifiedAt: booking.verifiedAt
     });
 
-    invalidateBookingCaches();
-    res.json({ message: `Booking ${isVerified ? 'verified' : 'unverified'} successfully`, isVerified: booking.isVerified });
+    // BACKGROUND: Logging and notifications
+    setImmediate(async () => {
+        try {
+            // Log activity
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'BOOKING_VERIFIED',
+                details: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+
+            // Notify assigned agent if verified
+            if (isVerified && booking.assignedToUserId) {
+                await Notification.create({
+                    userId: booking.assignedToUserId,
+                    bookingId: id,
+                    message: `Your booking ${booking.uniqueCode} has been verified by the Accounts team.`,
+                });
+            }
+
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] verifyBooking side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Get activity log for a booking
