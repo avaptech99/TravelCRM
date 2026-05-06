@@ -180,7 +180,9 @@ bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
 
 // 4b. Status + EDT filter (Fixes 21s query)
+bookingSchema.index({ isConvertedToEDT: 1, status: 1, lastInteractionAt: -1 });
 bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
+
 
 // 5. Creator queries (marketer view)
 bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });

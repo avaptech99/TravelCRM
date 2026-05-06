@@ -253,7 +253,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     }
 
     const pendingBookings = await Booking.find(bookingQuery)
-        .select('uniqueCode contact amount outstanding')
+        .select('uniqueCode contact amount outstanding company')
         .sort({ outstanding: -1 })
         .limit(50)
         .lean();
@@ -262,37 +262,39 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         bookingId: b._id,
         uniqueCode: b.uniqueCode,
         contactPerson: b.contact?.name || 'Unknown',
+        companyName: b.company || '—',
         totalAmount: b.amount || 0,
         totalPaid: (b.amount || 0) - (b.outstanding || 0),
         outstanding: b.outstanding || 0
     }));
 
     // 2. Get Recent Received Payments
-    const paymentPipeline: any[] = [];
-    if (company) {
-        paymentPipeline.push({
+    const paymentPipeline: any[] = [
+        {
             $lookup: {
                 from: 'bookings',
                 localField: 'bookingId',
                 foreignField: '_id',
                 as: 'booking'
             }
-        });
-        paymentPipeline.push({ $unwind: '$booking' });
+        },
+        { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
+    ];
+
+    if (company) {
         paymentPipeline.push({ $match: { 'booking.company': company } });
     }
 
     paymentPipeline.push({ $sort: { date: -1 } });
-    paymentPipeline.push({ $limit: 50 });
+    paymentPipeline.push({ $limit: 100 });
     
-    // We still need populate for the response object if not using aggregation fully, 
-    // but aggregate is better here for filtering.
     const recentPayments = await Payment.aggregate(paymentPipeline);
 
     const received = recentPayments.map((p: any) => ({
-        uniqueCode: p.booking?.uniqueCode || 'N/A', // from joined booking
+        id: p._id.toString(),
+        uniqueCode: p.booking?.uniqueCode || 'N/A',
         contactPerson: p.booking?.contact?.name || 'Unknown',
-        companyName: p.booking?.contact?.company || '',
+        companyName: p.booking?.company || '—',
         paymentMethod: p.paymentMethod || 'Unknown',
         amount: p.amount || 0,
         date: p.date
@@ -305,7 +307,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     const result = {
         pending,
         totalPending,
-        received,
+        received: received.slice(0, 50),
         totalReceived
     };
 

@@ -87,8 +87,9 @@ export const Reports: React.FC = () => {
     const [filters, setFilters] = useState({
         fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
         toDate: dayjs().format('YYYY-MM-DD'),
-        companyName: '',
+        company: '',
     });
+
 
     const { data: bookingStats, isLoading: isBookingsLoading } = useQuery({
         queryKey: ['analytics-bookings', filters],
@@ -109,7 +110,7 @@ export const Reports: React.FC = () => {
     const { data: revenueTrends, isLoading: isTrendsLoading } = useQuery({
         queryKey: ['analytics-revenue-trends', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month', companyName: filters.companyName } });
+            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month', company: filters.company } });
             return data;
         },
     });
@@ -190,8 +191,8 @@ export const Reports: React.FC = () => {
                     <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-1.5 ml-2 border border-slate-100">
                         <Building size={14} className="text-slate-400" />
                         <select
-                            value={filters.companyName}
-                            onChange={(e) => setFilters(prev => ({ ...prev, companyName: e.target.value }))}
+                            value={filters.company}
+                            onChange={(e) => setFilters(prev => ({ ...prev, company: e.target.value }))}
                             className="text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 p-0 outline-none cursor-pointer min-w-[140px]"
                         >
                             <option value="">All Companies</option>
