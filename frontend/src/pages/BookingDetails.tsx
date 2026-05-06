@@ -14,8 +14,8 @@ export const BookingDetails: React.FC = () => {
 
     const { data: booking, isLoading, error } = useQuery<any, any>({
         queryKey: ['booking', id],
-        queryFn: async () => {
-            const { data } = await api.get(`/bookings/${id}`);
+        queryFn: async ({ signal }) => {
+            const { data } = await api.get(`/bookings/${id}`, { signal });
             return data;
         },
         enabled: !!id,

@@ -1,0 +1,392 @@
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../api/client';
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    AreaChart,
+    Area,
+    LabelList,
+} from 'recharts';
+import {
+    Users,
+    TrendingUp,
+    DollarSign, 
+    ArrowUpRight,
+    ArrowDownRight,
+    Loader2,
+    ChevronUp,
+    ChevronDown,
+    Building
+} from 'lucide-react';
+import dayjs from 'dayjs';
+
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    trend?: { value: string; isPositive: boolean };
+    loading?: boolean;
+    color?: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading, color }) => (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col min-w-0 overflow-hidden group">
+        <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-xl shrink-0 transition-colors ${color ? `bg-${color}/10 text-${color}` : 'bg-slate-50 text-slate-600'}`}>
+                {icon}
+            </div>
+            {trend && (
+                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest shrink-0 ${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {trend.isPositive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                    {trend.value}
+                </div>
+            )}
+        </div>
+        {loading ? (
+            <div className="h-10 w-32 bg-slate-100 animate-pulse rounded-lg"></div>
+        ) : (
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight truncate break-all group-hover:text-primary transition-colors" title={String(value)}>{value}</div>
+        )}
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 truncate group-hover:text-slate-600 transition-colors">{title}</div>
+    </div>
+);
+
+export const Reports: React.FC = () => {
+    const [isOverviewOpen, setIsOverviewOpen] = useState(true);
+    const [dateRange, setDateRange] = useState({
+        fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+        toDate: dayjs().format('YYYY-MM-DD'),
+    });
+
+    const { data: bookingStats, isLoading: isBookingsLoading } = useQuery({
+        queryKey: ['booking-analytics', dateRange],
+        queryFn: async () => {
+            const { data } = await api.get('/analytics/bookings', { params: dateRange });
+            return data;
+        },
+    });
+
+    const { data: paymentStats, isLoading: isPaymentsLoading } = useQuery({
+        queryKey: ['payment-analytics', dateRange],
+        queryFn: async () => {
+            const { data } = await api.get('/analytics/payments', { params: dateRange });
+            return data;
+        },
+    });
+
+    const { data: revenueTrends, isLoading: isTrendsLoading } = useQuery({
+        queryKey: ['analytics-revenue-trends'],
+        queryFn: async () => {
+            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month' } });
+            return data;
+        },
+    });
+
+    const { data: agentStats, isLoading: isAgentsLoading } = useQuery({
+        queryKey: ['analytics-agents', dateRange],
+        queryFn: async () => {
+            const { data } = await api.get('/analytics/agents', { params: dateRange });
+            return data;
+        },
+    });
+
+    const statusData = bookingStats?.byStatus?.map((item: any) => ({
+        name: item._id,
+        value: item.count,
+    })) || [];
+
+    const interestData = bookingStats?.byInterest?.map((item: any) => ({ 
+        name: item._id === 'Yes' ? 'Interested' : (item._id === 'No' ? 'Not Interested' : 'Unspecified'), 
+        value: item.count 
+    })) || [];
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'Booked': return '#10b981';
+            case 'Sent': return '#f59e0b';
+            case 'Working': return '#8b5cf6';
+            case 'Pending': return '#6366f1';
+            case 'Follow Up': return '#5d4037';
+            default: return '#94a3b8';
+        }
+    };
+
+    const getInterestColor = (interest: string) => {
+        switch (interest) {
+            case 'Interested': return '#f59e0b';
+            case 'Not Interested': return '#ef4444';
+            default: return '#94a3b8';
+        }
+    };
+
+    return (
+        <div className="p-4 sm:p-8 space-y-10 bg-slate-50/50 min-h-screen">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-2">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Analytics Dashboard</h1>
+                    <p className="text-slate-500 text-sm mt-1">Real-time performance metrics and lead insights</p>
+                </div>
+                <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
+                    <input
+                        type="date"
+                        value={dateRange.fromDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, fromDate: e.target.value }))}
+                        className="bg-slate-50 border-none text-slate-700 text-xs font-bold rounded-xl focus:ring-2 focus:ring-primary/20 p-2.5"
+                    />
+                    <span className="text-slate-300 font-bold">→</span>
+                    <input
+                        type="date"
+                        value={dateRange.toDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, toDate: e.target.value }))}
+                        className="bg-slate-50 border-none text-slate-700 text-xs font-bold rounded-xl focus:ring-2 focus:ring-primary/20 p-2.5"
+                    />
+                </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-2">
+                <button 
+                    onClick={() => setIsOverviewOpen(!isOverviewOpen)}
+                    className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <ArrowUpRight size={20} />
+                        </div>
+                        <div className="text-left">
+                            <h2 className="text-lg font-bold text-slate-900">Performance Overview</h2>
+                            <p className="text-slate-500 text-xs">Revenue summary and booking volume</p>
+                        </div>
+                    </div>
+                    {isOverviewOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                </button>
+
+                {isOverviewOpen && (
+                    <div className="p-6 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                            <StatCard 
+                                title="Revenue Collected" 
+                                value={`₹${(paymentStats?.totalCollected || 0).toLocaleString()}`} 
+                                icon={<DollarSign size={20} />} 
+                                loading={isPaymentsLoading}
+                                color="emerald"
+                            />
+                            <StatCard 
+                                title="Estimated Revenue" 
+                                value={`₹${(paymentStats?.totalExpected || 0).toLocaleString()}`} 
+                                icon={<TrendingUp size={20} />} 
+                                loading={isPaymentsLoading}
+                                color="blue"
+                            />
+                            <StatCard 
+                                title="Pending Balance" 
+                                value={`₹${(paymentStats?.balance || 0).toLocaleString()}`} 
+                                icon={<ArrowDownRight size={20} />} 
+                                loading={isPaymentsLoading}
+                                color="rose"
+                            />
+                            <StatCard 
+                                title="Total Leads" 
+                                value={bookingStats?.byStatus?.reduce((acc: number, curr: any) => acc + curr.count, 0) || 0} 
+                                icon={<Users size={20} />} 
+                                loading={isBookingsLoading}
+                                color="indigo"
+                            />
+                            <StatCard 
+                                title="Booked" 
+                                value={bookingStats?.byStatus?.find((s: any) => s._id === 'Booked')?.count || 0} 
+                                icon={<Building size={20} />} 
+                                loading={isBookingsLoading}
+                                color="amber"
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+                        <TrendingUp size={16} className="text-primary" />
+                        Monthly Revenue Trend
+                    </h3>
+                    <div className="flex-1 w-full h-[300px]">
+                        {isTrendsLoading ? (
+                            <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                                <AreaChart data={revenueTrends}>
+                                    <defs>
+                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
+                                    <Tooltip 
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                                        itemStyle={{ fontWeight: 600, fontSize: '12px' }}
+                                    />
+                                    <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
+
+                {/* Agent Performance */}
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+                        <Users size={16} className="text-primary" />
+                        Top Agents by Revenue
+                    </h3>
+                    <div className="flex-1 w-full h-[300px]">
+                        {isAgentsLoading ? (
+                            <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                                <BarChart 
+                                    data={agentStats?.slice(0, 5)} 
+                                    layout="vertical" 
+                                    margin={{ left: 20, right: 40 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                    <XAxis type="number" hide />
+                                    <YAxis 
+                                        dataKey="agentName" 
+                                        type="category" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{fontSize: 11, fontWeight: 600, fill: '#334155'}} 
+                                        width={100} 
+                                    />
+                                    <Tooltip 
+                                        cursor={{fill: '#f8fafc'}}
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                                        formatter={(value: any, name: any, props: any) => {
+                                            if (name === 'totalRevenue') {
+                                                return [
+                                                    <div key="custom-tooltip">
+                                                        <div className="text-slate-900 font-bold mb-1">₹{value.toLocaleString()}</div>
+                                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
+                                                            {props.payload.convertedBookings} Booked Queries
+                                                        </div>
+                                                    </div>,
+                                                    'Revenue'
+                                                ];
+                                            }
+                                            return [value, name];
+                                        }}
+                                    />
+                                    <Bar dataKey="totalRevenue" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24}>
+                                        <LabelList 
+                                            dataKey="convertedBookings" 
+                                            position="right" 
+                                            style={{ fill: '#64748b', fontSize: '10px', fontWeight: 'bold' }}
+                                            formatter={(value: any) => `${value} Booked`}
+                                        />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
+                {/* Booking Status Distribution */}
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Booking Pipeline Status</h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                            <PieChart>
+                                <Pie
+                                    data={statusData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={70}
+                                    outerRadius={95}
+                                    paddingAngle={8}
+                                    dataKey="value"
+                                >
+                                    {statusData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} stroke="none" />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Interest Level */}
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm min-h-[400px] flex flex-col shrink-0">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Lead Interest Conversion</h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                            <PieChart>
+                                <Pie
+                                    data={interestData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={70}
+                                    outerRadius={95}
+                                    paddingAngle={8}
+                                    dataKey="value"
+                                >
+                                    {interestData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={getInterestColor(entry.name)} stroke="none" />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}/>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Agent Efficiency Table */}
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:col-span-1 min-h-[400px] shrink-0">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Conversion Efficiency</h3>
+                    <div className="overflow-y-auto flex-1 h-[250px] pr-2 custom-scrollbar">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-white z-10">
+                                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                    <th className="text-left pb-4">Agent Name</th>
+                                    <th className="text-right pb-4">Conv. Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {agentStats?.map((agent: any) => (
+                                    <tr key={agent._id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="py-4 font-semibold text-slate-700">{agent.agentName}</td>
+                                        <td className="py-4 text-right">
+                                            <div className="flex items-center justify-end gap-3 text-primary font-semibold">
+                                                <span>{agent.conversionRate.toFixed(1)}%</span>
+                                                <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                                    <div className="h-full bg-brand-gradient transition-all duration-1000" style={{ width: `${agent.conversionRate}%` }}></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

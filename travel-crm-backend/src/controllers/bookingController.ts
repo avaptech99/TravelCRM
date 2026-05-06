@@ -20,6 +20,9 @@ import {
 } from '../types';
 import { extractTravelInfo } from '../utils/extractTravelInfo';
 
+// Request deduplication for booking fetches
+const bookingFetchInFlight = new Map<string, Promise<any>>();
+
 // Helper to clear all booking-related caches
 const invalidateBookingCaches = () => {
     appCache.invalidateByPrefix('bookings_');
@@ -416,6 +419,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     }
 
     const cacheKey = `booking_${id}`;
+    
+    // Check cache first
     const cached = appCache.get(cacheKey);
     
     const checkAuth = (b: any) => {
@@ -427,7 +432,6 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const userGroups = req.user?.groups || [];
 
         if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            // Can see if creator, assigned, or in same department group
             return creatorId === String(req.user?.id) || 
                    assignedId === String(req.user?.id) || 
                    userGroups.includes(bookingGroup);
@@ -450,58 +454,87 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             throw new Error('Not authorized to view this booking');
         }
         console.log(`[CACHE HIT] ${cacheKey}`);
-        res.json(cached);
-        return;
+        return res.json(cached);
     }
 
-    console.log(`[GET] /api/bookings/${id}`);
-    console.time(`getBookingById_${id}`);
-    const booking = await Booking.findById(id)
-        .populate('assignedToUserId', 'name role')
-        .populate('createdByUserId', 'name role')
-        .populate('primaryContact')
-        .populate('passengers')
-        .populate('payments')
-        .populate({
-            path: 'timeline',
-            populate: { path: 'userId', select: 'name role' },
-            options: { sort: { createdAt: -1 } }
-        })
-        .lean();
-
-    if (!booking) {
-        res.status(404);
-        throw new Error('Booking not found');
+    // Backend Request Deduplication
+    if (bookingFetchInFlight.has(id)) {
+        try {
+            const data = await bookingFetchInFlight.get(id);
+            if (!checkAuth(data)) {
+                res.status(403);
+                throw new Error('Not authorized to view this booking');
+            }
+            console.log(`[DEDUPLICATED] Request for booking ${id} served from in-flight promise`);
+            return res.json(data);
+        } catch (err) {
+            // If the shared promise failed, fall through to try a fresh one
+        }
     }
 
-    if (!checkAuth(booking)) {
-        res.status(403);
-        throw new Error('Not authorized to view this booking');
+    const fetchPromise = (async () => {
+        const booking = await Booking.findById(id)
+            .populate('assignedToUserId', 'name role')
+            .populate('createdByUserId', 'name role')
+            .populate('primaryContact')
+            .populate('passengers')
+            .populate('payments')
+            .populate({
+                path: 'timeline',
+                populate: { path: 'userId', select: 'name role' },
+                options: { sort: { createdAt: -1 } }
+            })
+            .lean();
+
+        if (!booking) return null;
+
+        const totalPaid = (booking as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+        const outstanding = ((booking as any).amount || 0) - totalPaid;
+
+        return {
+            ...booking,
+            id: booking._id.toString(),
+            createdOn: booking.createdAt,
+            outstanding,
+            contactPerson: (booking as any).primaryContact?.contactName,
+            contactNumber: (booking as any).primaryContact?.contactPhoneNo,
+            contactEmail: (booking as any).primaryContact?.contactEmail,
+            requirements: (booking as any).primaryContact?.requirements,
+            interested: (booking as any).primaryContact?.interested,
+            bookingType: (booking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            destinationCity: booking.destination,
+            travellers: booking.travellers,
+            travelers: (booking as any).passengers,
+            createdByUser: booking.createdByUserId,
+            assignedToUser: booking.assignedToUserId,
+        };
+    })();
+
+    bookingFetchInFlight.set(id, fetchPromise);
+
+    try {
+        console.log(`[GET] /api/bookings/${id}`);
+        console.time(`getBookingById_${id}`);
+        
+        const result = await fetchPromise;
+        
+        console.timeEnd(`getBookingById_${id}`);
+
+        if (!result) {
+            res.status(404);
+            throw new Error('Booking not found');
+        }
+
+        if (!checkAuth(result)) {
+            res.status(403);
+            throw new Error('Not authorized to view this booking');
+        }
+
+        appCache.set(cacheKey, result, 60);
+        return res.json(result);
+    } finally {
+        bookingFetchInFlight.delete(id);
     }
-
-    // Calculate outstanding for each payment context
-    const totalPaid = (booking as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-    const outstanding = ((booking as any).amount || 0) - totalPaid;
-
-    const result = {
-        ...booking,
-        id: booking!._id.toString(),
-        createdOn: booking.createdAt,
-        outstanding,
-        contactPerson: (booking as any).primaryContact?.contactName,
-        contactNumber: (booking as any).primaryContact?.contactPhoneNo,
-        contactEmail: (booking as any).primaryContact?.contactEmail,
-        requirements: (booking as any).primaryContact?.requirements,
-        interested: (booking as any).primaryContact?.interested,
-        bookingType: (booking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: booking.destination,
-        travellers: booking.travellers,
-        travelers: (booking as any).passengers,
-        createdByUser: booking.createdByUserId,
-        assignedToUser: booking.assignedToUserId,
-    };
-    appCache.set(cacheKey, result, 60);
-    res.json(result);
 });
 
 // @desc    Delete booking
@@ -594,16 +627,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
 
-    // Log the creation activity in Timeline
-    await Timeline.create({
-        bookingId: booking._id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'BOOKING_CREATED',
-        details: `Booking created by ${req.user?.name}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-
     // Populate for response
     const populatedBooking = await Booking.findById(booking._id)
         .populate('createdByUserId', 'name')
@@ -628,9 +651,35 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedToUser: populatedBooking!.assignedToUserId,
     };
 
-    invalidateBookingCaches();
-
     res.status(201).json(resultBooking);
+
+    // BACKGROUND: Perform non-critical side effects after responding
+    setImmediate(async () => {
+        try {
+            // Log the creation activity in Timeline
+            await Timeline.create({
+                bookingId: booking._id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'BOOKING_CREATED',
+                details: `Booking created by ${req.user?.name}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+
+            // If assigned, notify the agent
+            if (booking.assignedToUserId) {
+                await Notification.create({
+                    userId: booking.assignedToUserId,
+                    bookingId: booking._id,
+                    message: `New lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
+                });
+            }
+
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] createBooking side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Update a booking
@@ -838,30 +887,38 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     existingBooking.status = status;
     const updatedBooking = await existingBooking.save();
     
-    // Log status change activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'STATUS_CHANGE',
-        details: `Status updated from ${oldStatus} to ${status}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-    
-    // Notify Marketer if their lead status changed
-    if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
-        const creator = await User.findById(existingBooking.createdByUserId);
-        if (creator?.role === 'MARKETER') {
-            await Notification.create({
-                userId: existingBooking.createdByUserId,
-                bookingId: id,
-                message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
-            });
-        }
-    }
-
-    invalidateBookingCaches();
     res.json(updatedBooking);
+
+    // BACKGROUND: Status change side effects
+    setImmediate(async () => {
+        try {
+            // Log status change activity
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'STATUS_CHANGE',
+                details: `Status updated from ${oldStatus} to ${status}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            
+            // Notify Marketer if their lead status changed
+            if (existingBooking.createdByUserId && getObjectIdString(existingBooking.createdByUserId) !== req.user?.id) {
+                const creator = await User.findById(existingBooking.createdByUserId);
+                if (creator?.role === 'MARKETER') {
+                    await Notification.create({
+                        userId: existingBooking.createdByUserId,
+                        bookingId: id,
+                        message: `Status of your lead ${existingBooking.destination} updated to ${status}.`,
+                    });
+                }
+            }
+
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] updateBookingStatus side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Assign an agent to a booking
@@ -1324,20 +1381,28 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         bookingId: id,
     });
 
-    await recalcOutstanding(id);
-
-    // Log activity
-    await Timeline.create({
-        bookingId: id,
-        userId: req.user?.id,
-        type: 'activity',
-        action: 'PAYMENT_ADDED',
-        details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    });
-
-    invalidateBookingCaches();
     res.status(201).json(payment);
+
+    // BACKGROUND: Payment side effects
+    setImmediate(async () => {
+        try {
+            await recalcOutstanding(id);
+
+            // Log activity
+            await Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PAYMENT_ADDED',
+                details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[Background] addPayment side-effects failed:', err);
+        }
+    });
 });
 
 // @desc    Get payments for a booking

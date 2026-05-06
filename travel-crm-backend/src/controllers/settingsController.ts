@@ -1,11 +1,20 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Setting from '../models/Setting';
+import appCache from '../utils/cache';
 
 // @desc    Get all dropdown settings
 // @route   GET /api/settings/dropdowns
 // @access  Private (Admin Only)
 export const getDropdowns = asyncHandler(async (req: Request, res: Response) => {
+    const cacheKey = 'settings_dropdowns';
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.json(cached);
+        return;
+    }
+
     const settings = await Setting.find();
     const result: Record<string, string[]> = {};
     
@@ -29,6 +38,8 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
         }
     });
 
+    // Cache the merged result for 1 hour
+    appCache.set(cacheKey, result, 3600);
     res.json(result);
 });
 
@@ -52,6 +63,9 @@ export const updateDropdown = asyncHandler(async (req: Request, res: Response) =
     } else {
         setting = await Setting.create({ key, values });
     }
+
+    // Invalidate dropdown cache
+    appCache.del('settings_dropdowns');
 
     res.json({ message: `${key} updated successfully`, values: setting.values });
 });

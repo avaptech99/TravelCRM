@@ -21,8 +21,8 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         return;
     }
 
-    const agents = await User.find({ role: 'AGENT' })
-        .select('name email lastSeen groups')
+    const agents = await User.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
+        .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
 
@@ -37,7 +37,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedAgents, 30); // Lower cache time for online status
+    appCache.set(cacheKey, mappedAgents, 600); // 10 minute TTL — agents rarely change
     res.json(mappedAgents);
 });
 
