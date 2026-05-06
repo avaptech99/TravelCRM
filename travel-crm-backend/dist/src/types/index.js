@@ -35,6 +35,7 @@ exports.createBookingSchema = zod_1.z.object({
     includesAdditionalServices: zod_1.z.boolean().optional(),
     additionalServicesDetails: zod_1.z.string().optional().nullable(),
     assignedGroup: zod_1.z.string().optional(),
+    interested: zod_1.z.enum(['Yes', 'No']).optional(),
 });
 exports.updateBookingSchema = zod_1.z.object({
     destination: zod_1.z.string().optional().nullable(),

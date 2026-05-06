@@ -3,58 +3,30 @@ import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification';
 import appCache from '../utils/cache';
 
-// Module-level map to track in-flight requests and prevent cache stampedes
-const inFlight = new Map<string, Promise<any>>();
-
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
 export const getMyNotifications = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.id;
-    const cacheKey = `notifications_${userId}`;
-    
-    const cached = appCache.get<any[]>(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const cacheKey = `notifications_${req.user?.id}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE HIT] ${cacheKey}`);
         res.json(cached);
         return;
     }
 
-    // If a request is already in-flight for this user, wait for it
-    if (inFlight.has(cacheKey)) {
-        try {
-            const data = await inFlight.get(cacheKey);
-            res.json(data ?? []);
-            return;
-        } catch (err) {
-            // If in-flight fails, fall through to retry once
-        }
-    }
+    const notifications = await Notification.find({ userId: req.user?.id })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
 
-    // This is the first request — create the promise and share it
-    const promise = (async () => {
-        const notifications = await Notification.find({ userId })
-            .sort({ createdAt: -1 })
-            .limit(20)
-            .lean();
+    const mappedNotifications = notifications.map(n => ({
+        ...n,
+        id: n._id.toString()
+    }));
 
-        return notifications.map(n => ({
-            ...n,
-            id: n._id.toString()
-        }));
-    })();
-
-    inFlight.set(cacheKey, promise);
-
-    try {
-        const result = await promise;
-        const safeData = result ?? [];
-        appCache.set(cacheKey, safeData, 30); // Cache for 30 seconds
-        res.json(safeData);
-    } catch (err) {
-        res.status(500).json([]); // Always return array even on error to prevent UI crash
-    } finally {
-        inFlight.delete(cacheKey); // Always clean up
-    }
+    appCache.set(cacheKey, mappedNotifications, 300); // Cache for 5 minutes
+    res.json(mappedNotifications);
 });
 
 // @desc    Mark notification as read

@@ -299,7 +299,7 @@ exports.unassignOfflineBookings = (0, express_async_handler_1.default)(async (re
     const offlineAgents = await User_1.default.find({
         role: 'AGENT',
         isOnline: false
-    }).select('_id');
+    }).select('_id').lean();
     const offlineAgentIds = offlineAgents.map(a => a._id);
     if (offlineAgentIds.length === 0) {
         res.json({ message: 'No offline agents found', modifiedCount: 0 });

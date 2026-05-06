@@ -4,42 +4,32 @@ import Booking from '../models/Booking';
 import Payment from '../models/Payment';
 import User from '../models/User';
 import mongoose from 'mongoose';
-import cache from '../utils/cache';
+import appCache from '../utils/cache';
 
 // @desc    Get booking status analytics
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 export const getBookingAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate, companyName = '' } = req.query;
-    
-    const cacheKey = `analytics_bookings_${fromDate}_${toDate}_${companyName}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_bookings_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
         res.json(cached);
         return;
     }
-
+    
     const matchQuery: any = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
         if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
     }
-    if (companyName) {
-        matchQuery.companyName = companyName;
+    if (company) {
+        matchQuery.company = company as string;
     }
 
     const stats = await Booking.aggregate([
         { $match: matchQuery },
-        {
-            $project: {
-                status: 1,
-                tripType: 1,
-                'contact.interested': 1,
-                createdAt: 1,
-                companyName: 1
-            }
-        },
         {
             $facet: {
                 byStatus: [
@@ -60,20 +50,19 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
         }
     ]);
 
-    const result = stats[0] || { byStatus: [], byType: [], byInterest: [] };
-    cache.set(cacheKey, result, 300);
-    res.json(result);
+    res.json(stats[0]);
+
+    appCache.set(cacheKey, stats[0], 300);
 });
 
 // @desc    Get payment and revenue analytics
 // @route   GET /api/analytics/payments
 // @access  Private/Admin
 export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate, companyName = '' } = req.query;
-
-    const cacheKey = `analytics_payments_${fromDate}_${toDate}_${companyName}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_payments_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
         res.json(cached);
         return;
     }
@@ -88,7 +77,6 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     // Total collected from Payments
     const paymentStats = await Payment.aggregate([
         { $match: matchQuery },
-        { $project: { amount: 1, date: 1 } },
         {
             $group: {
                 _id: null,
@@ -105,13 +93,12 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
         if (toDate) bookingMatch.createdAt.$lte = new Date(toDate as string);
     }
-    if (companyName) {
-        bookingMatch.companyName = companyName;
+    if (company) {
+        bookingMatch.company = company as string;
     }
 
     const bookingStats = await Booking.aggregate([
         { $match: bookingMatch },
-        { $project: { amount: 1, createdAt: 1, companyName: 1 } },
         {
             $group: {
                 _id: null,
@@ -126,51 +113,61 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         balance: (bookingStats[0]?.totalExpected || 0) - (paymentStats[0]?.totalCollected || 0),
         paymentCount: paymentStats[0]?.count || 0
     };
-
-    cache.set(cacheKey, result, 300);
     res.json(result);
+    appCache.set(cacheKey, result, 300);
 });
 
 // @desc    Get revenue trends over time
 // @route   GET /api/analytics/revenue-trends
 // @access  Private/Admin
 export const getRevenueTrends = asyncHandler(async (req: Request, res: Response) => {
-    const { interval = 'month', companyName = '' } = req.query; // 'day' or 'month'
-
-    const cacheKey = `analytics_revenue_${interval}_${companyName}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const { interval = 'month', company } = req.query;
+    const cacheKey = `analytics_revenue_${interval}_${company || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
         res.json(cached);
         return;
-    }
+    } // 'day' or 'month'
 
     const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
 
-    const trends = await Payment.aggregate([
-        { $project: { amount: 1, date: 1 } },
-        {
-            $group: {
-                _id: { $dateToString: { format: format, date: '$date' } },
-                revenue: { $sum: '$amount' }
+    const pipeline: any[] = [];
+    
+    if (company) {
+        pipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
             }
-        },
-        { $sort: { _id: 1 } }
-    ]);
+        });
+        pipeline.push({ $unwind: '$booking' });
+        pipeline.push({ $match: { 'booking.company': company } });
+    }
 
-    const result = trends ?? [];
-    cache.set(cacheKey, result, 300);
-    res.json(result);
+    pipeline.push({
+        $group: {
+            _id: { $dateToString: { format: format, date: '$date' } },
+            revenue: { $sum: '$amount' }
+        }
+    });
+    pipeline.push({ $sort: { _id: 1 } });
+
+    const trends = await Payment.aggregate(pipeline);
+
+    res.json(trends);
+    appCache.set(cacheKey, trends, 300);
 });
 
 // @desc    Get agent performance analytics
 // @route   GET /api/analytics/agents
 // @access  Private/Admin
 export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate, toDate, companyName = '' } = req.query;
-
-    const cacheKey = `analytics_agents_${fromDate}_${toDate}_${companyName}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_agents_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
         res.json(cached);
         return;
     }
@@ -181,21 +178,12 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
         if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
     }
-    if (companyName) {
-        matchQuery.companyName = companyName;
+    if (company) {
+        matchQuery.company = company as string;
     }
 
     const agentStats = await Booking.aggregate([
         { $match: matchQuery },
-        {
-            $project: {
-                assignedToUserId: 1,
-                status: 1,
-                amount: 1,
-                createdAt: 1,
-                companyName: 1
-            }
-        },
         {
             $lookup: {
                 from: 'users',
@@ -242,26 +230,29 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
         { $sort: { totalRevenue: -1 } }
     ]);
 
-    const result = agentStats ?? [];
-    cache.set(cacheKey, result, 300);
-    res.json(result);
+    res.json(agentStats);
+    appCache.set(cacheKey, agentStats, 300);
 });
 
 // @desc    Get detailed payment breakdown (pending and received)
 // @route   GET /api/analytics/payment-breakdown
 // @access  Private/Admin
 export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Response) => {
-    const { fromDate = '', toDate = '', companyName = '' } = req.query;
-    
-    const cacheKey = `analytics_breakdown_${fromDate}_${toDate}_${companyName}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_payment_breakdown_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
         res.json(cached);
         return;
     }
-
+    
     // 1. Get Pending Bookings (outstanding > 0)
-    const pendingBookings = await Booking.find({ outstanding: { $gt: 0 } })
+    const bookingQuery: any = { outstanding: { $gt: 0 } };
+    if (company) {
+        bookingQuery.company = company as string;
+    }
+
+    const pendingBookings = await Booking.find(bookingQuery)
         .select('uniqueCode contact amount outstanding')
         .sort({ outstanding: -1 })
         .limit(50)
@@ -277,19 +268,31 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     }));
 
     // 2. Get Recent Received Payments
-    const recentPayments = await Payment.find()
-        .populate({
-            path: 'bookingId',
-            populate: { path: 'primaryContactId' }
-        })
-        .sort({ date: -1 })
-        .limit(50)
-        .lean();
+    const paymentPipeline: any[] = [];
+    if (company) {
+        paymentPipeline.push({
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
+            }
+        });
+        paymentPipeline.push({ $unwind: '$booking' });
+        paymentPipeline.push({ $match: { 'booking.company': company } });
+    }
+
+    paymentPipeline.push({ $sort: { date: -1 } });
+    paymentPipeline.push({ $limit: 50 });
+    
+    // We still need populate for the response object if not using aggregation fully, 
+    // but aggregate is better here for filtering.
+    const recentPayments = await Payment.aggregate(paymentPipeline);
 
     const received = recentPayments.map((p: any) => ({
-        uniqueCode: p.bookingId?.uniqueCode || 'N/A',
-        contactPerson: p.bookingId?.contact?.name || 'Unknown',
-        companyName: p.bookingId?.contact?.company || '',
+        uniqueCode: p.booking?.uniqueCode || 'N/A', // from joined booking
+        contactPerson: p.booking?.contact?.name || 'Unknown',
+        companyName: p.booking?.contact?.company || '',
         paymentMethod: p.paymentMethod || 'Unknown',
         amount: p.amount || 0,
         date: p.date
@@ -306,6 +309,6 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         totalReceived
     };
 
-    cache.set(cacheKey, result, 300);
     res.json(result);
+    appCache.set(cacheKey, result, 300);
 });

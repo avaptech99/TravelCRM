@@ -25,8 +25,6 @@ const keepWarm_1 = require("./utils/keepWarm");
 const followUpCron_1 = require("./utils/followUpCron");
 // Socket.io is available in ./socket.ts for future real-time upgrades
 const User_1 = __importDefault(require("./models/User"));
-const Booking_1 = __importDefault(require("./models/Booking"));
-const Payment_1 = __importDefault(require("./models/Payment"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
@@ -119,21 +117,8 @@ mongoose_1.default.connection.once('open', async () => {
                 });
                 console.log('Default admin user created');
             }
-            const missingOutstanding = await Booking_1.default.countDocuments({ outstanding: { $exists: false } });
-            if (missingOutstanding > 0) {
-                console.log(`[Migration] Backfilling outstanding field for ${missingOutstanding} bookings...`);
-                // Process in small batches to avoid connection saturation
-                const bookings = await Booking_1.default.find({ outstanding: { $exists: false } }).select('_id totalAmount amount').lean();
-                for (const booking of bookings) {
-                    const payments = await Payment_1.default.find({ bookingId: booking._id }).select('amount').lean();
-                    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-                    const bookingTotal = booking.totalAmount || booking.amount || 0;
-                    const outstanding = Math.max(bookingTotal - totalPaid, 0);
-                    await Booking_1.default.updateOne({ _id: booking._id }, { $set: { outstanding } });
-                }
-                console.log('[Migration] Outstanding field backfill complete');
-            }
             (0, followUpCron_1.startFollowUpCron)();
+            console.log('🚀 Startup tasks complete. System ready.');
         }
         catch (error) {
             console.error('[Startup Task Error]:', error);
@@ -142,8 +127,11 @@ mongoose_1.default.connection.once('open', async () => {
 });
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    // Start self-pinging to keep server warm (if BASE_URL is provided)
+    // Start self-pinging to keep server warm
     if (process.env.BASE_URL) {
         (0, keepWarm_1.startSelfPinging)(process.env.BASE_URL);
+    }
+    else {
+        console.warn('⚠️  BASE_URL not set. Server may go to sleep on Render Free Tier.');
     }
 });

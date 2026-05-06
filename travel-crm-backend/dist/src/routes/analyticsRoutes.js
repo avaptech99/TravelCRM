@@ -14,4 +14,5 @@ router.get('/bookings', analyticsController_1.getBookingAnalytics);
 router.get('/payments', analyticsController_1.getPaymentAnalytics);
 router.get('/revenue-trends', analyticsController_1.getRevenueTrends);
 router.get('/agents', analyticsController_1.getAgentAnalytics);
+router.get('/payment-breakdown', analyticsController_1.getPaymentBreakdown);
 exports.default = router;

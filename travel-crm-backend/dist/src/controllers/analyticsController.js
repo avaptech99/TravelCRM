@@ -7,11 +7,18 @@ exports.getPaymentBreakdown = exports.getAgentAnalytics = exports.getRevenueTren
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Payment_1 = __importDefault(require("../models/Payment"));
+const cache_1 = __importDefault(require("../utils/cache"));
 // @desc    Get booking status analytics
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_bookings_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
@@ -19,6 +26,9 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
             matchQuery.createdAt.$gte = new Date(fromDate);
         if (toDate)
             matchQuery.createdAt.$lte = new Date(toDate);
+    }
+    if (company) {
+        matchQuery.company = company;
     }
     const stats = await Booking_1.default.aggregate([
         { $match: matchQuery },
@@ -32,15 +42,6 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
                 ],
                 byInterest: [
                     {
-                        $lookup: {
-                            from: 'primarycontacts',
-                            localField: 'primaryContactId',
-                            foreignField: '_id',
-                            as: 'contact'
-                        }
-                    },
-                    { $unwind: '$contact' },
-                    {
                         $group: {
                             _id: { $cond: [{ $eq: ['$contact.interested', true] }, 'Yes', 'No'] },
                             count: { $sum: 1 }
@@ -51,12 +52,19 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
         }
     ]);
     res.json(stats[0]);
+    cache_1.default.set(cacheKey, stats[0], 300);
 });
 // @desc    Get payment and revenue analytics
 // @route   GET /api/analytics/payments
 // @access  Private/Admin
 exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_payments_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.date = {};
@@ -85,6 +93,9 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         if (toDate)
             bookingMatch.createdAt.$lte = new Date(toDate);
     }
+    if (company) {
+        bookingMatch.company = company;
+    }
     const bookingStats = await Booking_1.default.aggregate([
         { $match: bookingMatch },
         {
@@ -94,18 +105,26 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
             }
         }
     ]);
-    res.json({
+    const result = {
         totalCollected: paymentStats[0]?.totalCollected || 0,
         totalExpected: bookingStats[0]?.totalExpected || 0,
         balance: (bookingStats[0]?.totalExpected || 0) - (paymentStats[0]?.totalCollected || 0),
         paymentCount: paymentStats[0]?.count || 0
-    });
+    };
+    res.json(result);
+    cache_1.default.set(cacheKey, result, 300);
 });
 // @desc    Get revenue trends over time
 // @route   GET /api/analytics/revenue-trends
 // @access  Private/Admin
 exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res) => {
-    const { interval = 'month' } = req.query; // 'day' or 'month'
+    const { interval = 'month', company } = req.query;
+    const cacheKey = `analytics_revenue_${interval}_${company || ''}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    } // 'day' or 'month'
     const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
     const trends = await Payment_1.default.aggregate([
         {
@@ -117,12 +136,19 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
         { $sort: { _id: 1 } }
     ]);
     res.json(trends);
+    cache_1.default.set(cacheKey, trends, 300);
 });
 // @desc    Get agent performance analytics
 // @route   GET /api/analytics/agents
 // @access  Private/Admin
 exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_agents_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
     const matchQuery = {};
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
@@ -130,6 +156,9 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
             matchQuery.createdAt.$gte = new Date(fromDate);
         if (toDate)
             matchQuery.createdAt.$lte = new Date(toDate);
+    }
+    if (company) {
+        matchQuery.company = company;
     }
     const agentStats = await Booking_1.default.aggregate([
         { $match: matchQuery },
@@ -179,11 +208,19 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
         { $sort: { totalRevenue: -1 } }
     ]);
     res.json(agentStats);
+    cache_1.default.set(cacheKey, agentStats, 300);
 });
 // @desc    Get detailed payment breakdown (pending and received)
 // @route   GET /api/analytics/payment-breakdown
 // @access  Private/Admin
 exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, res) => {
+    const { fromDate, toDate, company } = req.query;
+    const cacheKey = `analytics_payment_breakdown_${fromDate || ''}_${toDate || ''}_${company || ''}`;
+    const cached = cache_1.default.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
     // 1. Get Pending Bookings (outstanding > 0)
     const pendingBookings = await Booking_1.default.find({ outstanding: { $gt: 0 } })
         .select('uniqueCode contact amount outstanding')
@@ -209,19 +246,21 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         .lean();
     const received = recentPayments.map((p) => ({
         uniqueCode: p.bookingId?.uniqueCode || 'N/A',
-        contactPerson: p.bookingId?.primaryContactId?.contactName || 'Unknown',
-        companyName: p.bookingId?.primaryContactId?.companyName || '',
-        paymentMethod: p.method || 'Unknown',
+        contactPerson: p.bookingId?.contact?.name || 'Unknown',
+        companyName: p.bookingId?.contact?.company || '',
+        paymentMethod: p.paymentMethod || 'Unknown',
         amount: p.amount || 0,
         date: p.date
     }));
     // 3. Totals
     const totalPending = pending.reduce((sum, b) => sum + b.outstanding, 0);
     const totalReceived = received.reduce((sum, p) => sum + p.amount, 0);
-    res.json({
+    const result = {
         pending,
         totalPending,
         received,
         totalReceived
-    });
+    };
+    res.json(result);
+    cache_1.default.set(cacheKey, result, 300);
 });

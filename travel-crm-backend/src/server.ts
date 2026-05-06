@@ -37,6 +37,21 @@ app.use(compression());
 // Body parser
 app.use(express.json());
 
+// Memory monitoring and performance logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        if (duration > 500) { // Log memory for slow requests (>500ms)
+            const mem = process.memoryUsage();
+            const heapUsed = Math.round(mem.heapUsed / 1024 / 1024);
+            const rss = Math.round(mem.rss / 1024 / 1024);
+            console.log(`[PERF] ${req.method} ${req.originalUrl} - ${duration}ms | Heap: ${heapUsed}MB | RSS: ${rss}MB`);
+        }
+    });
+    next();
+});
+
 // Enable CORS
 app.use(cors({
     origin: (origin, callback) => {

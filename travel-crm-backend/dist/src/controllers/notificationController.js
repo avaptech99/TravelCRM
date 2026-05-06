@@ -26,7 +26,7 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
         ...n,
         id: n._id.toString()
     }));
-    cache_1.default.set(cacheKey, mappedNotifications, 30); // Cache for 30 seconds
+    cache_1.default.set(cacheKey, mappedNotifications, 300); // Cache for 5 minutes
     res.json(mappedNotifications);
 });
 // @desc    Mark notification as read

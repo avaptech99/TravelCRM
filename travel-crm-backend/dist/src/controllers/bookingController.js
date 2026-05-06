@@ -25,13 +25,13 @@ const invalidateBookingCaches = () => {
 };
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId) => {
-    const payments = await Payment_1.default.find({ bookingId });
+    const payments = await Payment_1.default.find({ bookingId }).select('amount').lean();
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const booking = await Booking_1.default.findById(bookingId);
+    const booking = await Booking_1.default.findById(bookingId).select('totalAmount amount').lean();
     if (booking) {
         const bookingTotal = booking.totalAmount || booking.amount || 0;
-        booking.outstanding = Math.max(bookingTotal - totalPaid, 0);
-        await booking.save();
+        const outstanding = Math.max(bookingTotal - totalPaid, 0);
+        await Booking_1.default.updateOne({ _id: bookingId }, { $set: { outstanding } });
     }
 };
 // @desc    Get booking stats (counts only, no data)
@@ -204,17 +204,19 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         const agentArray = assignedTo.split(',').map(a => a.trim());
         const hasUnassigned = agentArray.includes('unassigned');
         const realAgentIds = agentArray.filter(a => a !== 'unassigned');
-        if (hasUnassigned && realAgentIds.length > 0) {
-            query.$or = [
-                { assignedToUserId: null },
-                { assignedToUserId: { $in: realAgentIds } }
-            ];
+        let objectIds = [];
+        try {
+            objectIds = realAgentIds.map(id => new mongoose_1.default.Types.ObjectId(id));
         }
-        else if (hasUnassigned) {
-            query.assignedToUserId = null;
+        catch (e) {
+            // Ignore invalid object ids
         }
-        else {
-            query.assignedToUserId = { $in: realAgentIds };
+        const targetAgentIds = objectIds;
+        if (hasUnassigned) {
+            targetAgentIds.push(null);
+        }
+        if (targetAgentIds.length > 0) {
+            query.assignedToUserId = { $in: targetAgentIds };
         }
     }
     // Role-based visibility exclusion: 
@@ -243,8 +245,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             }
         }
         if (interestFilters.length > 0) {
-            const interestValues = interestFilters.map(f => f === 'Interested' ? 'Yes' : 'No');
-            primaryContactQuery.interested = { $in: interestValues };
+            query['contact.interested'] = { $in: interestFilters.map(f => f === 'Interested') };
         }
     }
     if (fromDate || toDate) {
@@ -285,78 +286,26 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     if (search) {
         const searchStr = search;
         const searchRegex = new RegExp(searchStr, 'i');
-        const contactSearchConditions = [
-            { contactName: searchRegex },
-            { contactPhoneNo: searchRegex },
-            { requirements: searchRegex },
-        ];
-        if (primaryContactQuery.$or) {
-            primaryContactQuery.$or.push(...contactSearchConditions);
-        }
-        else {
-            primaryContactQuery.$or = contactSearchConditions;
-        }
-    }
-    let contactIds = [];
-    if (Object.keys(primaryContactQuery).length > 0) {
-        const matchingContacts = await PrimaryContact_1.default.find(primaryContactQuery).select('_id').lean();
-        contactIds = matchingContacts.map(c => c._id);
-        if (contactIds.length === 0) {
-            res.json({
-                data: [],
-                meta: {
-                    total: 0,
-                    page: Number(page),
-                    limit: Number(limit),
-                    totalPages: 0,
-                },
-            });
-            return;
-        }
-        query.primaryContactId = { $in: contactIds };
-    }
-    if (search) {
-        const searchStr = search;
-        const searchRegex = new RegExp(searchStr, 'i');
-        const bookingSearchFields = [
+        // Search directly against embedded contact snapshot and flight fields
+        const searchConditions = [
+            { 'contact.name': searchRegex },
+            { 'contact.phone': searchRegex },
             { flightFrom: searchRegex },
             { flightTo: searchRegex },
+            { destination: searchRegex },
+            { uniqueCode: searchRegex }
         ];
-        // If we have contactIds from the search, we want (contactMatch OR flightMatch)
-        // BUT we also need to respect existing query filters (like status, agent)
-        if (query.primaryContactId) {
-            const searchOr = [
-                { primaryContactId: query.primaryContactId },
-                ...bookingSearchFields
+        if (query.$or) {
+            // If we already have $or (like myBookings or Agent assignment), wrap in $and
+            const existingOr = query.$or;
+            delete query.$or;
+            query.$and = [
+                { $or: existingOr },
+                { $or: searchConditions }
             ];
-            // Remove the single primaryContactId from query and use it in OR
-            delete query.primaryContactId;
-            if (query.$or) {
-                // If we already have $or (like myBookings or Agent assignment), wrap in $and
-                const existingOr = query.$or;
-                delete query.$or;
-                query.$and = [
-                    { $or: existingOr },
-                    { $or: searchOr }
-                ];
-            }
-            else {
-                query.$or = searchOr;
-            }
         }
         else {
-            // Just flight search
-            if (query.$or) {
-                const existingOr = query.$or;
-                delete query.$or;
-                query.$and = [
-                    { $or: existingOr },
-                    { $or: bookingSearchFields }
-                ];
-            }
-            else {
-                query.$or = bookingSearchFields;
-            }
+            query.$or = searchConditions;
         }
     }
     // Outstanding filter - simple field check
@@ -370,17 +319,17 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const reqId = Date.now().toString(36);
     console.log(`[GET] /api/bookings - Page: ${page}, Limit: ${limit}, Search: ${search || 'none'}`);
     console.time(`getBookingsQuery_${reqId}`);
-    const [rawBookings, count] = await Promise.all([
-        Booking_1.default.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
-            .sort({ lastInteractionAt: -1 })
-            .skip(skip)
-            .limit(limitNum)
-            .populate('assignedToUserId', 'name')
-            .populate('createdByUserId', 'name')
-            .lean(),
-        Booking_1.default.countDocuments(query),
-    ]);
+    const count = Object.keys(query).length === 0
+        ? await Booking_1.default.estimatedDocumentCount()
+        : await Booking_1.default.countDocuments(query);
+    const rawBookings = await Booking_1.default.find(query)
+        .select('uniqueCode status flightFrom flightTo destination travelDate returnDate tripType amount totalAmount pricePerTicket travellers createdByUserId assignedToUserId contact outstanding createdAt')
+        .sort({ lastInteractionAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('assignedToUserId', 'name')
+        .populate('createdByUserId', 'name')
+        .lean();
     bookings = rawBookings;
     total = count;
     console.timeEnd(`getBookingsQuery_${reqId}`);
@@ -389,10 +338,10 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             ...b,
             id: b._id.toString(),
             createdOn: b.createdAt,
-            contactPerson: b.contact?.name,
-            contactNumber: b.contact?.phone,
-            bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
-            interested: b.contact?.interested ? 'Yes' : 'No',
+            contactPerson: b.contact?.name || b.primaryContact?.contactName,
+            contactNumber: b.contact?.phone || b.primaryContact?.contactPhoneNo,
+            bookingType: (b.contact?.type || b.primaryContact?.bookingType) === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            interested: (b.contact?.interested !== undefined ? b.contact.interested : b.primaryContact?.interested) ? 'Yes' : 'No',
             destinationCity: b.destination,
             travellers: b.travellers,
             createdByUser: b.createdByUserId,
@@ -464,7 +413,8 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         path: 'timeline',
         populate: { path: 'userId', select: 'name role' },
         options: { sort: { createdAt: -1 } }
-    });
+    })
+        .lean();
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -477,7 +427,7 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
     const totalPaid = booking.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
     const outstanding = (booking.amount || 0) - totalPaid;
     const result = {
-        ...booking.toJSON(),
+        ...booking,
         id: booking._id.toString(),
         createdOn: booking.createdAt,
         outstanding,
@@ -510,15 +460,15 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
     console.time(`deleteBooking_${req.params.id}`);
-    // Parallel deletion of all related records
-    await Promise.all([
-        Timeline_1.default.deleteMany({ bookingId: req.params.id }),
-        Passenger_1.default.deleteMany({ bookingId: req.params.id }),
-        Payment_1.default.deleteMany({ bookingId: req.params.id }),
-        Notification_1.default.deleteMany({ bookingId: req.params.id }),
-        booking.primaryContactId ? PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
-        Booking_1.default.findByIdAndDelete(req.params.id)
-    ]);
+    // Sequential deletion to preserve connection pool
+    await Timeline_1.default.deleteMany({ bookingId: req.params.id });
+    await Passenger_1.default.deleteMany({ bookingId: req.params.id });
+    await Payment_1.default.deleteMany({ bookingId: req.params.id });
+    await Notification_1.default.deleteMany({ bookingId: req.params.id });
+    if (booking.primaryContactId) {
+        await PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId);
+    }
+    await Booking_1.default.findByIdAndDelete(req.params.id);
     console.timeEnd(`deleteBooking_${req.params.id}`);
     invalidateBookingCaches();
     res.json({ message: 'Booking and all related records removed successfully' });
@@ -539,6 +489,7 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
         contactPhoneNo: result.data.contactNumber,
         bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
         requirements: result.data.requirements || null,
+        interested: result.data.interested === 'Yes',
     });
     // Extract info if not provided
     let finalDestination = result.data.destination || null;
@@ -560,6 +511,7 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
             name: primaryContact.contactName,
             phone: primaryContact.contactPhoneNo,
             type: primaryContact.bookingType,
+            interested: primaryContact.interested,
         },
         destination: finalDestination,
         travelDate: finalTravelDate,
@@ -721,6 +673,14 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
             date: s.date ? new Date(s.date) : null
         }));
     }
+    // Sync embedded contact snapshot
+    if (!booking.contact) {
+        booking.contact = { name: '', phone: '', type: '', interested: false };
+    }
+    if (result.data.interested !== undefined)
+        booking.contact.interested = result.data.interested === 'Yes';
+    if (result.data.bookingType !== undefined)
+        booking.contact.type = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
     await booking.save();
     // Log activity
     const updates = [];
@@ -751,13 +711,15 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
     if (result.data.totalAmount !== undefined || result.data.amount !== undefined) {
         await recalcOutstanding(id);
     }
-    // Update PrimaryContact fields if provided
-    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined)) {
+    // Update PrimaryContact fields if provided (Legacy Sync)
+    if (booking.primaryContactId && (result.data.requirements !== undefined || result.data.interested !== undefined || result.data.bookingType !== undefined)) {
         const updateData = {};
         if (result.data.requirements !== undefined)
             updateData.requirements = result.data.requirements;
         if (result.data.interested !== undefined)
-            updateData.interested = result.data.interested;
+            updateData.interested = result.data.interested === 'Yes';
+        if (result.data.bookingType !== undefined)
+            updateData.bookingType = result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
         await PrimaryContact_1.default.findByIdAndUpdate(booking.primaryContactId, updateData);
     }
     const updatedBooking = await Booking_1.default.findById(id)
@@ -765,15 +727,19 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         .populate('assignedToUserId', 'name')
         .populate('createdByUserId', 'name')
         .lean();
+    if (!updatedBooking) {
+        res.status(404);
+        throw new Error('Booking not found after update');
+    }
     const resultBooking = {
         ...updatedBooking,
         id: updatedBooking._id.toString(),
         createdOn: updatedBooking.createdAt,
-        contactPerson: updatedBooking.primaryContact?.contactName,
-        contactNumber: updatedBooking.primaryContact?.contactPhoneNo,
+        contactPerson: updatedBooking.contact?.name || updatedBooking.primaryContact?.contactName,
+        contactNumber: updatedBooking.contact?.phone || updatedBooking.primaryContact?.contactPhoneNo,
         requirements: updatedBooking.primaryContact?.requirements,
-        interested: updatedBooking.primaryContact?.interested,
-        bookingType: updatedBooking.primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        interested: (updatedBooking.contact?.interested !== undefined ? updatedBooking.contact.interested : updatedBooking.primaryContact?.interested) ? 'Yes' : 'No',
+        bookingType: (updatedBooking.contact?.type || updatedBooking.primaryContact?.bookingType) === 'Agent (B2B)' ? 'B2B' : 'B2C',
         destinationCity: updatedBooking.destination,
         travellers: updatedBooking.travellers,
         travelers: updatedBooking.passengers,
@@ -1010,20 +976,20 @@ exports.bulkDelete = (0, express_async_handler_1.default)(async (req, res) => {
         throw new Error('Only admins can bulk delete leads');
     }
     const bookings = await Booking_1.default.find({ _id: { $in: bookingIds } });
-    const deletePromises = bookings.map(async (booking) => {
-        const id = booking._id;
-        return Promise.all([
-            Timeline_1.default.deleteMany({ bookingId: id }),
-            Passenger_1.default.deleteMany({ bookingId: id }),
-            Payment_1.default.deleteMany({ bookingId: id }),
-            Notification_1.default.deleteMany({ bookingId: id }),
-            booking.primaryContactId ? PrimaryContact_1.default.findByIdAndDelete(booking.primaryContactId) : Promise.resolve(),
-            Booking_1.default.findByIdAndDelete(id)
+    if (bookings.length > 0) {
+        const validBookingIds = bookings.map(b => b._id);
+        const contactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
+        await Promise.all([
+            Timeline_1.default.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Passenger_1.default.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Payment_1.default.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Notification_1.default.deleteMany({ bookingId: { $in: validBookingIds } }),
+            contactIds.length > 0 ? PrimaryContact_1.default.deleteMany({ _id: { $in: contactIds } }) : Promise.resolve(),
+            Booking_1.default.deleteMany({ _id: { $in: validBookingIds } })
         ]);
-    });
-    await Promise.all(deletePromises);
+    }
     invalidateBookingCaches();
-    res.json({ message: `Successfully deleted ${bookingIds.length} bookings` });
+    res.json({ message: `Successfully deleted ${bookings.length} bookings` });
 });
 // @desc    Add comment to a booking
 // @route   POST /api/bookings/:id/comments
@@ -1041,7 +1007,7 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Invalid comment input');
     }
-    const booking = await Booking_1.default.findById(id).populate('primaryContact', 'contactName');
+    const booking = await Booking_1.default.findById(id).populate('primaryContact', 'contactName').lean();
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -1082,7 +1048,8 @@ exports.getComments = (0, express_async_handler_1.default)(async (req, res) => {
     }
     const comments = await Timeline_1.default.find({ bookingId: id, type: 'comment' })
         .populate('userId', 'name role')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
     res.json(comments);
 });
 // @desc    Add passengers to a booking
@@ -1234,7 +1201,7 @@ exports.getPayments = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(404);
         throw new Error('Booking not found');
     }
-    const payments = await Payment_1.default.find({ bookingId: id }).sort({ date: -1 });
+    const payments = await Payment_1.default.find({ bookingId: id }).sort({ date: -1 }).lean();
     res.json(payments);
 });
 // @desc    Delete a payment from a booking

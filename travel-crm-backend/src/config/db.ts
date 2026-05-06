@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import Booking from '../models/Booking';
 import Payment from '../models/Payment';
-import cache from '../utils/cache';
 
 const connectDB = async () => {
     try {
@@ -14,16 +13,6 @@ const connectDB = async () => {
 
         mongoose.connection.once('connected', async () => {
             console.log('MongoDB Connected. Synchronizing indexes...');
-            
-            // EMERGENCY: Flush all cached items on startup to clear any bad "null" values
-            // Using a safe check to work with different cache library versions/types
-            if (typeof (cache as any).flushAll === 'function') {
-                (cache as any).flushAll();
-            } else if (typeof (cache as any).reset === 'function') {
-                (cache as any).reset();
-            }
-            console.log('🧹 Cache flushed on startup.');
-
             try {
                 // Forces MongoDB to create missing indexes AND drop unused stale indexes
                 await Booking.syncIndexes();
@@ -40,13 +29,24 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 20,    // Increased to handle parallel bursts
-            minPoolSize: 5,
+            maxPoolSize: 10,    // Optimized for Free Tier (prevents connection leaks)
+            minPoolSize: 2,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
-            autoIndex: true,    // Must be true so schemas register indexes
+            autoIndex: true,
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+        // Graceful shutdown handlers
+        const gracefulExit = async () => {
+            await mongoose.connection.close();
+            console.log('MongoDB connection closed through app termination');
+            process.exit(0);
+        };
+
+        process.on('SIGINT', gracefulExit);
+        process.on('SIGTERM', gracefulExit);
+
     } catch (error) {
         if (error instanceof Error) {
             console.error(`Error: ${error.message}`);

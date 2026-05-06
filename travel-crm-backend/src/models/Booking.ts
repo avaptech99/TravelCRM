@@ -190,6 +190,12 @@ bookingSchema.index({ 'contact.phone': 1 });
 // 8. Calendar queries
 bookingSchema.index({ travelDate: 1 });
 
+// 9. Company filter (multi-tenant analytics)
+bookingSchema.index({ company: 1 });
+
+// 10. Delta updates / Last modified index
+bookingSchema.index({ updatedAt: -1 });
+
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',

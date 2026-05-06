@@ -104,7 +104,7 @@ const bookingSchema = new mongoose_1.Schema({
                 ret.contactPerson = ret.primaryContact.contactName;
                 ret.contactNumber = ret.primaryContact.contactPhoneNo;
                 ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
-                ret.interested = ret.primaryContact.interested ? 'Yes' : 'No';
+                ret.interested = (ret.primaryContact.interested === 'Yes' || ret.primaryContact.interested === true) ? 'Yes' : 'No';
             }
             if (ret.primaryContact) {
                 ret.contactEmail = ret.primaryContact.contactEmail;
@@ -137,12 +137,27 @@ bookingSchema.pre('save', async function () {
         }
     }
 });
-// Indexes to speed up queries - Refined for performance
+// Indexes — sorted by priority
+// 1. STANDALONE SORT INDEX — covers ALL queries that sort by lastInteractionAt
+//    Without this, any query that can't use the compound index does a full COLLSCAN
+bookingSchema.index({ lastInteractionAt: -1 });
+// 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
-bookingSchema.index({ status: 1, travelDate: 1 });
-bookingSchema.index({ primaryContactId: 1, createdAt: -1 });
-bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
-bookingSchema.index({ uniqueCode: 1 }, { sparse: true });
+// 3. Agent dashboard fallback — optimal for single-agent WITHOUT status
+bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
+// 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
+bookingSchema.index({ status: 1, lastInteractionAt: -1 });
+// 5. Creator queries (marketer view)
+bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
+// 6. Analytics queries (payment breakdown)
+bookingSchema.index({ outstanding: -1 });
+// 7. Contact search fields
+bookingSchema.index({ 'contact.name': 1 });
+bookingSchema.index({ 'contact.phone': 1 });
+// 8. Calendar queries
+bookingSchema.index({ travelDate: 1 });
+// 9. Company filter for analytics
+bookingSchema.index({ company: 1 });
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',

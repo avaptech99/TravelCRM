@@ -29,6 +29,7 @@ const paymentSchema = new Schema<IPayment>(
 
 paymentSchema.index({ bookingId: 1 });
 paymentSchema.index({ date: -1 });
+paymentSchema.index({ updatedAt: -1 });
 
 const Payment: Model<IPayment> = mongoose.model<IPayment>('Payment', paymentSchema);
 
