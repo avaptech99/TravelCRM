@@ -28,7 +28,8 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         try {
             console.log(`[DEDUPLICATED] Sync request for ${userId} served from in-flight promise`);
             const data = await syncFetchInFlight.get(cacheKey);
-            return res.json(data);
+            res.json(data);
+            return;
         } catch (err) {
             // fall through
         }

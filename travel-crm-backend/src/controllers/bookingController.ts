@@ -466,7 +466,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
                 throw new Error('Not authorized to view this booking');
             }
             console.log(`[DEDUPLICATED] Request for booking ${id} served from in-flight promise`);
-            return res.json(data);
+            res.json(data);
+            return;
         } catch (err) {
             // If the shared promise failed, fall through to try a fresh one
         }
@@ -529,7 +530,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         }
 
         appCache.set(cacheKey, result, 60);
-        return res.json(result);
+        res.json(result);
+        return;
     } finally {
         bookingFetchInFlight.delete(id);
     }
