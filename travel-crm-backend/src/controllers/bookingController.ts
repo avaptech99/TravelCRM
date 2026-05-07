@@ -23,6 +23,27 @@ import { extractTravelInfo } from '../utils/extractTravelInfo';
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map<string, Promise<any>>();
 
+// Background Operation Semaphore
+let _bgOps = 0;
+const MAX_BG = 2;
+
+async function runBG(label: string, fn: () => Promise<void>): Promise<void> {
+    if (_bgOps >= MAX_BG) {
+        console.log(`[BG:SKIP] ${label} - Queue saturated`);
+        return;
+    }
+    _bgOps++;
+    const t = Date.now();
+    try {
+        await fn();
+        console.log(`[BG:OK] ${label}: ${Date.now() - t}ms`);
+    } catch (err: any) {
+        console.error(`[BG:FAIL] ${label}:`, err.message);
+    } finally {
+        _bgOps--;
+    }
+}
+
 // Helper to clear all booking-related caches
 const invalidateBookingCaches = () => {
     appCache.invalidateByPrefix('bookings_');
@@ -443,7 +464,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             throw new Error('Not authorized to view this booking');
         }
 
-        appCache.set(cacheKey, result, 60);
+        appCache.set(cacheKey, result, 30); // Reduced to 30s as per audit
         res.json(result);
         return;
     } finally {
@@ -475,29 +496,21 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json({ message: 'Booking deletion initiated successfully', id });
 
     // ✅ BACKGROUND CLEANUP
-    setImmediate(async () => {
-        console.time(`[BG] deleteBooking_cleanup_${id}`);
-        try {
-            const cleanupTasks = [
-                Timeline.deleteMany({ bookingId: id }),
-                Passenger.deleteMany({ bookingId: id }),
-                Payment.deleteMany({ bookingId: id }),
-                Notification.deleteMany({ bookingId: id }),
-            ];
+    setImmediate(() => runBG(`deleteBooking_cleanup_${id}`, async () => {
+        const cleanupTasks = [
+            Timeline.deleteMany({ bookingId: id }),
+            Passenger.deleteMany({ bookingId: id }),
+            Payment.deleteMany({ bookingId: id }),
+            Notification.deleteMany({ bookingId: id }),
+        ];
 
-            if (booking.primaryContactId) {
-                cleanupTasks.push(PrimaryContact.findByIdAndDelete(booking.primaryContactId) as any);
-            }
-
-            await Promise.all(cleanupTasks);
-            invalidateBookingCaches();
-            console.log(`[BG] Cleanup complete for booking ${id}`);
-        } catch (err: any) {
-            console.error(`[BG] deleteBooking ${id} cleanup FAILED:`, err.message);
-        } finally {
-            console.timeEnd(`[BG] deleteBooking_cleanup_${id}`);
+        if (booking.primaryContactId) {
+            cleanupTasks.push(PrimaryContact.findByIdAndDelete(booking.primaryContactId) as any);
         }
-    });
+
+        await Promise.all(cleanupTasks);
+        invalidateBookingCaches();
+    }));
 });
 
 
@@ -561,33 +574,30 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
 
+    // ✅ BUST CACHE IMMEDIATELY (Synchronous)
+    invalidateBookingCaches();
+
     // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
     res.status(201).json(booking);
 
     // ✅ BACKGROUND: Side effects and complex mapping/logging
-    setImmediate(async () => {
-        try {
-            await Promise.all([
-                Timeline.create({
-                    bookingId: booking._id,
-                    userId: req.user?.id,
-                    type: 'activity',
-                    action: 'BOOKING_CREATED',
-                    details: `Booking created by ${req.user?.name}`,
-                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-                }),
-                booking.assignedToUserId ? Notification.create({
-                    userId: booking.assignedToUserId,
-                    bookingId: booking._id,
-                    message: `New lead ${primaryContact.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
-                }) : Promise.resolve()
-            ]);
-
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] createBooking side-effects failed:', err);
-        }
-    });
+    setImmediate(() => runBG(`createBooking_sideEffects_${booking._id}`, async () => {
+        await Promise.all([
+            Timeline.create({
+                bookingId: booking._id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'BOOKING_CREATED',
+                details: `Booking created by ${req.user?.name}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            }),
+            booking.assignedToUserId ? Notification.create({
+                userId: booking.assignedToUserId,
+                bookingId: booking._id,
+                message: `New lead ${primaryContact.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
+            }) : Promise.resolve()
+        ]);
+    }));
 
 });
 
@@ -664,7 +674,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // PRIMARY write
-    const updatedBooking = await Booking.findByIdAndUpdate(id, { $set: updateData }, { new: true })
+    const updatedBooking = await Booking.findByIdAndUpdate(id, { $set: updateData }, { returnDocument: 'after' })
         .populate('assignedToUserId', 'name')
         .populate('createdByUserId', 'name')
         .lean();
@@ -673,6 +683,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         res.status(404);
         throw new Error('Booking not found after update');
     }
+
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
+    invalidateBookingCaches();
 
     // ✅ RESPOND IMMEDIATELY
     const responseData = {
@@ -690,40 +704,36 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     res.json(responseData);
 
     // ✅ BACKGROUND tasks
-    setImmediate(async () => {
-        try {
-            const backgroundTasks = [];
+    setImmediate(() => runBG(`updateBooking_sideEffects_${id}`, async () => {
+        const backgroundTasks = [];
 
-            // 1. Recalc outstanding if financials changed
-            if (req.body.totalAmount !== undefined || req.body.amount !== undefined) {
-                backgroundTasks.push(recalcOutstanding(id));
-            }
-
-            // 2. Sync with Legacy PrimaryContact if needed
-            if (booking.primaryContactId && (req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined)) {
-                const legacyUpdate: any = {};
-                if (req.body.requirements !== undefined) legacyUpdate.requirements = req.body.requirements;
-                if (req.body.interested !== undefined) legacyUpdate.interested = req.body.interested === 'Yes';
-                if (req.body.bookingType !== undefined) legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
-                backgroundTasks.push(PrimaryContact.findByIdAndUpdate(booking.primaryContactId, legacyUpdate));
-            }
-
-            // 3. Log Activity
-            backgroundTasks.push(Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'BOOKING_UPDATED',
-                details: 'Booking details were modified.',
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            }));
-
-            await Promise.all(backgroundTasks);
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] updateBooking side-effects failed:', err);
+        // 1. Recalc outstanding if financials changed
+        if (req.body.totalAmount !== undefined || req.body.amount !== undefined) {
+            backgroundTasks.push(recalcOutstanding(id));
         }
-    });
+
+        // 2. Sync with Legacy PrimaryContact if needed
+        if (booking.primaryContactId && (req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined)) {
+            const legacyUpdate: any = {};
+            if (req.body.requirements !== undefined) legacyUpdate.requirements = req.body.requirements;
+            if (req.body.interested !== undefined) legacyUpdate.interested = req.body.interested === 'Yes';
+            if (req.body.bookingType !== undefined) legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
+            backgroundTasks.push(PrimaryContact.findByIdAndUpdate(booking.primaryContactId, legacyUpdate));
+        }
+
+        // 3. Log Activity
+        backgroundTasks.push(Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'BOOKING_UPDATED',
+            details: 'Booking details were modified.',
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        }));
+
+        await Promise.all(backgroundTasks);
+        invalidateBookingCaches();
+    }));
 
 });
 
@@ -746,7 +756,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const updatedBooking = await Booking.findByIdAndUpdate(
         id,
         { status, lastInteractionAt: new Date() },
-        { new: true }
+        { returnDocument: 'after' }
     ).lean();
 
     if (!updatedBooking) {
@@ -767,37 +777,35 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         }
     }
 
+    // ✅ BUST CACHE IMMEDIATELY (Synchronous)
+    appCache.del(`booking_${id}`);
+    invalidateBookingCaches();
+
     // ✅ RESPOND IMMEDIATELY
     res.json(updatedBooking);
 
     // ✅ BACKGROUND side effects
-    setImmediate(async () => {
-        try {
-            await Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'STATUS_CHANGE',
-                details: `Status updated to ${status}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
-            
-            if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
-                const creator = await User.findById(updatedBooking.createdByUserId);
-                if (creator?.role === 'MARKETER') {
-                    await Notification.create({
-                        userId: updatedBooking.createdByUserId,
-                        bookingId: id,
-                        message: `Status of your lead ${updatedBooking.destination} updated to ${status}.`,
-                    });
-                }
+    setImmediate(() => runBG(`updateStatus_sideEffects_${id}`, async () => {
+        await Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'STATUS_CHANGE',
+            details: `Status updated to ${status}`,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+        
+        if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
+            const creator = await User.findById(updatedBooking.createdByUserId);
+            if (creator?.role === 'MARKETER') {
+                await Notification.create({
+                    userId: updatedBooking.createdByUserId,
+                    bookingId: id,
+                    message: `Status of your lead ${updatedBooking.destination} updated to ${status}.`,
+                });
             }
-
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] updateBookingStatus side-effects failed:', err);
         }
-    });
+    }));
 });
 
 
@@ -907,7 +915,10 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
 
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
     invalidateBookingCaches();
+
     res.json(updatedBooking);
 });
 
@@ -1076,6 +1087,8 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         });
     }
 
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
     invalidateBookingCaches();
     res.status(201).json(timeline);
 });
@@ -1145,6 +1158,8 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
 
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
     res.status(201).json(createdPassengers);
 
     // BACKGROUND: Logging and cache invalidation
@@ -1210,24 +1225,22 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
     const totalTime = Date.now() - startTime;
     console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
 
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
     res.json(createdPassengers);
 
     // BACKGROUND: Logging and cache invalidation
-    setImmediate(async () => {
-        try {
-            await Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'PASSENGERS_UPDATED',
-                details: `Updated details for ${passengersData.length} travelers.`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] updatePassengers side-effects failed:', err);
-        }
-    });
+    setImmediate(() => runBG(`updatePassengers_sideEffects_${id}`, async () => {
+        await Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'PASSENGERS_UPDATED',
+            details: `Updated details for ${passengersData.length} travelers.`,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+        invalidateBookingCaches();
+    }));
 });
 
 // @desc    Add a payment to a booking
@@ -1271,28 +1284,25 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         bookingId: id,
     });
 
+    // ✅ BUST CACHE IMMEDIATELY
+    appCache.del(`booking_${id}`);
     res.status(201).json(payment);
 
     // BACKGROUND: Payment side effects
-    setImmediate(async () => {
-        try {
-            await Promise.all([
-                recalcOutstanding(id),
-                Timeline.create({
-                    bookingId: id,
-                    userId: req.user?.id,
-                    type: 'activity',
-                    action: 'PAYMENT_ADDED',
-                    details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
-                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-                })
-            ]);
-
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] addPayment side-effects failed:', err);
-        }
-    });
+    setImmediate(() => runBG('addPayment_sideEffects', async () => {
+        await Promise.all([
+            recalcOutstanding(id),
+            Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PAYMENT_ADDED',
+                details: `Recorded payment of ${result.data.amount} via ${result.data.paymentMethod}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            })
+        ]);
+        invalidateBookingCaches();
+    }));
 
 });
 
@@ -1355,25 +1365,21 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     res.json({ message: 'Payment removed successfully' });
 
     // BACKGROUND: Payment removal side effects
-    setImmediate(async () => {
-        try {
-            await Promise.all([
-                recalcOutstanding(id),
-                Timeline.create({
-                    bookingId: id,
-                    userId: req.user?.id,
-                    type: 'activity',
-                    action: 'PAYMENT_DELETED',
-                    details: `Removed payment of ${payment.amount}`,
-                    expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-                })
-            ]);
+    setImmediate(() => runBG(`deletePayment_sideEffects_${id}`, async () => {
+        await Promise.all([
+            recalcOutstanding(id),
+            Timeline.create({
+                bookingId: id,
+                userId: req.user?.id,
+                type: 'activity',
+                action: 'PAYMENT_DELETED',
+                details: `Removed payment of ${payment.amount}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            })
+        ]);
 
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] deletePayment side-effects failed:', err);
-        }
-    });
+        invalidateBookingCaches();
+    }));
 
 });
 
@@ -1450,32 +1456,28 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
     });
 
     // BACKGROUND: Logging and notifications
-    setImmediate(async () => {
-        try {
-            // Log activity
-            await Timeline.create({
+    setImmediate(() => runBG(`verifyBooking_sideEffects_${id}`, async () => {
+        // Log activity
+        await Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'BOOKING_VERIFIED',
+            details: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+
+        // Notify assigned agent if verified
+        if (isVerified && booking.assignedToUserId) {
+            await Notification.create({
+                userId: booking.assignedToUserId,
                 bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'BOOKING_VERIFIED',
-                details: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                message: `Your booking ${booking.uniqueCode} has been verified by the Accounts team.`,
             });
-
-            // Notify assigned agent if verified
-            if (isVerified && booking.assignedToUserId) {
-                await Notification.create({
-                    userId: booking.assignedToUserId,
-                    bookingId: id,
-                    message: `Your booking ${booking.uniqueCode} has been verified by the Accounts team.`,
-                });
-            }
-
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] verifyBooking side-effects failed:', err);
         }
-    });
+
+        invalidateBookingCaches();
+    }));
 });
 
 // @desc    Get activity log for a booking

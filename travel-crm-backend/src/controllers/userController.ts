@@ -37,7 +37,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedAgents, 600); // 10 minute TTL — agents rarely change
+    appCache.set(cacheKey, mappedAgents, 120); // Reduced to 120s as per audit
     res.json(mappedAgents);
 });
 
@@ -69,7 +69,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedUsers, 600); // 10 minute TTL
+    appCache.set(cacheKey, mappedUsers, 60); // Reduced to 60s as per audit
     res.json(mappedUsers);
 });
 
