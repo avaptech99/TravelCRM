@@ -276,7 +276,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
             .sort(sortQuery as any)
-
             .skip(cursor ? 0 : (pageNum - 1) * limitNum)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
@@ -292,11 +291,11 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         createdOn: b.createdAt,
         contactPerson: b.contact?.name,
         contactNumber: b.contact?.phone,
-        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        bookingType: b.contact?.type,
         interested: b.contact?.interested ? 'Yes' : 'No',
         destinationCity: b.destination,
         assignedToUser: b.assignedToUserId,
-        createdByUser: b.createdByUserId, // FIXED: Added createdByUser for leads table
+        createdByUser: b.createdByUserId,
     }));
 
     const nextCursor = rawBookings.length === limitNum 
@@ -392,7 +391,6 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const booking = await Booking.findById(id)
             .populate('assignedToUserId', 'name role')
             .populate('createdByUserId', 'name role')
-            .populate('primaryContact')
             .populate('passengers')
             .populate('payments')
             .populate({
@@ -412,13 +410,13 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             ...booking,
             id: booking._id.toString(),
             createdOn: booking.createdAt,
-            outstanding,
-            contactPerson: (booking as any).primaryContact?.contactName,
-            contactNumber: (booking as any).primaryContact?.contactPhoneNo,
-            contactEmail: (booking as any).primaryContact?.contactEmail,
-            requirements: (booking as any).primaryContact?.requirements,
-            interested: (booking as any).primaryContact?.interested,
-            bookingType: (booking as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            outstanding: outstanding || 0,
+            contactPerson: booking.contact?.name,
+            contactNumber: booking.contact?.phone,
+            contactEmail: booking.contact?.email,
+            requirements: booking.contact?.requirements,
+            interested: booking.contact?.interested ? 'Yes' : 'No',
+            bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
             travelers: (booking as any).passengers,
@@ -542,7 +540,9 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         contact: {
             name: primaryContact.contactName,
             phone: primaryContact.contactPhoneNo,
-            type: primaryContact.bookingType,
+            email: primaryContact.contactEmail || null,
+            type: result.data.bookingType === 'B2B' ? 'B2B' : 'B2C',
+            requirements: primaryContact.requirements || null,
             interested: primaryContact.interested,
         },
         destination: finalDestination,
@@ -644,10 +644,14 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     const updateData: any = { ...req.body, lastInteractionAt: new Date() };
     
     // Sync embedded contact snapshot if provided
-    if (req.body.interested !== undefined || req.body.bookingType !== undefined) {
+    if (req.body.contactPerson !== undefined || req.body.contactNumber !== undefined || req.body.contactEmail !== undefined || req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined) {
         updateData.contact = { ...(booking.contact || {}) };
+        if (req.body.contactPerson !== undefined) updateData.contact.name = req.body.contactPerson;
+        if (req.body.contactNumber !== undefined) updateData.contact.phone = req.body.contactNumber;
+        if (req.body.contactEmail !== undefined) updateData.contact.email = req.body.contactEmail;
+        if (req.body.requirements !== undefined) updateData.contact.requirements = req.body.requirements;
         if (req.body.interested !== undefined) updateData.contact.interested = req.body.interested === 'Yes';
-        if (req.body.bookingType !== undefined) updateData.contact.type = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
+        if (req.body.bookingType !== undefined) updateData.contact.type = req.body.bookingType === 'B2B' ? 'B2B' : 'B2C';
     }
 
     // Handle segments specifically if present
@@ -678,7 +682,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         contactPerson: updatedBooking.contact?.name,
         contactNumber: updatedBooking.contact?.phone,
         interested: updatedBooking.contact?.interested ? 'Yes' : 'No',
-        bookingType: updatedBooking.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        bookingType: updatedBooking.contact?.type,
         destinationCity: updatedBooking.destination,
         createdByUser: updatedBooking.createdByUserId,
         assignedToUser: updatedBooking.assignedToUserId,

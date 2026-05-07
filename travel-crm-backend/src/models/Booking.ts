@@ -48,7 +48,9 @@ export interface IBooking extends Document {
     contact: {
         name: string;
         phone: string;
+        email?: string | null;
         type: string;
+        requirements?: string | null;
         interested: boolean;
     };
     createdAt: Date;
@@ -61,7 +63,9 @@ const bookingSchema = new Schema<IBooking>(
         contact: {
             name: { type: String },
             phone: { type: String },
+            email: { type: String },
             type: { type: String },
+            requirements: { type: String },
             interested: { type: Boolean, default: false },
         },
         uniqueCode: { type: String, unique: true },

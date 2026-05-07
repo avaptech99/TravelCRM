@@ -318,6 +318,14 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         segments,
         travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
+        contact: {
+            name: finalName,
+            phone: contactNumber,
+            email: contactEmail || null,
+            type: 'B2C',
+            requirements: detailedRequirements.trim() || null,
+            interested: false
+        },
         createdByUserId: websiteLeadUser._id,
         assignedToUserId: null,
     });
