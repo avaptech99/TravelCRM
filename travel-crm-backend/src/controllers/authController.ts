@@ -13,8 +13,8 @@ import { createTimer } from '../utils/perfLogger';
 // @route   POST /api/auth/login
 export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('loginUser');
-    t.mark('validate');
     const result = loginSchema.safeParse(req.body);
+    t.mark('validate');
 
     if (!result.success) {
         t.end({ error: 'Invalid input' });
@@ -24,31 +24,32 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
     const { email, password } = result.data;
 
-    t.mark('dbQuery');
     // Find user by email - use lean() for performance and select only needed fields
     const user = await User.findOne({ email })
         .select('passwordHash name email role groups')
         .lean();
+    t.mark('dbQuery');
 
     // Verify user exists and password matches
     if (user) {
-        t.mark('bcryptVerify');
         const isMatch = await matchPassword(password, user.passwordHash);
+        t.mark('bcryptVerify');
 
         if (isMatch) {
-            t.mark('passwordUpgradeCheck');
-            // Migrate to 8 rounds if currently higher
+            // Migrate to 10 rounds if currently different
             if (needsUpgrade(user.passwordHash)) {
                 const newHash = await hashPassword(password);
                 await User.findByIdAndUpdate(user._id, { passwordHash: newHash });
                 console.log(`[AUTH] Upgraded password hash rounds for ${user.email}`);
             }
+            t.mark('passwordUpgradeCheck');
 
             // Update user's online status
             await User.findByIdAndUpdate(user._id, {
                 isOnline: true,
                 lastSeen: new Date()
             });
+            t.mark('dbUpdateStatus');
 
             t.end({ email: user.email, role: user.role });
             res.json({

@@ -5,6 +5,7 @@ import Notification from '../models/Notification';
 import User from '../models/User';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
+import { createTimer } from '../utils/perfLogger';
 
 // Request deduplication for sync fetches
 const syncFetchInFlight = new Map<string, Promise<any>>();
@@ -13,12 +14,14 @@ const syncFetchInFlight = new Map<string, Promise<any>>();
 // @route   GET /api/sync
 // @access  Private
 export const getGlobalSync = asyncHandler(async (req: Request, res: Response) => {
+    const t = createTimer('getGlobalSync');
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
     const cacheKey = `sync_${userId || 'all'}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
@@ -28,6 +31,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         try {
             console.log(`[DEDUPLICATED] Sync request for ${userId} served from in-flight promise`);
             const data = await syncFetchInFlight.get(cacheKey);
+            t.end({ source: 'deduplicated' });
             res.json(data);
             return;
         } catch (err) {
@@ -48,6 +52,10 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             recentQuery.createdByUserId = userId;
         }
 
+        // Fix #2: Only fetch bookings modified in the last 24 hours for "recent" list
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        recentQuery.updatedAt = { $gte: since };
+
         // Run all queries
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking.aggregate([
@@ -65,7 +73,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             ]),
             Booking.find(recentQuery)
                 .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
-                .sort({ createdAt: -1 })
+                .sort({ updatedAt: -1 }) // Sort by modified date for "sync"
                 .limit(5)
                 .populate('assignedToUserId', 'name')
                 .lean(),
@@ -75,6 +83,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
                 .lean(),
             userRole === 'ADMIN' ? User.countDocuments({ role: 'AGENT' }) : Promise.resolve(0)
         ]);
+        t.mark('dbQuery');
 
         const stats = statsResult.length > 0 ? {
             total: statsResult[0].total,
@@ -107,7 +116,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             id: (n as any)._id.toString(),
         }));
 
-        return {
+        const response = {
             stats: {
                 ...stats,
                 agents: agentsCount,
@@ -115,12 +124,15 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
         };
+        t.mark('formatResponse');
+        return response;
     })();
 
     syncFetchInFlight.set(cacheKey, fetchPromise);
 
     try {
         const result = await fetchPromise;
+        t.end({ source: 'db', bookingsCount: result.recentBookings.length });
         appCache.set(cacheKey, result, 120); // Increased to 120s as per audit
         res.json(result);
     } finally {

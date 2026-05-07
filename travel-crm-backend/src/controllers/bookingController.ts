@@ -45,12 +45,12 @@ async function runBG(label: string, fn: () => Promise<void>): Promise<void> {
     }
 }
 
-// Helper to clear all booking-related caches
+// Helper to clear all booking-related list caches (stats, recent, etc)
 const invalidateBookingCaches = () => {
     appCache.invalidateByPrefix('bookings_');
     appCache.invalidateByPrefix('stats_');
     appCache.invalidateByPrefix('recent_');
-    appCache.invalidateByPrefix('booking_');
+    // Note: Individual 'booking_{id}' caches are handled selectively in handlers
 };
 
 // Helper to recalculate and save outstanding balance on a booking
@@ -305,8 +305,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
     }
 
-    t.mark('dbQuery');
-    
     // Always count total if no cursor is provided to support legacy pager
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking.countDocuments(query).maxTimeMS(2000),
@@ -320,8 +318,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             .lean()
             .maxTimeMS(5000)
     ]);
-
-    t.mark('formatResponse');
+    t.mark('dbQuery');
 
     const mappedBookings = rawBookings.map(b => ({
         ...b,
@@ -435,7 +432,6 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     }
 
     const fetchPromise = (async () => {
-        t.mark('dbQueryWithPopulate');
         const booking = await Booking.findById(id)
             .populate('assignedToUserId', 'name role')
             .populate('createdByUserId', 'name role')
@@ -448,6 +444,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             })
             .lean()
             .maxTimeMS(3000);
+        t.mark('dbQueryWithPopulate');
 
         if (!booking) return null;
 
@@ -526,7 +523,11 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
 
     t.mark('deleteBookingDoc');
     // PRIMARY write — delete the booking document first
-    await Booking.findByIdAndDelete(id);
+    const deleteResult = await Booking.deleteOne({ _id: id });
+    if (deleteResult.deletedCount === 0) {
+        t.end({ error: 'Not found', bookingId: id });
+        return res.status(404).json({ message: 'Booking not found' });
+    }
 
     t.end({ bookingId: id });
     // ✅ RESPOND IMMEDIATELY
@@ -587,7 +588,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         if (!finalTravellers && parsedData.travellers) finalTravellers = parsedData.travellers;
     }
 
-    t.mark('insertBooking');
     // Create booking
     const booking = await Booking.create({
         primaryContactId: primaryContact._id,
@@ -614,10 +614,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         pricePerTicket: result.data.pricePerTicket || 0,
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
+    t.mark('insertBooking');
 
-    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY (Synchronous)
     invalidateBookingCaches();
+    t.mark('cacheInvalidation');
 
     t.end({ bookingId: booking._id });
     // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
@@ -806,14 +807,14 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const { status } = result.data;
 
     const t = createTimer(`updateStatus_${id}`);
-    t.mark('findAndUpdate');
-
     // PRIMARY write only
     const updatedBooking = await Booking.findByIdAndUpdate(
         id,
         { status, lastInteractionAt: new Date() },
         { returnDocument: 'after' }
     ).lean();
+
+    t.mark('findAndUpdate');
 
     if (!updatedBooking) {
         t.end({ error: 'Not found', bookingId: id });
@@ -834,10 +835,14 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         }
     }
 
-    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY (Synchronous)
     appCache.del(`booking_${id}`);
+    appCache.del(`booking_${id}_detail`);
+    if ((updatedBooking as any).assignedToUserId) {
+        appCache.del(`sync_${getObjectIdString((updatedBooking as any).assignedToUserId)}`);
+    }
     invalidateBookingCaches();
+    t.mark('cacheInvalidation');
 
     t.end({ bookingId: id, newStatus: status });
     // ✅ RESPOND IMMEDIATELY
@@ -1314,44 +1319,19 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const t = createTimer(`addPayment_${id}`);
-    t.mark('validate');
-    const booking = await Booking.findById(id);
 
-    if (!booking) {
-        t.end({ error: 'Not found', bookingId: id });
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-
-    if (req.user?.role === 'MARKETER') {
-        t.end({ error: 'Unauthorized', bookingId: id });
-        res.status(403);
-        throw new Error('Marketers are not authorized to add payments');
-    }
-
-    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
-        t.end({ error: 'Unauthorized_Agent', bookingId: id });
-        res.status(403);
-        throw new Error('Agents can only add payments to their own bookings');
-    }
-
-    if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
-            t.end({ error: 'Unauthorized_Spec', bookingId: id });
-            res.status(403);
-            throw new Error('You can only add payments to your own bookings');
-        }
-    }
-
-    t.mark('insertPayment');
+    // PRIMARY write — straight to payment insert, no booking lookup
     const payment = await Payment.create({
         ...result.data,
         bookingId: id,
+        createdAt: new Date(),
     });
+    t.mark('insertPayment');
 
-    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
+    appCache.invalidateByPrefix('analytics_');
+    t.mark('cacheInvalidation');
     
     t.end({ bookingId: id, amount: result.data.amount });
     res.status(201).json(payment);

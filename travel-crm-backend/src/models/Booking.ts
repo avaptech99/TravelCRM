@@ -212,8 +212,18 @@ bookingSchema.index({ travelDate: 1 });
 bookingSchema.index({ company: 1 });
 
 // 10. Delta updates / Last modified index
+// 10. Delta updates / Last modified index
 bookingSchema.index({ updatedAt: -1 });
-bookingSchema.index({ _id: -1 }); // Global stable sort index
+
+// 11. Null-safe index for unassigned filters (Fix #4)
+bookingSchema.index(
+    { assignedToUserId: 1, lastInteractionAt: -1 },
+    { name: "idx_assigned_date_v2" }
+);
+
+// 12. Priority Compound Indexes
+bookingSchema.index({ status: 1, createdAt: -1 });
+bookingSchema.index({ assignedToUserId: 1, status: 1 });
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
