@@ -120,6 +120,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     syncFetchInFlight.set(cacheKey, fetchPromise);
 
     try {
+        const result = await fetchPromise;
         appCache.set(cacheKey, result, 120); // Increased to 120s as per audit
         res.json(result);
     } finally {
