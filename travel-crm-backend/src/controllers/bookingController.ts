@@ -202,8 +202,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Not authorized');
     }
     const { status, assignedTo, group, search, fromDate, toDate, travelDateFilter, myBookings, outstandingOnly, page = 1, limit = 15, cursor } = req.query;
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
+    
+    // pageNum and limitNum are declared later during pagination logic
 
     // FIX #7: Distinguish between user-specific and shared global queries
     const isUserSpecific = myBookings === 'true' || !!assignedTo || (req.user?.role !== 'ADMIN' && !group);
@@ -1006,6 +1006,11 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
+
+    if (!updatedBooking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
 
     // ✅ WRITE-THROUGH (Fix #6)
     refreshBookingCache(id);
