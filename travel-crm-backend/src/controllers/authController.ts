@@ -11,7 +11,7 @@ import { createTimer } from '../utils/perfLogger';
 // @access  Public
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
-// @access  Public
+export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('loginUser');
     t.mark('validate');
     const result = loginSchema.safeParse(req.body);
