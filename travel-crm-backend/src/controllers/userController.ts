@@ -25,11 +25,11 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         return;
     }
 
-    t.mark('dbQuery');
     const agents = await User.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
         .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
+    t.mark('dbQuery');
 
     t.mark('formatResponse');
     const now = Date.now();
@@ -64,11 +64,11 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
         return;
     }
 
-    t.mark('dbQuery');
     const users = await User.find()
         .select('name email role lastSeen createdAt groups')
         .sort({ role: 1, createdAt: -1 })
         .lean();
+    t.mark('dbQuery');
 
     t.mark('formatResponse');
     const now = Date.now();
@@ -122,7 +122,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('User already exists');
     }
 
-    const passwordHash = await bcrypt.hash(password, 8);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await User.create({
         name,
@@ -208,7 +208,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
         throw new Error('Current password is incorrect');
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 8);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.json({ message: 'Password changed successfully' });
@@ -286,7 +286,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
             res.status(400);
             throw new Error('Password must be at least 6 characters');
         }
-        user.passwordHash = await bcrypt.hash(password, 8);
+        user.passwordHash = await bcrypt.hash(password, 10);
     }
 
     await user.save();

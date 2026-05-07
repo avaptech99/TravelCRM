@@ -20,6 +20,7 @@ import {
     createPaymentSchema,
 } from '../types';
 import { extractTravelInfo } from '../utils/extractTravelInfo';
+import { refreshBookingCache } from '../utils/bookingCache';
 
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map<string, Promise<any>>();
@@ -200,15 +201,19 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder } = req.query;
+    const { status, assignedTo, group, search, fromDate, toDate, travelDateFilter, myBookings, outstandingOnly, page = 1, limit = 15, cursor } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
 
-
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
+    // FIX #7: Distinguish between user-specific and shared global queries
+    const isUserSpecific = myBookings === 'true' || !!assignedTo || (req.user?.role !== 'ADMIN' && !group);
+    const userPart = isUserSpecific ? req.user?.id : 'shared';
+    
+    const cacheKey = `bookings_${userPart}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
     
     const t = createTimer('getBookings');
-    t.mark('checkCache');
-
     const cached = appCache.get(cacheKey);
+    t.mark('checkCache');
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -291,12 +296,14 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
 
-    // 3. Pagination Logic (O(1) cursor-based)
+    // 3. Pagination Logic (Support both skip and cursor)
     t.mark('parseFilters');
 
-    const limitNum = Math.min(parseInt(limit as string, 10), 50);
-    const sortField = '_id'; // Force stable _id sort for cursor consistency
-    const sortDir = -1; // Newest first
+    const limitNum = Math.min(parseInt(limit as string, 10), 100);
+    const pageNum = Math.max(parseInt(page as string, 10), 1);
+    const skipNum = (pageNum - 1) * limitNum;
+    const sortField = '_id'; 
+    const sortDir = -1; 
     const sortQuery = { [sortField]: sortDir };
 
     if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {
@@ -305,12 +312,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     t.mark('dbQuery');
     
-    // Only count total on first page request to save DB resources
+    // Always count total if no cursor is provided to support legacy pager
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking.countDocuments(query).maxTimeMS(2000),
         Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
             .sort(sortQuery as any)
+            .skip(cursor ? 0 : skipNum)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
             .populate('createdByUserId', 'name')
@@ -337,17 +345,21 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         ? rawBookings[rawBookings.length - 1]._id.toString()
         : null;
 
+    const totalPages = Math.ceil(total / limitNum);
+
     const result = {
         data: mappedBookings,
         nextCursor,
         meta: {
             total: cursor ? undefined : total,
+            totalPages: cursor ? undefined : totalPages,
+            page: pageNum,
             limit: limitNum,
             hasMore: !!nextCursor
         },
     };
 
-    t.end({ page: cursor ? 'cursor' : '1', limit: limitNum, total, returned: mappedBookings.length });
+    t.end({ page: cursor ? 'cursor' : pageNum, limit: limitNum, total, returned: mappedBookings.length });
     appCache.set(cacheKey, result, 60);
     res.setHeader('X-Cache-Status', 'MISS');
     res.json(result);
@@ -539,7 +551,11 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
         }
 
         await Promise.all(cleanupTasks);
-        invalidateBookingCaches();
+        // Surgical invalidation (Fix #6)
+        appCache.invalidateByPrefix('bookings_');
+        appCache.invalidateByPrefix('stats_');
+        appCache.del(`sync_${booking.createdByUserId}`);
+        if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
     }));
 });
 
@@ -609,8 +625,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     });
 
     t.mark('cacheInvalidation');
-    // ✅ BUST CACHE IMMEDIATELY (Synchronous)
-    invalidateBookingCaches();
+    // ✅ WRITE-THROUGH (Fix #6)
+    // New booking doesn't exist in cache, but we invalidate lists & sync
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.del(`sync_${req.user?.id}`);
 
     t.end({ bookingId: booking._id });
     // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
@@ -730,9 +749,22 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Booking not found after update');
     }
 
-    // ✅ BUST CACHE IMMEDIATELY
-    appCache.del(`booking_${id}`);
-    invalidateBookingCaches();
+    // Surgical invalidation (Fix #6)
+    refreshBookingCache(id);
+    appCache.del(`sync_${booking.createdByUserId}`);
+    if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
+    
+    // If travelDate changed, invalidate calendar (Fix #4)
+    if (req.body.travelDate) {
+        appCache.invalidateByPrefix('calendar_');
+    }
+    // If status or other list-affecting fields changed, invalidate list
+    if (req.body.status || req.body.assignedToUserId || req.body.assignedGroup) {
+        appCache.invalidateByPrefix('bookings_');
+        appCache.invalidateByPrefix('stats_');
+    }
+
+    t.end({ bookingId: id });
 
     // ✅ RESPOND IMMEDIATELY
     const responseData = {
@@ -778,7 +810,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         }));
 
         await Promise.all(backgroundTasks);
-        invalidateBookingCaches();
+        // Surgical invalidation (Fix #6)
+        refreshBookingCache(id);
+        appCache.del(`sync_${updatedBooking.createdByUserId}`);
+        if (updatedBooking.assignedToUserId) appCache.del(`sync_${updatedBooking.assignedToUserId}`);
     }));
 
 });
@@ -828,9 +863,14 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     t.mark('cacheInvalidation');
-    // ✅ BUST CACHE IMMEDIATELY (Synchronous)
-    appCache.del(`booking_${id}`);
-    invalidateBookingCaches();
+    // ✅ WRITE-THROUGH (Fix #2)
+    refreshBookingCache(id);
+    
+    // SURGICAL INVALIDATION (Fix #6)
+    appCache.invalidateByPrefix('bookings_'); // List depends on status
+    appCache.invalidateByPrefix('stats_');
+    appCache.del(`sync_${updatedBooking.createdByUserId}`);
+    if (updatedBooking.assignedToUserId) appCache.del(`sync_${updatedBooking.assignedToUserId}`);
 
     t.end({ bookingId: id, newStatus: status });
     // ✅ RESPOND IMMEDIATELY
@@ -967,9 +1007,12 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
 
-    // ✅ BUST CACHE IMMEDIATELY
-    appCache.del(`booking_${id}`);
-    invalidateBookingCaches();
+    // ✅ WRITE-THROUGH (Fix #6)
+    refreshBookingCache(id);
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.del(`sync_${updatedBooking.createdByUserId}`);
+    if (updatedBooking.assignedToUserId) appCache.del(`sync_${updatedBooking.assignedToUserId}`);
 
     res.json(updatedBooking);
 });
@@ -1011,7 +1054,11 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     );
 
     t.mark('cacheInvalidation');
-    invalidateBookingCaches();
+    // Surgical invalidation (Fix #6)
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.del(`sync_${req.user?.id}`);
+    if (newAgentId) appCache.del(`sync_${newAgentId}`);
     bookingIds.forEach((id: string) => appCache.del(`booking_${id}`));
 
     t.end({ count: bookingIds.length, agentId: newAgentId });
@@ -1039,7 +1086,11 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
                 notificationEntries.length > 0 ? Notification.insertMany(notificationEntries) : Promise.resolve()
             ]);
             
-            invalidateBookingCaches();
+            // Surgical invalidation (Fix #6)
+            appCache.invalidateByPrefix('bookings_');
+            appCache.invalidateByPrefix('stats_');
+            if (newAgentId) appCache.del(`sync_${newAgentId}`);
+            appCache.del(`sync_${req.user?.id}`);
         } catch (err) {
             console.error('[BulkAssign Background Error]:', err);
         }
@@ -1084,7 +1135,10 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
         ]);
     }
 
-    invalidateBookingCaches();
+    // Surgical invalidation (Fix #6)
+    appCache.invalidateByPrefix('bookings_');
+    appCache.invalidateByPrefix('stats_');
+    appCache.del(`sync_${req.user?.id}`);
     res.json({ message: `Successfully deleted ${bookings.length} bookings` });
 });
 // @desc    Add comment to a booking
@@ -1137,10 +1191,15 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         });
     }
 
-    // ✅ BUST CACHE IMMEDIATELY
-    appCache.del(`booking_${id}`);
-    invalidateBookingCaches();
-    res.status(201).json(timeline);
+    // Write-through (Fix #2)
+    refreshBookingCache(id);
+    
+    res.status(201).json({
+        id: timeline._id,
+        text: timeline.text,
+        user: req.user.name,
+        createdAt: timeline.createdAt,
+    });
 });
 
 // @desc    Get comments for a booking
@@ -1224,7 +1283,10 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
                 details: `Added ${passengersData.length} travelers to the booking.`,
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
             });
-            invalidateBookingCaches();
+            // Surgical invalidation (Fix #6)
+            refreshBookingCache(id);
+            appCache.del(`sync_${booking.createdByUserId}`);
+            if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
         } catch (err) {
             console.error('[Background] addPassengers side-effects failed:', err);
         }
@@ -1290,7 +1352,10 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
             details: `Updated details for ${passengersData.length} travelers.`,
             expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
         });
-        invalidateBookingCaches();
+        // Surgical invalidation (Fix #6)
+        refreshBookingCache(id);
+        appCache.del(`sync_${booking.createdByUserId}`);
+        if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
     }));
 });
 
@@ -1336,15 +1401,15 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
-    t.mark('insertPayment');
     const payment = await Payment.create({
         ...result.data,
         bookingId: id,
     });
+    t.mark('insertPayment');
 
-    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
+    t.mark('cacheInvalidation');
     
     t.end({ bookingId: id, amount: result.data.amount });
     res.status(201).json(payment);
@@ -1362,7 +1427,11 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
             })
         ]);
-        invalidateBookingCaches();
+        
+        // Surgical invalidation (Fix #6)
+        refreshBookingCache(id);
+        appCache.del(`sync_${booking.createdByUserId}`);
+        if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
     }));
 
 });
@@ -1449,7 +1518,10 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
             })
         ]);
 
-        invalidateBookingCaches();
+        // Surgical invalidation (Fix #6)
+        refreshBookingCache(id);
+        appCache.del(`sync_${booking.createdByUserId}`);
+        if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
     }));
 
 });
@@ -1461,6 +1533,15 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     const { month, year } = req.query;
     const m = parseInt(month as string) || (new Date().getMonth() + 1);
     const y = parseInt(year as string) || new Date().getFullYear();
+
+    // FIX #4: Cache calendar response (shared across all users)
+    const cacheKey = `calendar_${y}_${m}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        res.setHeader('X-Cache-Status', 'HIT');
+        res.json(cached);
+        return;
+    }
 
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59);
@@ -1485,6 +1566,8 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
         destination: b.destination || '',
     }));
 
+    appCache.set(cacheKey, events, 300); // 5 minute TTL
+    res.setHeader('X-Cache-Status', 'MISS');
     res.json(events);
 });
 
@@ -1547,7 +1630,10 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
             });
         }
 
-        invalidateBookingCaches();
+        // Surgical invalidation (Fix #6)
+        refreshBookingCache(id);
+        appCache.del(`sync_${booking.createdByUserId}`);
+        if (booking.assignedToUserId) appCache.del(`sync_${booking.assignedToUserId}`);
     }));
 });
 

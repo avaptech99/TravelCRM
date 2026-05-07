@@ -17,21 +17,24 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     const userRole = req.user?.role;
 
     const cacheKey = `sync_${userId || 'all'}`;
+    
+    // 1. Check Cache First (Fix #1)
     const cached = appCache.get(cacheKey);
     if (cached) {
+        res.setHeader('X-Cache-Status', 'HIT');
         res.json(cached);
         return;
     }
 
-    // Backend Request Deduplication
+    // 2. Request Deduplication (Fix #1)
     if (syncFetchInFlight.has(cacheKey)) {
         try {
-            console.log(`[DEDUPLICATED] Sync request for ${userId} served from in-flight promise`);
             const data = await syncFetchInFlight.get(cacheKey);
+            res.setHeader('X-Cache-Status', 'DEDUPLICATED');
             res.json(data);
             return;
         } catch (err) {
-            // fall through
+            // fall through to fresh fetch
         }
     }
 
@@ -39,6 +42,9 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         const statsQuery: any = {};
         const recentQuery: any = {};
 
+        // Only fetch/count bookings from the last 24 hours for sync to keep it lightweight
+        const syncSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
         if (userRole === 'AGENT') {
             const objId = new mongoose.Types.ObjectId(userId);
             statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
@@ -46,9 +52,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         } else if (userRole === 'MARKETER') {
             statsQuery.createdByUserId = new mongoose.Types.ObjectId(userId);
             recentQuery.createdByUserId = userId;
+        } else if (userRole === 'ADMIN') {
+            statsQuery.updatedAt = { $gte: syncSince };
+            recentQuery.updatedAt = { $gte: syncSince };
         }
 
-        // Run all queries
+        // Run all queries in parallel (Fix #1)
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking.aggregate([
                 { $match: statsQuery },
@@ -69,7 +78,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
                 .limit(5)
                 .populate('assignedToUserId', 'name')
                 .lean(),
-            Notification.find({ userId })
+            Notification.find({ userId, isDismissed: false }) // Filter dismissed
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean(),
@@ -84,23 +93,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             sent: statsResult[0].sent,
         } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-        const mappedBookings = (recentBookings as any[]).map(b => {
-            const contactName = b.contact?.name || 'Unknown';
-            const contactPhone = b.contact?.phone || '';
-            const contactType = b.contact?.type || 'B2C';
-            const contactInterested = b.contact?.interested ?? false;
-
-            return {
-                ...b,
-                id: b._id.toString(),
-                contactPerson: contactName,
-                contactNumber: contactPhone,
-                bookingType: contactType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-                interested: contactInterested ? 'Yes' : 'No',
-                destinationCity: b.destination,
-                travellers: b.travellers,
-            };
-        });
+        const mappedBookings = (recentBookings as any[]).map(b => ({
+            ...b,
+            id: b._id.toString(),
+            contactPerson: b.contact?.name || 'Unknown',
+            destinationCity: b.destination,
+        }));
 
         const mappedNotifications = notifications.map(n => ({
             ...n,
@@ -108,12 +106,10 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         }));
 
         return {
-            stats: {
-                ...stats,
-                agents: agentsCount,
-            },
+            stats: { ...stats, agents: agentsCount },
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
+            syncedAt: new Date()
         };
     })();
 
@@ -121,7 +117,9 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
 
     try {
         const result = await fetchPromise;
-        appCache.set(cacheKey, result, 120); // Increased to 120s as per audit
+        // Cache for 30 seconds (Fix #1) - balanced for real-time feel vs load
+        appCache.set(cacheKey, result, 30); 
+        res.setHeader('X-Cache-Status', 'MISS');
         res.json(result);
     } finally {
         syncFetchInFlight.delete(cacheKey);

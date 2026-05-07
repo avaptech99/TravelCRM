@@ -56,7 +56,8 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
             id: n._id.toString()
         }));
 
-        appCache.set(cacheKey, mapped, 60); // Reduced to 1 minute for better real-time feel under single-flight
+        const jitter = Math.floor(Math.random() * 15);
+        appCache.set(cacheKey, mapped, 60 + jitter); // Added jitter (Fix #3)
         return mapped;
     })();
 

@@ -56,7 +56,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
 
     res.json(stats[0]);
 
-    appCache.set(cacheKey, stats[0], 120); // Reduced to 120s
+    appCache.set(cacheKey, stats[0], 600); // 10 minute TTL (Fix #5)
 });
 
 // @desc    Get payment and revenue analytics
@@ -145,7 +145,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    appCache.set(cacheKey, result, 120); // Reduced to 120s
+    appCache.set(cacheKey, result, 600); // 10 minute TTL (Fix #5)
 });
 
 // @desc    Get revenue trends over time
@@ -190,7 +190,7 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
     const trends = await Payment.aggregate(pipeline);
 
     res.json(trends);
-    appCache.set(cacheKey, trends, 120); 
+    appCache.set(cacheKey, trends, 600); // 10 minute TTL (Fix #5)
 });
 
 // @desc    Get agent performance analytics
@@ -268,7 +268,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
     ]);
 
     res.json(agentStats);
-    appCache.set(cacheKey, agentStats, 120); // Reduced to 120s
+    appCache.set(cacheKey, agentStats, 600); // 10 minute TTL (Fix #5)
 });
 
 // @desc    Get detailed payment breakdown (pending and received)
@@ -349,7 +349,6 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         totalReceived
     };
 
-
     res.json(result);
-    appCache.set(cacheKey, result, 120); // Reduced to 120s
+    appCache.set(cacheKey, result, 600); // 10 minute TTL (Fix #5)
 });

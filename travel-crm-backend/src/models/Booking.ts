@@ -182,7 +182,7 @@ bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
 bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
 
 // 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
-bookingSchema.index({ status: 1, _id: -1 });
+bookingSchema.index({ status: 1, createdAt: -1 });
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
 
 // 4b. Status + EDT filter (Fixes 21s query)
@@ -191,9 +191,9 @@ bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
 
 
 // 5. Creator and Assignee queries (Fixes 13s - 40s spikes)
-bookingSchema.index({ assignedToUserId: 1, _id: -1 });
-bookingSchema.index({ createdByUserId: 1, _id: -1 });
-bookingSchema.index({ assignedGroup: 1, _id: -1 });
+bookingSchema.index({ assignedToUserId: 1, createdAt: -1 });
+bookingSchema.index({ createdByUserId: 1, createdAt: -1 });
+bookingSchema.index({ assignedGroup: 1, createdAt: -1 });
 
 // 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
 bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
@@ -213,7 +213,6 @@ bookingSchema.index({ company: 1 });
 
 // 10. Delta updates / Last modified index
 bookingSchema.index({ updatedAt: -1 });
-bookingSchema.index({ _id: -1 }); // Global stable sort index
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
