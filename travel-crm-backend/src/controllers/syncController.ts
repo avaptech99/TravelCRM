@@ -17,24 +17,21 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     const userRole = req.user?.role;
 
     const cacheKey = `sync_${userId || 'all'}`;
-    
-    // 1. Check Cache First (Fix #1)
     const cached = appCache.get(cacheKey);
     if (cached) {
-        res.setHeader('X-Cache-Status', 'HIT');
         res.json(cached);
         return;
     }
 
-    // 2. Request Deduplication (Fix #1)
+    // Backend Request Deduplication
     if (syncFetchInFlight.has(cacheKey)) {
         try {
+            console.log(`[DEDUPLICATED] Sync request for ${userId} served from in-flight promise`);
             const data = await syncFetchInFlight.get(cacheKey);
-            res.setHeader('X-Cache-Status', 'DEDUPLICATED');
             res.json(data);
             return;
         } catch (err) {
-            // fall through to fresh fetch
+            // fall through
         }
     }
 
@@ -53,11 +50,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             statsQuery.createdByUserId = new mongoose.Types.ObjectId(userId);
             recentQuery.createdByUserId = userId;
         } else if (userRole === 'ADMIN') {
+            // Even for Admins, restrict sync to recent changes
             statsQuery.updatedAt = { $gte: syncSince };
             recentQuery.updatedAt = { $gte: syncSince };
         }
 
-        // Run all queries in parallel (Fix #1)
+        // Run all queries
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking.aggregate([
                 { $match: statsQuery },
@@ -78,7 +76,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
                 .limit(5)
                 .populate('assignedToUserId', 'name')
                 .lean(),
-            Notification.find({ userId, isDismissed: false }) // Filter dismissed
+            Notification.find({ userId })
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean(),
@@ -93,12 +91,23 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             sent: statsResult[0].sent,
         } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-        const mappedBookings = (recentBookings as any[]).map(b => ({
-            ...b,
-            id: b._id.toString(),
-            contactPerson: b.contact?.name || 'Unknown',
-            destinationCity: b.destination,
-        }));
+        const mappedBookings = (recentBookings as any[]).map(b => {
+            const contactName = b.contact?.name || 'Unknown';
+            const contactPhone = b.contact?.phone || '';
+            const contactType = b.contact?.type || 'B2C';
+            const contactInterested = b.contact?.interested ?? false;
+
+            return {
+                ...b,
+                id: b._id.toString(),
+                contactPerson: contactName,
+                contactNumber: contactPhone,
+                bookingType: contactType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+                interested: contactInterested ? 'Yes' : 'No',
+                destinationCity: b.destination,
+                travellers: b.travellers,
+            };
+        });
 
         const mappedNotifications = notifications.map(n => ({
             ...n,
@@ -106,10 +115,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         }));
 
         return {
-            stats: { ...stats, agents: agentsCount },
+            stats: {
+                ...stats,
+                agents: agentsCount,
+            },
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
-            syncedAt: new Date()
         };
     })();
 
@@ -117,9 +128,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
 
     try {
         const result = await fetchPromise;
-        // Cache for 30 seconds (Fix #1) - balanced for real-time feel vs load
-        appCache.set(cacheKey, result, 30); 
-        res.setHeader('X-Cache-Status', 'MISS');
+        appCache.set(cacheKey, result, 120); // Increased to 120s as per audit
         res.json(result);
     } finally {
         syncFetchInFlight.delete(cacheKey);
