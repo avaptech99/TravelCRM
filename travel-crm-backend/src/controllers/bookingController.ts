@@ -206,8 +206,9 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
     
     const t = createTimer('getBookings');
-    const cached = appCache.get(cacheKey);
     t.mark('checkCache');
+
+    const cached = appCache.get(cacheKey);
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -1342,15 +1343,15 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
+    t.mark('insertPayment');
     const payment = await Payment.create({
         ...result.data,
         bookingId: id,
     });
-    t.mark('insertPayment');
 
+    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
-    t.mark('cacheInvalidation');
     
     t.end({ bookingId: id, amount: result.data.amount });
     res.status(201).json(payment);

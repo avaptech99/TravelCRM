@@ -39,9 +39,6 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         const statsQuery: any = {};
         const recentQuery: any = {};
 
-        // Only fetch/count bookings from the last 24 hours for sync to keep it lightweight
-        const syncSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        
         if (userRole === 'AGENT') {
             const objId = new mongoose.Types.ObjectId(userId);
             statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
@@ -49,10 +46,6 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         } else if (userRole === 'MARKETER') {
             statsQuery.createdByUserId = new mongoose.Types.ObjectId(userId);
             recentQuery.createdByUserId = userId;
-        } else if (userRole === 'ADMIN') {
-            // Even for Admins, restrict sync to recent changes
-            statsQuery.updatedAt = { $gte: syncSince };
-            recentQuery.updatedAt = { $gte: syncSince };
         }
 
         // Run all queries
