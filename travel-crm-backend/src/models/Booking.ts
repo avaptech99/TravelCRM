@@ -256,18 +256,16 @@ bookingSchema.virtual('passengers', {
 });
 
 // Pre-find hook to start timer
-bookingSchema.pre(/^find/, function (next) {
+bookingSchema.pre(/^find/, function () {
     (this as any)._queryStart = Date.now();
-    next();
 });
 
 // Post-find hook to log slow queries
-bookingSchema.post(/^find/, function (docs, next) {
+bookingSchema.post(/^find/, function () {
     const duration = Date.now() - (this as any)._queryStart;
     if (duration > 100) {
-        console.log(`[MONGOOSE SLOW] Booking.${(this as any).op} — ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
+        console.log(`[MONGOOSE SLOW] Booking.${(this as any).op} - ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
     }
-    next();
 });
 
 const Booking = mongoose.model<IBooking>('Booking', bookingSchema);

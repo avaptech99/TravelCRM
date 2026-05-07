@@ -36,6 +36,10 @@ app.use((0, compression_1.default)());
 app.use(express_1.default.json());
 // Performance monitoring middleware
 app.use(perfMonitor_1.perfMonitor);
+const pollLogger_1 = require("./middleware/pollLogger");
+const requestCounter_1 = require("./middleware/requestCounter");
+app.use(requestCounter_1.requestCounter);
+app.use(pollLogger_1.pollLogger);
 // Enable CORS
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {

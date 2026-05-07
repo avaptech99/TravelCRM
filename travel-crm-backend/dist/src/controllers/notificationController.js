@@ -7,6 +7,7 @@ exports.deleteNotification = exports.dismissAllNotifications = exports.dismissNo
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Notification_1 = __importDefault(require("../models/Notification"));
 const cache_1 = __importDefault(require("../utils/cache"));
+const perfLogger_1 = require("../utils/perfLogger");
 // Module-level map to track in-flight notification requests
 const notifInFlight = new Map();
 // @desc    Get user notifications
@@ -19,26 +20,34 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
         throw new Error('Not authorized');
     }
     const cacheKey = `notifications_${userId}`;
+    const t = (0, perfLogger_1.createTimer)(`getNotifications_${userId}`);
+    t.mark('checkCache');
     // 1. Cache hit — fastest path
     const cached = cache_1.default.get(cacheKey);
     if (cached !== undefined && cached !== null) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache', userId });
         res.json(cached);
         return;
     }
     // 2. In-flight dedup — multiple users/requests wait for the same DB query
     if (notifInFlight.has(cacheKey)) {
-        console.log(`[DEDUPLICATED] Notification request for ${userId} joined in-flight promise`);
+        t.mark('waitDeduplicated');
         const data = await notifInFlight.get(cacheKey);
+        res.setHeader('X-Cache-Status', 'DEDUPLICATED');
+        t.end({ source: 'deduplicated', userId });
         res.json(data || []);
         return;
     }
     // 3. First request — create the promise and share it
     const fetchPromise = (async () => {
+        t.mark('dbQuery');
         const notifications = await Notification_1.default.find({ userId })
             .sort({ createdAt: -1 })
             .limit(50) // increased from 20 for better user experience
-            .lean();
+            .lean()
+            .maxTimeMS(2000);
+        t.mark('formatResponse');
         const mapped = notifications.map(n => ({
             ...n,
             id: n._id.toString()
@@ -49,6 +58,8 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
     notifInFlight.set(cacheKey, fetchPromise);
     try {
         const result = await fetchPromise;
+        res.setHeader('X-Cache-Status', 'MISS');
+        t.end({ source: 'db', userId, count: result.length });
         res.json(result);
     }
     finally {

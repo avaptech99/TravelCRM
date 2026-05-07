@@ -326,6 +326,14 @@ exports.createExternalLead = (0, express_async_handler_1.default)(async (req, re
         segments,
         travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
+        contact: {
+            name: finalName,
+            phone: contactNumber,
+            email: contactEmail || null,
+            type: 'B2C',
+            requirements: detailedRequirements.trim() || null,
+            interested: false
+        },
         createdByUserId: websiteLeadUser._id,
         assignedToUserId: null,
     });

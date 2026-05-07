@@ -10,23 +10,29 @@ const Booking_1 = __importDefault(require("../models/Booking"));
 const types_1 = require("../types");
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const cache_1 = __importDefault(require("../utils/cache"));
+const perfLogger_1 = require("../utils/perfLogger");
 // ONLINE_THRESHOLD in milliseconds (5 minutes)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @desc    Get all agents
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
 exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
+    const t = (0, perfLogger_1.createTimer)('getAgents');
+    t.mark('checkCache');
     const cacheKey = 'users_agents';
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
+    t.mark('dbQuery');
     const agents = await User_1.default.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
         .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
+    t.mark('formatResponse');
     const now = Date.now();
     const mappedAgents = agents.map(a => {
         const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
@@ -37,24 +43,31 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedAgents, 600); // 10 minute TTL — agents rarely change
+    cache_1.default.set(cacheKey, mappedAgents, 120); // Reduced to 120s as per audit
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });
 // @desc    Get all users (Admin only)
 // @route   GET /api/users
 // @access  Private/Admin
 exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
+    const t = (0, perfLogger_1.createTimer)('getAllUsers');
+    t.mark('checkCache');
     const cacheKey = 'users_all';
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
+    t.mark('dbQuery');
     const users = await User_1.default.find()
         .select('name email role lastSeen createdAt groups')
         .sort({ role: 1, createdAt: -1 })
         .lean();
+    t.mark('formatResponse');
     const now = Date.now();
     const mappedUsers = users.map(u => {
         const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
@@ -65,7 +78,9 @@ exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedUsers, 600); // 10 minute TTL
+    cache_1.default.set(cacheKey, mappedUsers, 60); // Reduced to 60s as per audit
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db', count: mappedUsers.length });
     res.json(mappedUsers);
 });
 // @desc    Update user lastSeen (Heartbeat)

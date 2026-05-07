@@ -24,8 +24,11 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
         matchQuery.createdAt = {};
         if (fromDate)
             matchQuery.createdAt.$gte = new Date(fromDate);
-        if (toDate)
-            matchQuery.createdAt.$lte = new Date(toDate);
+        if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.createdAt.$lte = end;
+        }
     }
     if (company) {
         matchQuery.company = company;
@@ -52,7 +55,7 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
         }
     ]);
     res.json(stats[0]);
-    cache_1.default.set(cacheKey, stats[0], 300);
+    cache_1.default.set(cacheKey, stats[0], 120); // Reduced to 120s
 });
 // @desc    Get payment and revenue analytics
 // @route   GET /api/analytics/payments
@@ -70,8 +73,11 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         matchQuery.date = {};
         if (fromDate)
             matchQuery.date.$gte = new Date(fromDate);
-        if (toDate)
-            matchQuery.date.$lte = new Date(toDate);
+        if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.date.$lte = end;
+        }
     }
     // Total collected from Payments (Filtered by company if provided)
     const paymentPipeline = [];
@@ -105,8 +111,11 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         bookingMatch.createdAt = {};
         if (fromDate)
             bookingMatch.createdAt.$gte = new Date(fromDate);
-        if (toDate)
-            bookingMatch.createdAt.$lte = new Date(toDate);
+        if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            bookingMatch.createdAt.$lte = end;
+        }
     }
     if (company) {
         bookingMatch.company = company;
@@ -127,7 +136,7 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    cache_1.default.set(cacheKey, result, 300);
+    cache_1.default.set(cacheKey, result, 120); // Reduced to 120s
 });
 // @desc    Get revenue trends over time
 // @route   GET /api/analytics/revenue-trends
@@ -139,8 +148,12 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
     if (cached) {
         res.json(cached);
         return;
-    } // 'day' or 'month'
-    const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
+    }
+    let format = '%Y-%m';
+    if (interval === 'day')
+        format = '%Y-%m-%d';
+    if (interval === 'week')
+        format = '%G-W%V (%b)'; // e.g., 2024-W18 (May)
     const pipeline = [];
     if (company) {
         pipeline.push({
@@ -163,7 +176,7 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
     pipeline.push({ $sort: { _id: 1 } });
     const trends = await Payment_1.default.aggregate(pipeline);
     res.json(trends);
-    cache_1.default.set(cacheKey, trends, 300);
+    cache_1.default.set(cacheKey, trends, 120);
 });
 // @desc    Get agent performance analytics
 // @route   GET /api/analytics/agents
@@ -181,8 +194,11 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
         matchQuery.createdAt = {};
         if (fromDate)
             matchQuery.createdAt.$gte = new Date(fromDate);
-        if (toDate)
-            matchQuery.createdAt.$lte = new Date(toDate);
+        if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.createdAt.$lte = end;
+        }
     }
     if (company) {
         matchQuery.company = company;
@@ -235,7 +251,7 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
         { $sort: { totalRevenue: -1 } }
     ]);
     res.json(agentStats);
-    cache_1.default.set(cacheKey, agentStats, 300);
+    cache_1.default.set(cacheKey, agentStats, 120); // Reduced to 120s
 });
 // @desc    Get detailed payment breakdown (pending and received)
 // @route   GET /api/analytics/payment-breakdown
@@ -304,5 +320,5 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         totalReceived
     };
     res.json(result);
-    cache_1.default.set(cacheKey, result, 300);
+    cache_1.default.set(cacheKey, result, 120); // Reduced to 120s
 });

@@ -29,18 +29,16 @@ timelineSchema.index({ bookingId: 1, createdAt: -1 });
 timelineSchema.index({ bookingId: 1, type: 1, createdAt: -1 });
 
 // Pre-find hook to start timer
-timelineSchema.pre(/^find/, function (next) {
+timelineSchema.pre(/^find/, function () {
     (this as any)._queryStart = Date.now();
-    next();
 });
 
 // Post-find hook to log slow queries
-timelineSchema.post(/^find/, function (docs, next) {
+timelineSchema.post(/^find/, function () {
     const duration = Date.now() - (this as any)._queryStart;
     if (duration > 100) {
-        console.log(`[MONGOOSE SLOW] Timeline.${(this as any).op} — ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
+        console.log(`[MONGOOSE SLOW] Timeline.${(this as any).op} - ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
     }
-    next();
 });
 
 const Timeline = mongoose.model<ITimeline>('Timeline', timelineSchema);

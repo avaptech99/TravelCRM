@@ -53,5 +53,18 @@ const userSchema = new mongoose_1.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
+// Pre-find hook to start timer
+userSchema.pre(/^find/, function (next) {
+    this._queryStart = Date.now();
+    next();
+});
+// Post-find hook to log slow queries
+userSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - this._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] User.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+    }
+    next();
+});
 const User = mongoose_1.default.model('User', userSchema);
 exports.default = User;

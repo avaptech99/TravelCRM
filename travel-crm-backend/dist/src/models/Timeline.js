@@ -46,6 +46,20 @@ const timelineSchema = new mongoose_1.Schema({
     timestamps: true
 });
 // Compound index for efficient fetching
+timelineSchema.index({ bookingId: 1, createdAt: -1 });
 timelineSchema.index({ bookingId: 1, type: 1, createdAt: -1 });
+// Pre-find hook to start timer
+timelineSchema.pre(/^find/, function (next) {
+    this._queryStart = Date.now();
+    next();
+});
+// Post-find hook to log slow queries
+timelineSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - this._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] Timeline.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+    }
+    next();
+});
 const Timeline = mongoose_1.default.model('Timeline', timelineSchema);
 exports.default = Timeline;

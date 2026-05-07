@@ -14,9 +14,9 @@ const connectDB = async () => {
             process.exit(1);
         }
         const conn = await mongoose_1.default.connect(mongoURI, {
-            maxPoolSize: 15, // Right-sized (following CRM 1.0 method) to prevent CPU context-switch overhead
+            maxPoolSize: 10, // Optimized for efficiency without saturating Render instance
             minPoolSize: 2,
-            waitQueueTimeoutMS: 5000, // Error out if waiting too long instead of hanging
+            waitQueueTimeoutMS: 3000, // Error out quickly to avoid resource hanging
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
             autoIndex: false, // Better for production performance

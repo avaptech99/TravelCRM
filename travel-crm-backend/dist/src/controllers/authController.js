@@ -9,46 +9,45 @@ const User_1 = __importDefault(require("../models/User"));
 const types_1 = require("../types");
 const password_1 = require("../utils/password");
 const jwt_1 = require("../utils/jwt");
+const perfLogger_1 = require("../utils/perfLogger");
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
 // @access  Public
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
-// @access  Public
 exports.loginUser = (0, express_async_handler_1.default)(async (req, res) => {
-    const startTime = Date.now();
+    const t = (0, perfLogger_1.createTimer)('loginUser');
+    t.mark('validate');
     const result = types_1.loginSchema.safeParse(req.body);
     if (!result.success) {
+        t.end({ error: 'Invalid input' });
         res.status(400);
         throw new Error('Invalid input');
     }
     const { email, password } = result.data;
+    t.mark('dbQuery');
     // Find user by email - use lean() for performance and select only needed fields
-    const dbStartTime = Date.now();
     const user = await User_1.default.findOne({ email })
         .select('passwordHash name email role groups')
         .lean();
-    const dbEndTime = Date.now();
     // Verify user exists and password matches
     if (user) {
-        const bcryptStartTime = Date.now();
+        t.mark('bcryptVerify');
         const isMatch = await (0, password_1.matchPassword)(password, user.passwordHash);
-        const bcryptEndTime = Date.now();
         if (isMatch) {
-            const totalTime = Date.now() - startTime;
-            console.log(`[LOGIN PERF] Total: ${totalTime}ms | DB: ${dbEndTime - dbStartTime}ms | Bcrypt: ${bcryptEndTime - bcryptStartTime}ms`);
+            t.mark('passwordUpgradeCheck');
             // Migrate to 8 rounds if currently higher
             if ((0, password_1.needsUpgrade)(user.passwordHash)) {
-                const upgradeStart = Date.now();
                 const newHash = await (0, password_1.hashPassword)(password);
                 await User_1.default.findByIdAndUpdate(user._id, { passwordHash: newHash });
-                console.log(`[AUTH] Upgraded password hash rounds for ${user.email} in ${Date.now() - upgradeStart}ms`);
+                console.log(`[AUTH] Upgraded password hash rounds for ${user.email}`);
             }
             // Update user's online status
             await User_1.default.findByIdAndUpdate(user._id, {
                 isOnline: true,
                 lastSeen: new Date()
             });
+            t.end({ email: user.email, role: user.role });
             res.json({
                 id: user._id,
                 name: user.name,
@@ -61,6 +60,7 @@ exports.loginUser = (0, express_async_handler_1.default)(async (req, res) => {
             return;
         }
     }
+    t.end({ error: 'Invalid credentials' });
     res.status(401);
     throw new Error('Invalid email or password');
 });

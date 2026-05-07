@@ -43,7 +43,9 @@ const bookingSchema = new mongoose_1.Schema({
     contact: {
         name: { type: String },
         phone: { type: String },
+        email: { type: String },
         type: { type: String },
+        requirements: { type: String },
         interested: { type: Boolean, default: false },
     },
     uniqueCode: { type: String, unique: true },
@@ -147,12 +149,15 @@ bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
 // 3. Agent dashboard fallback — optimal for single-agent WITHOUT status
 bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
 // 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
+bookingSchema.index({ status: 1, _id: -1 });
 bookingSchema.index({ status: 1, lastInteractionAt: -1 });
 // 4b. Status + EDT filter (Fixes 21s query)
 bookingSchema.index({ isConvertedToEDT: 1, status: 1, lastInteractionAt: -1 });
 bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
-// 5. Creator queries (marketer view)
-bookingSchema.index({ createdByUserId: 1, lastInteractionAt: -1 });
+// 5. Creator and Assignee queries (Fixes 13s - 40s spikes)
+bookingSchema.index({ assignedToUserId: 1, _id: -1 });
+bookingSchema.index({ createdByUserId: 1, _id: -1 });
+bookingSchema.index({ assignedGroup: 1, _id: -1 });
 // 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
 bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
 // 6. Analytics queries (payment breakdown)
@@ -166,6 +171,7 @@ bookingSchema.index({ travelDate: 1 });
 bookingSchema.index({ company: 1 });
 // 10. Delta updates / Last modified index
 bookingSchema.index({ updatedAt: -1 });
+bookingSchema.index({ _id: -1 }); // Global stable sort index
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
@@ -199,6 +205,19 @@ bookingSchema.virtual('passengers', {
     ref: 'Passenger',
     localField: '_id',
     foreignField: 'bookingId',
+});
+// Pre-find hook to start timer
+bookingSchema.pre(/^find/, function (next) {
+    this._queryStart = Date.now();
+    next();
+});
+// Post-find hook to log slow queries
+bookingSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - this._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] Booking.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+    }
+    next();
 });
 const Booking = mongoose_1.default.model('Booking', bookingSchema);
 exports.default = Booking;

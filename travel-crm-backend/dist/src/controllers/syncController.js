@@ -114,7 +114,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
     syncFetchInFlight.set(cacheKey, fetchPromise);
     try {
         const result = await fetchPromise;
-        cache_1.default.set(cacheKey, result, 60);
+        cache_1.default.set(cacheKey, result, 120); // Increased to 120s as per audit
         res.json(result);
     }
     finally {

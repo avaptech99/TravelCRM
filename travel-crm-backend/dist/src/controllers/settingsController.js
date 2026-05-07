@@ -7,19 +7,25 @@ exports.updateDropdown = exports.getDropdowns = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Setting_1 = __importDefault(require("../models/Setting"));
 const cache_1 = __importDefault(require("../utils/cache"));
+const perfLogger_1 = require("../utils/perfLogger");
 // @desc    Get all dropdown settings
 // @route   GET /api/settings/dropdowns
 // @access  Private (Admin Only)
 exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => {
+    const t = (0, perfLogger_1.createTimer)('getDropdowns');
+    t.mark('checkCache');
     const cacheKey = 'settings_dropdowns';
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
+    t.mark('dbQuery');
     const settings = await Setting_1.default.find();
     const result = {};
+    t.mark('mergeDefaults');
     // Initialize default if empty
     const defaultKeys = ['companies', 'costTypes', 'costSources', 'groups'];
     const defaults = {
@@ -39,6 +45,8 @@ exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => 
     });
     // Cache the merged result for 1 hour
     cache_1.default.set(cacheKey, result, 3600);
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db' });
     res.json(result);
 });
 // @desc    Update a specific dropdown setting

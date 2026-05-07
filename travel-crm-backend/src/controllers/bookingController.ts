@@ -111,7 +111,8 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
         query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
     }
 
-    console.time('getBookingStats');
+    const t = createTimer('getBookingStats');
+    t.mark('dbQuery');
 
     const stats = await Booking.aggregate([
         { $match: query },
@@ -126,7 +127,7 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
             }
         }
     ]);
-    console.timeEnd('getBookingStats');
+    t.mark('formatResponse');
 
     const result = stats.length > 0 ? {
         total: stats[0].total,

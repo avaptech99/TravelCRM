@@ -49,5 +49,18 @@ const paymentSchema = new mongoose_1.Schema({
 paymentSchema.index({ bookingId: 1 });
 paymentSchema.index({ date: -1 });
 paymentSchema.index({ updatedAt: -1 });
+// Pre-find hook to start timer
+paymentSchema.pre(/^find/, function (next) {
+    this._queryStart = Date.now();
+    next();
+});
+// Post-find hook to log slow queries
+paymentSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - this._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] Payment.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+    }
+    next();
+});
 const Payment = mongoose_1.default.model('Payment', paymentSchema);
 exports.default = Payment;
