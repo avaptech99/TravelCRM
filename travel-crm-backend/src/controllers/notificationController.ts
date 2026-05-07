@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification';
 import appCache from '../utils/cache';
+import { createTimer } from '../utils/perfLogger';
 
 // Module-level map to track in-flight notification requests
 const notifInFlight = new Map<string, Promise<any>>();
@@ -18,29 +19,38 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
 
     const cacheKey = `notifications_${userId}`;
     
+    const t = createTimer(`getNotifications_${userId}`);
+    t.mark('checkCache');
+
     // 1. Cache hit — fastest path
     const cached = appCache.get(cacheKey);
     if (cached !== undefined && cached !== null) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache', userId });
         res.json(cached);
         return;
     }
 
     // 2. In-flight dedup — multiple users/requests wait for the same DB query
     if (notifInFlight.has(cacheKey)) {
-        console.log(`[DEDUPLICATED] Notification request for ${userId} joined in-flight promise`);
+        t.mark('waitDeduplicated');
         const data = await notifInFlight.get(cacheKey);
+        res.setHeader('X-Cache-Status', 'DEDUPLICATED');
+        t.end({ source: 'deduplicated', userId });
         res.json(data || []);
         return;
     }
 
     // 3. First request — create the promise and share it
     const fetchPromise = (async () => {
+        t.mark('dbQuery');
         const notifications = await Notification.find({ userId })
             .sort({ createdAt: -1 })
             .limit(50) // increased from 20 for better user experience
-            .lean();
+            .lean()
+            .maxTimeMS(2000);
 
+        t.mark('formatResponse');
         const mapped = notifications.map(n => ({
             ...n,
             id: n._id.toString()
@@ -54,6 +64,8 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
 
     try {
         const result = await fetchPromise;
+        res.setHeader('X-Cache-Status', 'MISS');
+        t.end({ source: 'db', userId, count: result.length });
         res.json(result);
     } finally {
         notifInFlight.delete(cacheKey); // Always clean up

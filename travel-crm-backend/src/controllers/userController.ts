@@ -5,6 +5,7 @@ import Booking from '../models/Booking';
 import { createUserSchema } from '../types';
 import bcrypt from 'bcrypt';
 import appCache from '../utils/cache';
+import { createTimer } from '../utils/perfLogger';
 
 // ONLINE_THRESHOLD in milliseconds (5 minutes)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
@@ -13,19 +14,24 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @route   GET /api/users/agents
 // @access  Private (Admin & Agent)
 export const getAgents = asyncHandler(async (req: Request, res: Response) => {
+    const t = createTimer('getAgents');
+    t.mark('checkCache');
     const cacheKey = 'users_agents';
     const cached = appCache.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
 
+    t.mark('dbQuery');
     const agents = await User.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
         .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
 
+    t.mark('formatResponse');
     const now = Date.now();
     const mappedAgents = agents.map(a => {
         const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
@@ -38,6 +44,8 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     });
 
     appCache.set(cacheKey, mappedAgents, 120); // Reduced to 120s as per audit
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });
 
@@ -45,19 +53,24 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
 // @route   GET /api/users
 // @access  Private/Admin
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const t = createTimer('getAllUsers');
+    t.mark('checkCache');
     const cacheKey = 'users_all';
     const cached = appCache.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
 
+    t.mark('dbQuery');
     const users = await User.find()
         .select('name email role lastSeen createdAt groups')
         .sort({ role: 1, createdAt: -1 })
         .lean();
 
+    t.mark('formatResponse');
     const now = Date.now();
     const mappedUsers = users.map(u => {
         const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
@@ -70,6 +83,8 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     });
 
     appCache.set(cacheKey, mappedUsers, 60); // Reduced to 60s as per audit
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db', count: mappedUsers.length });
     res.json(mappedUsers);
 });
 

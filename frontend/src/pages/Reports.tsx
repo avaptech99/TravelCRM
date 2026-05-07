@@ -110,7 +110,7 @@ export const Reports: React.FC = () => {
     const { data: revenueTrends, isLoading: isTrendsLoading } = useQuery({
         queryKey: ['analytics-revenue-trends', filters],
         queryFn: async () => {
-            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'month', company: filters.company } });
+            const { data } = await api.get('/analytics/revenue-trends', { params: { interval: 'week', company: filters.company } });
             return data;
         },
     });
@@ -258,7 +258,7 @@ export const Reports: React.FC = () => {
                             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0 min-h-[450px]">
                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
                                     <TrendingUp size={16} className="text-primary" />
-                                    Monthly Revenue Trend
+                                    Weekly Revenue Trend
                                 </h3>
                                 <div className="flex-1 w-full h-[300px]">
                                     {isTrendsLoading ? (

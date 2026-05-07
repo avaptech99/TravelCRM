@@ -40,6 +40,11 @@ app.use(express.json());
 
 // Performance monitoring middleware
 app.use(perfMonitor);
+import { pollLogger } from './middleware/pollLogger';
+import { requestCounter } from './middleware/requestCounter';
+
+app.use(requestCounter);
+app.use(pollLogger);
 
 
 

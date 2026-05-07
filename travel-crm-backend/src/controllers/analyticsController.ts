@@ -22,7 +22,11 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
+        if (toDate) {
+            const end = new Date(toDate as string);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.createdAt.$lte = end;
+        }
     }
     if (company) {
         matchQuery.company = company as string;
@@ -71,7 +75,11 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     if (fromDate || toDate) {
         matchQuery.date = {};
         if (fromDate) matchQuery.date.$gte = new Date(fromDate as string);
-        if (toDate) matchQuery.date.$lte = new Date(toDate as string);
+        if (toDate) {
+            const end = new Date(toDate as string);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.date.$lte = end;
+        }
     }
 
     // Total collected from Payments (Filtered by company if provided)
@@ -110,7 +118,11 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     if (fromDate || toDate) {
         bookingMatch.createdAt = {};
         if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) bookingMatch.createdAt.$lte = new Date(toDate as string);
+        if (toDate) {
+            const end = new Date(toDate as string);
+            end.setHours(23, 59, 59, 999);
+            bookingMatch.createdAt.$lte = end;
+        }
     }
     if (company) {
         bookingMatch.company = company as string;
@@ -146,9 +158,11 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
     if (cached) {
         res.json(cached);
         return;
-    } // 'day' or 'month'
+    }
 
-    const format = interval === 'day' ? '%Y-%m-%d' : '%Y-%m';
+    let format = '%Y-%m';
+    if (interval === 'day') format = '%Y-%m-%d';
+    if (interval === 'week') format = '%G-W%V (%b)'; // e.g., 2024-W18 (May)
 
     const pipeline: any[] = [];
     
@@ -176,7 +190,7 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
     const trends = await Payment.aggregate(pipeline);
 
     res.json(trends);
-    appCache.set(cacheKey, trends, 120); // Reduced to 120s
+    appCache.set(cacheKey, trends, 120); 
 });
 
 // @desc    Get agent performance analytics
@@ -195,7 +209,11 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
     if (fromDate || toDate) {
         matchQuery.createdAt = {};
         if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) matchQuery.createdAt.$lte = new Date(toDate as string);
+        if (toDate) {
+            const end = new Date(toDate as string);
+            end.setHours(23, 59, 59, 999);
+            matchQuery.createdAt.$lte = end;
+        }
     }
     if (company) {
         matchQuery.company = company as string;

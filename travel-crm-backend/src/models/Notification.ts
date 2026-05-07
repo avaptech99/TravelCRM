@@ -47,4 +47,19 @@ notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ bookingId: 1 });
 
+// Pre-find hook to start timer
+notificationSchema.pre(/^find/, function (next) {
+    (this as any)._queryStart = Date.now();
+    next();
+});
+
+// Post-find hook to log slow queries
+notificationSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - (this as any)._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] Notification.${(this as any).op} — ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
+    }
+    next();
+});
+
 export default mongoose.model<INotification>('Notification', notificationSchema);

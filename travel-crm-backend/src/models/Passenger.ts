@@ -45,6 +45,21 @@ const passengerSchema = new Schema<IPassenger>(
 
 passengerSchema.index({ bookingId: 1 });
 
+// Pre-find hook to start timer
+passengerSchema.pre(/^find/, function (next) {
+    (this as any)._queryStart = Date.now();
+    next();
+});
+
+// Post-find hook to log slow queries
+passengerSchema.post(/^find/, function (docs, next) {
+    const duration = Date.now() - (this as any)._queryStart;
+    if (duration > 100) {
+        console.log(`[MONGOOSE SLOW] Passenger.${(this as any).op} — ${duration}ms | filter: ${JSON.stringify((this as any)._conditions)}`);
+    }
+    next();
+});
+
 const Passenger: Model<IPassenger> = mongoose.model<IPassenger>('Passenger', passengerSchema);
 
 export default Passenger;

@@ -231,11 +231,11 @@ export const Bookings: React.FC = () => {
 
             {/* Filter Panel */}
             {showFilters && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mx-2 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-50">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 mx-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
                         <div className="flex items-center gap-2">
-                            <Filter size={14} className="text-slate-400" />
-                            <h2 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">Filter Options</h2>
+                            <Filter size={12} className="text-slate-400" />
+                            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filter Options</h2>
                         </div>
                         {activeFilterCount > 0 && (
                             <button
@@ -243,108 +243,88 @@ export const Bookings: React.FC = () => {
                                     setSelectedStatuses([]);
                                     setSelectedAgents([]);
                                     setIsOutstandingOnly(false);
+                                    setSelectedDepartment(null);
                                 }}
-                                className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors uppercase tracking-tighter"
+                                className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded transition-colors uppercase tracking-tight"
                             >
                                 Clear All
                             </button>
                         )}
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</h3>
-                            {selectedStatuses.length > 0 && (
-                                <button
-                                    onClick={() => setSelectedStatuses([])}
-                                    className="text-[10px] text-primary hover:underline font-bold uppercase tracking-tight"
-                                >
-                                    Clear
-                                </button>
-                            )}
+                    <div className="flex items-start gap-4">
+                        <div className="w-20 pt-1.5 shrink-0">
+                            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Status</h3>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex flex-wrap gap-2 flex-1">
-                                {STATUS_OPTIONS.filter(s => s !== 'Interested' && s !== 'Not Interested').map(status => (
-                                    <label key={status} className="relative cursor-pointer group">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedStatuses.includes(status)}
-                                            onChange={() => toggleStatus(status)}
-                                            className="peer sr-only"
-                                        />
-                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${STATUS_COLORS[status]} group-hover:shadow-sm`}>
-                                            {selectedStatuses.includes(status) && (
-                                                <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            )}
-                                            {status}
-                                        </span>
-                                    </label>
-                                ))}
-                                <label className="relative cursor-pointer group">
+                        <div className="flex-1 flex flex-wrap items-center gap-1.5">
+                            {STATUS_OPTIONS.filter(s => s !== 'Interested' && s !== 'Not Interested').map(status => (
+                                <label key={status} className="relative cursor-pointer group">
                                     <input
                                         type="checkbox"
-                                        checked={isOutstandingOnly}
-                                        onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                        checked={selectedStatuses.includes(status)}
+                                        onChange={() => toggleStatus(status)}
                                         className="peer sr-only"
                                     />
-                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                                        isOutstandingOnly 
-                                            ? 'bg-red-100 text-red-700 border-red-500 shadow-sm' 
-                                            : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                                    } group-hover:shadow-sm`}>
-                                        {isOutstandingOnly && (
-                                            <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${STATUS_COLORS[status]} group-hover:shadow-sm`}>
+                                        {selectedStatuses.includes(status) && (
+                                            <svg className="w-2.5 h-2.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                             </svg>
                                         )}
-                                        Outstanding
+                                        {status}
                                     </span>
                                 </label>
-                            </div>
+                            ))}
+                            <label className="relative cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={isOutstandingOnly}
+                                    onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                    className="peer sr-only"
+                                />
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                                    isOutstandingOnly 
+                                        ? 'bg-red-100 text-red-700 border-red-500 shadow-sm' 
+                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                } group-hover:shadow-sm`}>
+                                    {isOutstandingOnly && (
+                                        <svg className="w-2.5 h-2.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                    Outstanding
+                                </span>
+                            </label>
 
-                            {/* Interest Tags Aligned Right */}
-                            <div className="flex flex-wrap gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 w-full md:w-auto md:ml-auto">
-                                {STATUS_OPTIONS.filter(s => s === 'Interested' || s === 'Not Interested').map(status => (
-                                    <label key={status} className="relative cursor-pointer group">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedStatuses.includes(status)}
-                                            onChange={() => toggleStatus(status)}
-                                            className="peer sr-only"
-                                        />
-                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${STATUS_COLORS[status]} group-hover:shadow-sm`}>
-                                            {selectedStatuses.includes(status) && (
-                                                <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            )}
-                                            {status}
-                                        </span>
-                                    </label>
-                                ))}
-                            </div>
+                            <div className="h-4 w-px bg-slate-100 mx-1 hidden md:block" />
+
+                            {STATUS_OPTIONS.filter(s => s === 'Interested' || s === 'Not Interested').map(status => (
+                                <label key={status} className="relative cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedStatuses.includes(status)}
+                                        onChange={() => toggleStatus(status)}
+                                        className="peer sr-only"
+                                    />
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${STATUS_COLORS[status]} group-hover:shadow-sm`}>
+                                        {selectedStatuses.includes(status) && (
+                                            <svg className="w-2.5 h-2.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                        {status}
+                                    </span>
+                                </label>
+                            ))}
                         </div>
+                    </div>
 
                         {isAdmin && (
-                            <div className="pt-4 border-t border-slate-100 space-y-4">
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Department</h3>
-                                        {selectedDepartment && (
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedDepartment(null);
-                                                    setIsShowingAllAgents(false);
-                                                }}
-                                                className="text-[10px] text-primary hover:underline font-bold uppercase tracking-tight"
-                                            >
-                                                Clear Dept
-                                            </button>
-                                        )}
+                            <div className="pt-2 border-t border-slate-50 space-y-2">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-20 pt-1.5 shrink-0">
+                                        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Dept</h3>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex-1 flex flex-wrap gap-1.5">
                                         {dropdownSettings?.groups?.map(group => (
                                             <button
                                                 key={group}
@@ -353,7 +333,7 @@ export const Bookings: React.FC = () => {
                                                     setIsShowingAllAgents(false);
                                                 }}
                                                 className={cn(
-                                                    "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                                                    "px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all",
                                                     selectedDepartment === group 
                                                         ? "bg-primary text-white border-primary shadow-sm" 
                                                         : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
@@ -365,12 +345,61 @@ export const Bookings: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                {selectedDepartment ? `Agents in ${selectedDepartment}` : 'Agents'}
-                                            </h3>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-20 pt-1.5 shrink-0">
+                                        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Agents</h3>
+                                    </div>
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(selectedDepartment || isShowingAllAgents) && (
+                                                <>
+                                                    <label className="relative cursor-pointer group">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedAgents.includes('unassigned')}
+                                                            onChange={() => toggleAgent('unassigned')}
+                                                            className="peer sr-only"
+                                                        />
+                                                        <span className={cn(
+                                                            "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all uppercase tracking-tighter",
+                                                            selectedAgents.includes('unassigned')
+                                                                ? "bg-slate-700 text-white border-slate-700 shadow-sm"
+                                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                                        )}>
+                                                            Unassigned
+                                                        </span>
+                                                    </label>
+                                                    {agents?.filter(a => {
+                                                        if (a.name === 'Website Lead') return false;
+                                                        if (isShowingAllAgents) return true;
+                                                        if (!selectedDepartment) return false; 
+                                                        return a.groups?.some(g => g.toLowerCase().trim() === selectedDepartment.toLowerCase().trim());
+                                                    }).map(agent => (
+                                                        <label key={agent.id} className="relative cursor-pointer group">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedAgents.includes(agent.id)}
+                                                                onChange={() => toggleAgent(agent.id)}
+                                                                className="peer sr-only"
+                                                            />
+                                                            <span className={cn(
+                                                                "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all uppercase tracking-tighter",
+                                                                selectedAgents.includes(agent.id)
+                                                                    ? "bg-slate-700 text-white border-slate-700 shadow-sm"
+                                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                                            )}>
+                                                                {agent.name}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </>
+                                            )}
+                                            {!selectedDepartment && !isShowingAllAgents && (
+                                                <p className="text-[10px] text-slate-400 italic py-1">Select a department...</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-4">
                                             <label className="flex items-center gap-1.5 cursor-pointer select-none">
                                                 <input 
                                                     type="checkbox" 
@@ -378,71 +407,22 @@ export const Bookings: React.FC = () => {
                                                     onChange={(e) => setIsShowingAllAgents(e.target.checked)}
                                                     className="w-3 h-3 rounded text-primary focus:ring-primary/30"
                                                 />
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Show All Agents</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">All Agents</span>
                                             </label>
+                                            {selectedAgents.length > 0 && (
+                                                <button
+                                                    onClick={() => setSelectedAgents([])}
+                                                    className="text-[10px] text-red-400 hover:text-red-600 font-bold uppercase tracking-tight"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
                                         </div>
-                                        {selectedAgents.length > 0 && (
-                                            <button
-                                                onClick={() => setSelectedAgents([])}
-                                                className="text-[10px] text-primary hover:underline font-bold uppercase tracking-tight"
-                                            >
-                                                Clear Agents
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(selectedDepartment || isShowingAllAgents) && (
-                                            <>
-                                                <label className="relative cursor-pointer group">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedAgents.includes('unassigned')}
-                                                        onChange={() => toggleAgent('unassigned')}
-                                                        className="peer sr-only"
-                                                    />
-                                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border transition-all bg-slate-50 text-slate-700 border-slate-200 peer-checked:bg-slate-200 peer-checked:border-slate-500 group-hover:shadow-sm">
-                                                        {selectedAgents.includes('unassigned') && (
-                                                            <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        )}
-                                                        Unassigned
-                                                    </span>
-                                                </label>
-                                                {agents?.filter(a => {
-                                                    if (a.name === 'Website Lead') return false;
-                                                    if (isShowingAllAgents) return true;
-                                                    if (!selectedDepartment) return false; 
-                                                    return a.groups?.some(g => g.toLowerCase().trim() === selectedDepartment.toLowerCase().trim());
-                                                }).map(agent => (
-                                                    <label key={agent.id} className="relative cursor-pointer group">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedAgents.includes(agent.id)}
-                                                            onChange={() => toggleAgent(agent.id)}
-                                                            className="peer sr-only"
-                                                        />
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 peer-checked:bg-primary/10 peer-checked:border-primary peer-checked:text-primary group-hover:shadow-sm">
-                                                            {selectedAgents.includes(agent.id) && (
-                                                                <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                            {agent.name}
-                                                        </span>
-                                                    </label>
-                                                ))}
-                                            </>
-                                        )}
-                                        {!selectedDepartment && !isShowingAllAgents && (
-                                            <p className="text-xs text-slate-400 italic py-1">Select a department to view agents...</p>
-                                        )}
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
-                </div>
             )}
 
             <BookingsTable

@@ -2,22 +2,28 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Setting from '../models/Setting';
 import appCache from '../utils/cache';
+import { createTimer } from '../utils/perfLogger';
 
 // @desc    Get all dropdown settings
 // @route   GET /api/settings/dropdowns
 // @access  Private (Admin Only)
 export const getDropdowns = asyncHandler(async (req: Request, res: Response) => {
+    const t = createTimer('getDropdowns');
+    t.mark('checkCache');
     const cacheKey = 'settings_dropdowns';
     const cached = appCache.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
 
+    t.mark('dbQuery');
     const settings = await Setting.find();
     const result: Record<string, string[]> = {};
     
+    t.mark('mergeDefaults');
     // Initialize default if empty
     const defaultKeys = ['companies', 'costTypes', 'costSources', 'groups'];
     const defaults: Record<string, string[]> = {
@@ -40,6 +46,8 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
 
     // Cache the merged result for 1 hour
     appCache.set(cacheKey, result, 3600);
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db' });
     res.json(result);
 });
 

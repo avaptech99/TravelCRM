@@ -9,6 +9,7 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
+import { createTimer } from '../utils/perfLogger';
 import {
     createBookingSchema,
     updateBookingStatusSchema,
@@ -62,9 +63,18 @@ const recalcOutstanding = async (bookingId: string) => {
     const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     
     if (booking) {
-        const bookingTotal = booking.totalAmount || booking.amount || 0;
+        // Standardize: Ensure amount/totalAmount matches the sum of estimated costs if they exist
+        let bookingTotal = booking.totalAmount || booking.amount || 0;
+        if (booking.estimatedCosts && booking.estimatedCosts.length > 0) {
+            bookingTotal = booking.estimatedCosts.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
+        }
+
         const outstanding = Math.max(bookingTotal - totalPaid, 0);
-        await Booking.updateOne({ _id: bookingId }, { $set: { outstanding } });
+        // Save back the standardized totals to ensure analytics picks them up
+        await Booking.updateOne(
+            { _id: bookingId }, 
+            { $set: { outstanding, amount: bookingTotal, totalAmount: bookingTotal } }
+        );
     }
 };
 
@@ -126,7 +136,9 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
         sent: stats[0].sent
     } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
 
-    appCache.set(cacheKey, result, 120);
+    appCache.set(cacheKey, result, 300);
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db' });
     res.json(result);
 });
 
@@ -192,10 +204,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${group || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}_${cursor || ''}`;
     
-    // Cache check
+    const t = createTimer('getBookings');
+    t.mark('checkCache');
+
     const cached = appCache.get(cacheKey);
     if (cached) {
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
@@ -275,36 +290,34 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
 
-    // 3. Cursor Logic (O(1) pagination)
-    if (cursor) {
-        query.lastInteractionAt = { $lt: new Date(cursor as string) };
-    }
+    // 3. Pagination Logic (O(1) cursor-based)
+    t.mark('parseFilters');
 
     const limitNum = Math.min(parseInt(limit as string, 10), 50);
-    const pageNum = parseInt(page as string, 10);
-    const sortField = (sortBy as string) || 'createdAt';
-    const sortDir = sortOrder === 'asc' ? 1 : -1;
+    const sortField = '_id'; // Force stable _id sort for cursor consistency
+    const sortDir = -1; // Newest first
     const sortQuery = { [sortField]: sortDir };
 
-    const reqId = Date.now().toString(36);
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {
+        query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
+    }
 
-
-    console.time(`getBookingsQuery_${reqId}`);
+    t.mark('dbQuery');
     
-    // If using cursor, we skip total count entirely to save a heavy query
+    // Only count total on first page request to save DB resources
     const [total, rawBookings] = await Promise.all([
-        cursor ? Promise.resolve(0) : Booking.countDocuments(query),
+        cursor ? Promise.resolve(0) : Booking.countDocuments(query).maxTimeMS(2000),
         Booking.find(query)
             .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
             .sort(sortQuery as any)
-            .skip(cursor ? 0 : (pageNum - 1) * limitNum)
             .limit(limitNum)
             .populate('assignedToUserId', 'name')
             .populate('createdByUserId', 'name')
             .lean()
+            .maxTimeMS(5000)
     ]);
 
-    console.timeEnd(`getBookingsQuery_${reqId}`);
+    t.mark('formatResponse');
 
     const mappedBookings = rawBookings.map(b => ({
         ...b,
@@ -320,23 +333,22 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }));
 
     const nextCursor = rawBookings.length === limitNum 
-        ? rawBookings[rawBookings.length - 1].lastInteractionAt.toISOString() 
+        ? rawBookings[rawBookings.length - 1]._id.toString()
         : null;
-
 
     const result = {
         data: mappedBookings,
         nextCursor,
         meta: {
             total: cursor ? undefined : total,
-            page: pageNum,
             limit: limitNum,
-            totalPages: cursor ? undefined : Math.ceil(total / limitNum),
             hasMore: !!nextCursor
         },
     };
 
+    t.end({ page: cursor ? 'cursor' : '1', limit: limitNum, total, returned: mappedBookings.length });
     appCache.set(cacheKey, result, 60);
+    res.setHeader('X-Cache-Status', 'MISS');
     res.json(result);
 });
 
@@ -382,12 +394,16 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         return false;
     };
 
+    const t = createTimer(`getBookingById_${id}`);
+    t.mark('checkCache');
+
     if (cached) {
         if (!checkAuth(cached)) {
             res.status(403);
             throw new Error('Not authorized to view this booking');
         }
-        console.log(`[CACHE HIT] ${cacheKey}`);
+        res.setHeader('X-Cache-Status', 'HIT');
+        t.end({ source: 'cache', bookingId: id });
         res.json(cached);
         return;
     }
@@ -395,12 +411,14 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     // Backend Request Deduplication
     if (bookingFetchInFlight.has(id)) {
         try {
+            t.mark('waitDeduplicated');
             const data = await bookingFetchInFlight.get(id);
             if (!checkAuth(data)) {
                 res.status(403);
                 throw new Error('Not authorized to view this booking');
             }
-            console.log(`[DEDUPLICATED] Request for booking ${id} served from in-flight promise`);
+            res.setHeader('X-Cache-Status', 'DEDUPLICATED');
+            t.end({ source: 'deduplicated', bookingId: id });
             res.json(data);
             return;
         } catch (err) {
@@ -409,6 +427,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     }
 
     const fetchPromise = (async () => {
+        t.mark('dbQueryWithPopulate');
         const booking = await Booking.findById(id)
             .populate('assignedToUserId', 'name role')
             .populate('createdByUserId', 'name role')
@@ -419,14 +438,16 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
                 populate: { path: 'userId', select: 'name role' },
                 options: { sort: { createdAt: -1 }, limit: 20 }
             })
-            .lean();
-
+            .lean()
+            .maxTimeMS(3000);
 
         if (!booking) return null;
 
+        t.mark('calculateTotals');
         const totalPaid = (booking as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = ((booking as any).amount || 0) - totalPaid;
 
+        t.mark('formatResponse');
         return {
             ...booking,
             id: booking._id.toString(),
@@ -465,6 +486,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         }
 
         appCache.set(cacheKey, result, 30); // Reduced to 30s as per audit
+        res.setHeader('X-Cache-Status', 'MISS');
+        t.end({ source: 'db', bookingId: id });
         res.json(result);
         return;
     } finally {
@@ -477,21 +500,27 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 // @access  Private
 export const deleteBooking = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+    const t = createTimer(`deleteBooking_${id}`);
+    t.mark('findBooking');
     const booking = await Booking.findById(id).lean();
 
     if (!booking) {
+        t.end({ error: 'Not found', bookingId: id });
         res.status(404);
         throw new Error('Booking not found');
     }
 
     if (req.user?.role !== 'ADMIN') {
+        t.end({ error: 'Unauthorized', bookingId: id });
         res.status(403);
         throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
     }
 
+    t.mark('deleteBookingDoc');
     // PRIMARY write — delete the booking document first
     await Booking.findByIdAndDelete(id);
 
+    t.end({ bookingId: id });
     // ✅ RESPOND IMMEDIATELY
     res.json({ message: 'Booking deletion initiated successfully', id });
 
@@ -527,6 +556,9 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Create PrimaryContact first
+    const t = createTimer('createBooking');
+    t.mark('validate');
+
     const primaryContact = await PrimaryContact.create({
         contactName: result.data.contactPerson,
         contactPhoneNo: result.data.contactNumber,
@@ -547,6 +579,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         if (!finalTravellers && parsedData.travellers) finalTravellers = parsedData.travellers;
     }
 
+    t.mark('insertBooking');
     // Create booking
     const booking = await Booking.create({
         primaryContactId: primaryContact._id,
@@ -574,9 +607,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
 
+    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY (Synchronous)
     invalidateBookingCaches();
 
+    t.end({ bookingId: booking._id });
     // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
     res.status(201).json(booking);
 
@@ -614,9 +649,12 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid input');
     }
 
+    const t = createTimer(`updateBooking_${id}`);
+    t.mark('fetchExisting');
     // Role-based auth check (we need the booking first to check creator/assignee)
     const booking = await Booking.findById(id).lean();
     if (!booking) {
+        t.end({ error: 'Not found', bookingId: id });
         res.status(404);
         throw new Error('Booking not found');
     }
@@ -671,6 +709,13 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
             to: s.to || '',
             date: s.date ? new Date(s.date) : null
         }));
+    }
+
+    // Sync financial totals from cost arrays if present
+    if (req.body.estimatedCosts) {
+        const total = req.body.estimatedCosts.reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
+        updateData.amount = total;
+        updateData.totalAmount = total;
     }
 
     // PRIMARY write
@@ -752,6 +797,9 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
 
     const { status } = result.data;
 
+    const t = createTimer(`updateStatus_${id}`);
+    t.mark('findAndUpdate');
+
     // PRIMARY write only
     const updatedBooking = await Booking.findByIdAndUpdate(
         id,
@@ -760,6 +808,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     ).lean();
 
     if (!updatedBooking) {
+        t.end({ error: 'Not found', bookingId: id });
         res.status(404);
         throw new Error('Booking not found');
     }
@@ -777,10 +826,12 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         }
     }
 
+    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY (Synchronous)
     appCache.del(`booking_${id}`);
     invalidateBookingCaches();
 
+    t.end({ bookingId: id, newStatus: status });
     // ✅ RESPOND IMMEDIATELY
     res.json(updatedBooking);
 
@@ -929,9 +980,13 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     // Schema check temporarily removed as bulkAssignSchema is not in types
     const { bookingIds, assignedToUserId } = req.body;
 
+    const t = createTimer('bulkAssign');
+    t.mark('validate');
+
     if (assignedToUserId) {
         const agent = await User.findById(assignedToUserId);
         if (!agent || agent.role !== 'AGENT') {
+            t.end({ error: 'Invalid agent', agentId: assignedToUserId });
             res.status(400);
             throw new Error('Invalid agent selected');
         }
@@ -941,65 +996,59 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     let newAgentName = 'Unassigned';
     
     if (newAgentId) {
+        t.mark('fetchNewAgent');
         const newAgent = await User.findById(newAgentId);
         newAgentName = newAgent?.name || 'Unknown Agent';
     }
 
+    t.mark('dbUpdateMany');
     // Process in bulk
-    const bookings = await Booking.find({ _id: { $in: bookingIds } }).populate('primaryContact', 'contactName');
-    
-    // We'll use a for...of loop or map with Promise.all
-    // For each booking, check if assignment changed, then update and create comment
-    const updatePromises = bookings.map(async (booking) => {
-        const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
-        
-        if (previousAssignedUserId !== (newAgentId ? newAgentId.toString() : null)) {
-            booking.assignedToUserId = newAgentId as any;
-            await booking.save();
+    // 1. Update all bookings in one go
+    const updateResult = await Booking.updateMany(
+        { _id: { $in: bookingIds } },
+        { $set: { assignedToUserId: newAgentId, lastInteractionAt: new Date() } }
+    );
 
-            let previousAgentName = 'Unassigned';
-            if (previousAssignedUserId) {
-                const prevAgent = await User.findById(previousAssignedUserId);
-                previousAgentName = prevAgent?.name || 'Unknown Agent';
-            }
+    t.mark('cacheInvalidation');
+    invalidateBookingCaches();
+    bookingIds.forEach((id: string) => appCache.del(`booking_${id}`));
 
-            const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
+    t.end({ count: bookingIds.length, agentId: newAgentId });
 
-            await Timeline.create({
-                bookingId: booking._id,
+    // 2. Prepare side-effects in background to avoid blocking the response
+    setImmediate(async () => {
+        try {
+            const timelineEntries = bookingIds.map((id: string) => ({
+                bookingId: id,
                 userId: req.user?.id,
                 type: 'activity',
                 action: 'ASSIGNED',
-                details: commentText,
+                details: `Bulk Assignment: Changed to ${newAgentName}`,
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
+            }));
 
-            if (newAgentId) {
-                await Notification.create({
-                    userId: newAgentId,
-                    bookingId: booking._id,
-                    message: `Lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
-                });
+            const notificationEntries = newAgentId ? bookingIds.map((id: string) => ({
+                userId: newAgentId,
+                bookingId: id,
+                message: `New lead assigned to you via bulk action.`,
+            })) : [];
 
-                // Also notify the marketer who created the lead
-                if (booking.createdByUserId) {
-                    const creator = await User.findById(booking.createdByUserId);
-                    if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
-                        await Notification.create({
-                            userId: booking.createdByUserId,
-                            bookingId: booking._id,
-                            message: `Your lead has been assigned to ${newAgentName}.`,
-                        });
-                    }
-                }
-            }
+            await Promise.all([
+                Timeline.insertMany(timelineEntries),
+                notificationEntries.length > 0 ? Notification.insertMany(notificationEntries) : Promise.resolve()
+            ]);
+            
+            invalidateBookingCaches();
+        } catch (err) {
+            console.error('[BulkAssign Background Error]:', err);
         }
     });
 
-    await Promise.all(updatePromises);
+    res.json({ 
+        message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookingIds.length} bookings`,
+        modifiedCount: updateResult.modifiedCount 
+    });
 
-    invalidateBookingCaches();
-    res.json({ message: `Successfully ${newAgentId ? 'assigned' : 'unassigned'} ${bookings.length} bookings` });
 });
 
 // @desc    Bulk delete bookings
@@ -1152,7 +1201,8 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     }));
 
     const dbStart = Date.now();
-    const createdPassengers = await Passenger.insertMany(passengersData);
+    // Use individual creations in parallel to ensure full validation and hook execution as per user request
+    const createdPassengers = await Promise.all(passengersData.map(p => Passenger.create(p)));
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
@@ -1255,37 +1305,47 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Invalid payment data');
     }
 
+    const t = createTimer(`addPayment_${id}`);
+    t.mark('validate');
     const booking = await Booking.findById(id);
 
     if (!booking) {
+        t.end({ error: 'Not found', bookingId: id });
         res.status(404);
         throw new Error('Booking not found');
     }
 
     if (req.user?.role === 'MARKETER') {
+        t.end({ error: 'Unauthorized', bookingId: id });
         res.status(403);
         throw new Error('Marketers are not authorized to add payments');
     }
 
     if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
+        t.end({ error: 'Unauthorized_Agent', bookingId: id });
         res.status(403);
         throw new Error('Agents can only add payments to their own bookings');
     }
 
     if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
         if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+            t.end({ error: 'Unauthorized_Spec', bookingId: id });
             res.status(403);
             throw new Error('You can only add payments to your own bookings');
         }
     }
 
+    t.mark('insertPayment');
     const payment = await Payment.create({
         ...result.data,
         bookingId: id,
     });
 
+    t.mark('cacheInvalidation');
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
+    
+    t.end({ bookingId: id, amount: result.data.amount });
     res.status(201).json(payment);
 
     // BACKGROUND: Payment side effects
@@ -1331,37 +1391,47 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
 export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
     const { id, paymentId } = req.params;
 
+    const t = createTimer(`deletePayment_${id}`);
+    t.mark('validate');
     const booking = await Booking.findById(id);
     if (!booking) {
+        t.end({ error: 'Not found', bookingId: id });
         res.status(404);
         throw new Error('Booking not found');
     }
 
     if (req.user?.role === 'MARKETER') {
+        t.end({ error: 'Unauthorized_Marketer', bookingId: id });
         res.status(403);
         throw new Error('Marketers are not authorized to delete payments');
     }
 
     if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
+        t.end({ error: 'Unauthorized_Agent', bookingId: id });
         res.status(403);
         throw new Error('Agents can only delete payments from their own bookings');
     }
 
     if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
         if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
+            t.end({ error: 'Unauthorized_Spec', bookingId: id });
             res.status(403);
             throw new Error('You can only delete payments from your own bookings');
         }
     }
 
+    t.mark('findPayment');
     const payment = await Payment.findById(paymentId);
     if (!payment || payment.bookingId.toString() !== id) {
+        t.end({ error: 'Payment not found', paymentId });
         res.status(404);
         throw new Error('Payment not found for this booking');
     }
 
+    t.mark('deletePayment');
     await Payment.findByIdAndDelete(paymentId);
 
+    t.end({ bookingId: id, paymentId });
     res.json({ message: 'Payment removed successfully' });
 
     // BACKGROUND: Payment removal side effects
