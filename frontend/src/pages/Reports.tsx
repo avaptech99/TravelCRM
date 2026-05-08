@@ -90,6 +90,11 @@ export const Reports: React.FC = () => {
         company: '',
     });
 
+    React.useEffect(() => {
+        setPendingPage(1);
+        setReceivedPage(1);
+    }, [filters]);
+
 
     const { data: bookingStats, isLoading: isBookingsLoading } = useQuery({
         queryKey: ['analytics-bookings', filters],
@@ -134,6 +139,8 @@ export const Reports: React.FC = () => {
     const [showPending, setShowPending] = useState(false);
     const [showReceived, setShowReceived] = useState(false);
     const [isMetricsOpen, setIsMetricsOpen] = useState(true);
+    const [pendingPage, setPendingPage] = useState(1);
+    const [receivedPage, setReceivedPage] = useState(1);
 
     const statusData = bookingStats?.byStatus?.map((s: any) => ({ name: s._id, value: s.count })) || [];
     const interestData = bookingStats?.byInterest?.map((s: any) => ({ 
@@ -451,108 +458,143 @@ export const Reports: React.FC = () => {
                 )}
             </div>
 
-            {/* Payment Breakdown Section */}
-            <div className="space-y-6 px-2">
-                {/* Pending Payments */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <button
-                        onClick={() => setShowPending(!showPending)}
-                        className="w-full flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-50 rounded-lg text-amber-600"><ArrowDownRight size={18} /></div>
-                            <div className="text-left">
-                                <h3 className="text-sm font-bold text-slate-800">Pending Payments</h3>
-                                <p className="text-xs text-slate-500">{paymentBreakdown?.pending?.length || 0} bookings • Total: ₹{(paymentBreakdown?.totalPending || 0).toLocaleString()}</p>
+            {/* Side-by-Side Payment Dashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
+                {/* Pending Payments - Left Column */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[850px]">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-50 rounded-lg text-amber-600"><ArrowDownRight size={18} /></div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800">Pending Payments</h3>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Outstanding: ₹{(paymentBreakdown?.totalPending || 0).toLocaleString()}</p>
+                                </div>
                             </div>
                         </div>
-                        {showPending ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-                    </button>
-                    {showPending && (
-                        <div className="border-t border-slate-100 overflow-x-auto">
-                            {isBreakdownLoading ? (
-                                <div className="p-8 text-center text-slate-400"><Loader2 size={20} className="animate-spin mx-auto" /></div>
-                            ) : (paymentBreakdown?.pending?.length || 0) === 0 ? (
-                                <NoDataPlaceholder message="No pending payments found" icon={<ArrowDownRight size={32} className="opacity-20" />} />
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-slate-50/50">
-                                            <th className="text-left p-4">Code</th>
-                                            <th className="text-left p-4">Contact</th>
-                                            <th className="text-left p-4">Company</th>
-                                            <th className="text-right p-4">Total</th>
-                                            <th className="text-right p-4">Paid</th>
-                                            <th className="text-right p-4">Outstanding</th>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto custom-scrollbar">
+                        {isBreakdownLoading ? (
+                            <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
+                        ) : (paymentBreakdown?.pending?.length || 0) === 0 ? (
+                            <NoDataPlaceholder message="All payments collected" icon={<CheckCircle2 size={32} className="opacity-20" />} />
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                                    <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="text-left p-4">Booking ID</th>
+                                        <th className="text-left p-4">Contact</th>
+                                        <th className="text-left p-4">Company</th>
+                                        <th className="text-right p-4">Outstanding</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {paymentBreakdown.pending.slice((pendingPage - 1) * 15, pendingPage * 15).map((p: any) => (
+                                        <tr key={p.bookingId} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
+                                            <td className="p-4">
+                                                <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
+                                            </td>
+                                            <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
+                                            <td className="p-4 text-right text-red-600 font-bold">₹{p.outstanding.toLocaleString()}</td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {paymentBreakdown.pending.map((p: any) => (
-                                            <tr key={p.bookingId} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="p-4 font-semibold text-primary">{p.uniqueCode}</td>
-                                                <td className="p-4 text-slate-700">{p.contactPerson}</td>
-                                                <td className="p-4 text-slate-500">{p.companyName || '—'}</td>
-                                                <td className="p-4 text-right text-slate-700">₹{p.totalAmount.toLocaleString()}</td>
-                                                <td className="p-4 text-right text-emerald-600 font-medium">₹{p.totalPaid.toLocaleString()}</td>
-                                                <td className="p-4 text-right text-red-600 font-bold">₹{p.outstanding.toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    
+                    {/* Pagination for Pending */}
+                    <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {pendingPage}</span>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setPendingPage(prev => Math.max(1, prev - 1))}
+                                disabled={pendingPage === 1}
+                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                            >
+                                Prev
+                            </button>
+                            <button 
+                                onClick={() => setPendingPage(prev => prev + 1)}
+                                disabled={!paymentBreakdown?.pending || pendingPage * 15 >= paymentBreakdown.pending.length}
+                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                            >
+                                Next
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                {/* Received Payments */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <button
-                        onClick={() => setShowReceived(!showReceived)}
-                        className="w-full flex items-center justify-between p-6 hover:bg-slate-50/50 transition-all"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><ArrowUpRight size={18} /></div>
-                            <div className="text-left">
-                                <h3 className="text-sm font-bold text-slate-800">Received Payments</h3>
-                                <p className="text-xs text-slate-500">{paymentBreakdown?.received?.length || 0} payments • Total: ₹{(paymentBreakdown?.totalReceived || 0).toLocaleString()}</p>
+                {/* Received Payments - Right Column */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[850px]">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><ArrowUpRight size={18} /></div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800">Received Payments</h3>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Collected: ₹{(paymentBreakdown?.totalReceived || 0).toLocaleString()}</p>
+                                </div>
                             </div>
                         </div>
-                        {showReceived ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-                    </button>
-                    {showReceived && (
-                        <div className="border-t border-slate-100 overflow-x-auto">
-                            {isBreakdownLoading ? (
-                                <div className="p-8 text-center text-slate-400"><Loader2 size={20} className="animate-spin mx-auto" /></div>
-                            ) : (paymentBreakdown?.received?.length || 0) === 0 ? (
-                                <NoDataPlaceholder message="No received payments found" icon={<CheckCircle2 size={32} className="opacity-20" />} />
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-slate-50/50">
-                                            <th className="text-left p-4">Code</th>
-                                            <th className="text-left p-4">Contact</th>
-                                            <th className="text-left p-4">Company</th>
-                                            <th className="text-left p-4">Method</th>
-                                            <th className="text-right p-4">Amount</th>
-                                            <th className="text-right p-4">Date</th>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto custom-scrollbar">
+                        {isBreakdownLoading ? (
+                            <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
+                        ) : (paymentBreakdown?.received?.length || 0) === 0 ? (
+                            <NoDataPlaceholder message="No payments received yet" icon={<DollarSign size={32} className="opacity-20" />} />
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                                    <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="text-left p-4">Booking ID</th>
+                                        <th className="text-left p-4">Contact</th>
+                                        <th className="text-left p-4">Company</th>
+                                        <th className="text-right p-4">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {paymentBreakdown.received.slice((receivedPage - 1) * 15, receivedPage * 15).map((p: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
+                                            <td className="p-4">
+                                                <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
+                                            </td>
+                                            <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
+                                            <td className="p-4 text-right">
+                                                <div className="text-emerald-600 font-bold">₹{p.amount.toLocaleString()}</div>
+                                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{dayjs(p.date).format('DD MMM YYYY')}</div>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {paymentBreakdown.received.map((p: any, idx: number) => (
-                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="p-4 font-semibold text-primary">{p.uniqueCode}</td>
-                                                <td className="p-4 text-slate-700">{p.contactPerson}</td>
-                                                <td className="p-4 text-slate-500">{p.companyName || '—'}</td>
-                                                <td className="p-4 text-slate-500">{p.paymentMethod}</td>
-                                                <td className="p-4 text-right text-emerald-600 font-bold">₹{p.amount.toLocaleString()}</td>
-                                                <td className="p-4 text-right text-slate-500">{dayjs(p.date).format('DD MMM YYYY')}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    {/* Pagination for Received */}
+                    <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {receivedPage}</span>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setReceivedPage(prev => Math.max(1, prev - 1))}
+                                disabled={receivedPage === 1}
+                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                            >
+                                Prev
+                            </button>
+                            <button 
+                                onClick={() => setReceivedPage(prev => prev + 1)}
+                                disabled={!paymentBreakdown?.received || receivedPage * 15 >= paymentBreakdown.received.length}
+                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                            >
+                                Next
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
