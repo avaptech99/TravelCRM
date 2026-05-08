@@ -113,7 +113,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     // Total expected from Bookings (amount)
     const bookingMatch: any = {};
     if (fromDate || toDate) {
-        bookingMatch.createdAt = {};
+        bookingMatch.createdAt = {}; // Use createdAt for "Expected" revenue (when lead was created)
         if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
         if (toDate) {
             const end = new Date(toDate as string);

@@ -9,9 +9,9 @@ import { createTimer } from '../utils/perfLogger';
 // @access  Private (Admin Only)
 export const getDropdowns = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('getDropdowns');
-    t.mark('checkCache');
     const cacheKey = 'settings_dropdowns';
     const cached = appCache.get(cacheKey);
+    
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -19,13 +19,18 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
         return;
     }
 
-    t.mark('dbQuery');
-    const settings = await Setting.find().lean();
-    const result: Record<string, string[]> = {};
+    // If cache miss (should be rare with warmup), calculate
+    const result = await calculateDropdowns();
+    appCache.set(cacheKey, result, 86400); // 24 hour cache
     
-    t.mark('mergeDefaults');
-    // Initialize default if empty
-    const defaultKeys = ['companies', 'costTypes', 'costSources', 'groups'];
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db' });
+    res.json(result);
+});
+
+// Helper to calculate merged dropdowns (Pure JS logic)
+async function calculateDropdowns() {
+    const settings = await Setting.find().lean();
     const defaults: Record<string, string[]> = {
         companies: ['Skylight', 'Travowords', 'Travel Window Dubai', 'Travel Window Canada'],
         costTypes: ['Air Ticket', 'Hotel', 'Visa', 'Insurance', 'Transport', 'Others'],
@@ -33,23 +38,23 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
         groups: ['Package / LCC', 'Ticketing INT', 'Visa', 'Operation', 'Account']
     };
 
+    const result = { ...defaults };
     settings.forEach(s => {
         result[s.key] = s.values;
     });
+    return result;
+}
 
-    // Merge with defaults if missing
-    defaultKeys.forEach(key => {
-        if (!result[key]) {
-            result[key] = defaults[key];
-        }
-    });
-
-    // Cache the merged result for 1 hour
-    appCache.set(cacheKey, result, 3600);
-    res.setHeader('X-Cache-Status', 'MISS');
-    t.end({ source: 'db' });
-    res.json(result);
-});
+// Warmup function to be called at server startup
+export const warmDropdownCache = async () => {
+    try {
+        const result = await calculateDropdowns();
+        appCache.set('settings_dropdowns', result, 86400);
+        console.log('✅ Dropdown cache warmed successfully');
+    } catch (error) {
+        console.error('❌ Failed to warm dropdown cache:', error);
+    }
+};
 
 // @desc    Update a specific dropdown setting
 // @route   PUT /api/settings/dropdowns/:key

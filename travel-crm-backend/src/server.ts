@@ -121,7 +121,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 import cluster from 'cluster';
-import os from 'os';
+import { warmDropdownCache } from './controllers/settingsController';
 
 const PORT = process.env.PORT || 5000;
 
@@ -140,7 +140,8 @@ if (cluster.isPrimary) {
     });
 
     // Run master-only background tasks (Cron)
-    connectDB().then(() => {
+    connectDB().then(async () => {
+        await warmDropdownCache();
         startFollowUpCron();
         console.log('🚀 Primary startup tasks complete.');
     });
@@ -150,6 +151,7 @@ if (cluster.isPrimary) {
     const startWorker = async () => {
         try {
             await connectDB();
+            await warmDropdownCache();
             app.listen(Number(PORT), '0.0.0.0', () => {
                 console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
             });

@@ -163,8 +163,10 @@ bookingSchema.pre('save', async function (this: any) {
 });
 
 // Indexes — Optimized for Atlas M0 (Free Tier) to balance read speed and write overhead
-bookingSchema.index({ createdAt: -1 }); 
-bookingSchema.index({ updatedAt: -1 }); 
+bookingSchema.index({ travelDate: 1 });
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ uniqueCode: 1 });
+ 
 bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for most Agent/Marketer queries
 bookingSchema.index({ status: 1, travelDate: 1 }); 
 bookingSchema.index({ outstanding: 1, status: 1 }); // High-performance unpaid leads filtering
@@ -209,6 +211,18 @@ bookingSchema.virtual('payments', {
 
 bookingSchema.virtual('passengers', {
     ref: 'Passenger',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
+
+bookingSchema.virtual('comments', {
+    ref: 'Comment',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
+
+bookingSchema.virtual('activities', {
+    ref: 'Timeline',
     localField: '_id',
     foreignField: 'bookingId',
 });

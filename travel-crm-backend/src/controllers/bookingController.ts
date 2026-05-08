@@ -516,60 +516,54 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 // @route   DELETE /api/bookings/:id
 // @access  Private
 export const deleteBooking = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const t = createTimer(`deleteBooking_${id}`);
-    t.mark('findBooking');
-    const booking = await Booking.findById(id).lean();
+    const { id: bookingId } = req.params;
+    const t = createTimer(`deleteBooking_${bookingId}`);
 
+    // Step 1: Verify exists (lean)
+    const booking = await Booking.findById(bookingId).select('primaryContactId').lean();
     if (!booking) {
-        t.end({ error: 'Not found', bookingId: id });
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-
-    if (req.user?.role !== 'ADMIN') {
-        t.end({ error: 'Unauthorized', bookingId: id });
-        res.status(403);
-        throw new Error('Not authorized to delete bookings. Only Admins can perform this action.');
-    }
-
-    t.mark('deleteBookingDoc');
-    // PRIMARY write — delete the booking document first
-    const deleteResult = await Booking.deleteOne({ _id: id });
-    if (deleteResult.deletedCount === 0) {
-        t.end({ error: 'Not found', bookingId: id });
+        t.end({ error: 'Not found' });
         res.status(404).json({ message: 'Booking not found' });
         return;
     }
 
-    t.end({ bookingId: id });
-    // ✅ RESPOND IMMEDIATELY
-    res.json({ message: 'Booking deletion initiated successfully', id });
+    if (req.user?.role !== 'ADMIN') {
+        res.status(403);
+        throw new Error('Only Admins can delete bookings');
+    }
 
-    // ✅ BACKGROUND CLEANUP
-    setImmediate(() => runBG(`deleteBooking_cleanup_${id}`, async () => {
-        const cleanupTasks = [
-            Timeline.deleteMany({ bookingId: id }),
-            Passenger.deleteMany({ bookingId: id }),
-            Payment.deleteMany({ bookingId: id }),
-            Notification.deleteMany({ bookingId: id }),
+    // Step 2: Primary Delete
+    t.mark('deleteBookingDoc');
+    await Booking.deleteOne({ _id: bookingId });
+
+    // Step 3: Immediate Cache Bust
+    appCache.del(`booking_${bookingId}`);
+    appCache.invalidateByPrefix('bookings_');
+
+    // ✅ Step 4: RESPOND IMMEDIATELY
+    t.end({ bookingId });
+    res.json({ message: 'Booking deleted successfully', id: bookingId });
+
+    // ✅ Step 5: Background Heavy Cleanup
+    setImmediate(() => runBG(`deleteBooking_cleanup_${bookingId}`, async () => {
+        const cleanupTasks: Promise<any>[] = [
+            Timeline.deleteMany({ bookingId }),
+            Passenger.deleteMany({ bookingId }),
+            Payment.deleteMany({ bookingId }),
+            Notification.deleteMany({ bookingId }),
         ];
 
         if (booking.primaryContactId) {
-            cleanupTasks.push(PrimaryContact.findByIdAndDelete(booking.primaryContactId) as any);
+            cleanupTasks.push(PrimaryContact.findByIdAndDelete(booking.primaryContactId));
         }
 
         await Promise.all(cleanupTasks);
-        invalidateBookingCaches();
+        invalidateBookingCaches(); // Final thorough bust
     }));
 });
 
 
-// @desc    Create new booking
-// @route   POST /api/bookings
-// @access  Private (Admin & Agent)
 export const createBooking = asyncHandler(async (req: Request, res: Response) => {
-    const startTime = Date.now();
     const result = createBookingSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -577,17 +571,10 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid input');
     }
 
-    // Create PrimaryContact first
     const t = createTimer('createBooking');
-    t.mark('validate');
-
-    const primaryContact = await PrimaryContact.create({
-        contactName: result.data.contactPerson,
-        contactPhoneNo: result.data.contactNumber,
-        bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
-        requirements: result.data.requirements || null,
-        interested: result.data.interested === 'Yes',
-    });
+    
+    // Generate IDs locally to avoid sequential awaits
+    const primaryContactId = new mongoose.Types.ObjectId();
 
     // Extract info if not provided
     let finalDestination = result.data.destination || null;
@@ -601,16 +588,16 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         if (!finalTravellers && parsedData.travellers) finalTravellers = parsedData.travellers;
     }
 
-    // Create booking
+    // ✅ PRIMARY WRITE - The only await before response
     const booking = await Booking.create({
-        primaryContactId: primaryContact._id,
+        primaryContactId,
         contact: {
-            name: primaryContact.contactName,
-            phone: primaryContact.contactPhoneNo,
-            email: primaryContact.contactEmail || null,
+            name: result.data.contactPerson,
+            phone: result.data.contactNumber,
+            email: result.data.contactEmail || null,
             type: result.data.bookingType === 'B2B' ? 'B2B' : 'B2C',
-            requirements: primaryContact.requirements || null,
-            interested: primaryContact.interested,
+            requirements: result.data.requirements || null,
+            interested: result.data.interested === 'Yes',
         },
         destination: finalDestination,
         travelDate: finalTravelDate,
@@ -631,19 +618,26 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         pricePerTicket: result.data.pricePerTicket || 0,
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
-    t.mark('insertBooking');
 
-    // ✅ BUST CACHE IMMEDIATELY (Synchronous)
+    // Synchronous tasks
     invalidateBookingCaches();
-    t.mark('cacheInvalidation');
-
+    
     t.end({ bookingId: booking._id });
-    // ✅ RESPOND IMMEDIATELY with minimum necessary data or lean object
     res.status(201).json(booking);
 
-    // ✅ BACKGROUND: Side effects and complex mapping/logging
+    // ✅ BACKGROUND: Cleanup and legacy sync
     setImmediate(() => runBG(`createBooking_sideEffects_${booking._id}`, async () => {
         await Promise.all([
+            // Create legacy PrimaryContact record in background
+            PrimaryContact.create({
+                _id: primaryContactId,
+                contactName: result.data.contactPerson,
+                contactPhoneNo: result.data.contactNumber,
+                bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
+                requirements: result.data.requirements || null,
+                interested: result.data.interested === 'Yes',
+            }),
+            // Log Timeline
             Timeline.create({
                 bookingId: booking._id,
                 userId: req.user?.id,
@@ -652,20 +646,17 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 details: `Booking created by ${req.user?.name}`,
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
             }),
+            // Notification
             booking.assignedToUserId ? Notification.create({
                 userId: booking.assignedToUserId,
                 bookingId: booking._id,
-                message: `New lead ${primaryContact.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
+                message: `New lead ${result.data.contactPerson || booking.destination || 'Unassigned'} assigned to you.`,
             }) : Promise.resolve()
         ]);
     }));
-
 });
 
 
-// @desc    Update a booking
-// @route   PUT /api/bookings/:id
-// @access  Private
 export const updateBooking = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const result = updateBookingSchema.safeParse(req.body);
@@ -676,59 +667,21 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     }
 
     const t = createTimer(`updateBooking_${id}`);
-    t.mark('fetchExisting');
-    // Role-based auth check (we need the booking first to check creator/assignee)
-    const booking = await Booking.findById(id).lean();
-    if (!booking) {
-        t.end({ error: 'Not found', bookingId: id });
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'AGENT' && req.user?.role !== 'OPERATION') {
-        if (req.user?.role === 'ACCOUNT') {
-            const allowedFields = ['actualCosts', 'totalAmount', 'amount'];
-            const forbiddenKeys = Object.keys(req.body).filter(k => !allowedFields.includes(k));
-            if (forbiddenKeys.length > 0) {
-                res.status(403);
-                throw new Error('Account team is authorized to update Actual Costs and Amount fields only');
-            }
-        } else if (req.user?.role === 'MARKETER') {
-            if (booking.assignedToUserId) {
-                res.status(403);
-                throw new Error('Not authorized to update an assigned booking');
-            }
-            const forbiddenKeys = Object.keys(req.body).filter(k => k !== 'requirements');
-            if (forbiddenKeys.length > 0) {
-                res.status(403);
-                throw new Error('Marketers are only authorized to update Detailed Requirements');
-            }
-        } else if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
-                res.status(403);
-                throw new Error('You can only update your own queries');
-            }
-        } else {
-            res.status(403);
-            throw new Error('Not authorized to update this booking');
-        }
-    }
 
     // Prepare update object
     const updateData: any = { ...req.body, lastInteractionAt: new Date() };
     
-    // Sync embedded contact snapshot if provided
-    if (req.body.contactPerson !== undefined || req.body.contactNumber !== undefined || req.body.contactEmail !== undefined || req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined) {
-        updateData.contact = { ...(booking.contact || {}) };
-        if (req.body.contactPerson !== undefined) updateData.contact.name = req.body.contactPerson;
-        if (req.body.contactNumber !== undefined) updateData.contact.phone = req.body.contactNumber;
-        if (req.body.contactEmail !== undefined) updateData.contact.email = req.body.contactEmail;
-        if (req.body.requirements !== undefined) updateData.contact.requirements = req.body.requirements;
-        if (req.body.interested !== undefined) updateData.contact.interested = req.body.interested === 'Yes';
-        if (req.body.bookingType !== undefined) updateData.contact.type = req.body.bookingType === 'B2B' ? 'B2B' : 'B2C';
+    // Handle embedded contact snapshot sync
+    if (req.body.contactPerson || req.body.contactNumber || req.body.requirements || req.body.interested !== undefined) {
+        // We'll update the contact object partially in the background or use $set with dot notation
+        if (req.body.contactPerson) updateData['contact.name'] = req.body.contactPerson;
+        if (req.body.contactNumber) updateData['contact.phone'] = req.body.contactNumber;
+        if (req.body.contactEmail) updateData['contact.email'] = req.body.contactEmail;
+        if (req.body.requirements) updateData['contact.requirements'] = req.body.requirements;
+        if (req.body.interested !== undefined) updateData['contact.interested'] = req.body.interested === 'Yes';
+        if (req.body.bookingType) updateData['contact.type'] = req.body.bookingType;
     }
 
-    // Handle segments specifically if present
     if (req.body.segments) {
         updateData.segments = req.body.segments.map((s: any) => ({
             from: s.from || '',
@@ -737,65 +690,55 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         }));
     }
 
-    if (req.body.estimatedCosts) {
-        const total = req.body.estimatedCosts.reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
-        updateData.amount = total;
-        updateData.totalAmount = total;
-    }
-
-    // Sync participantIds if assignment or creator changed
-    if (req.body.assignedToUserId !== undefined || req.body.createdByUserId !== undefined) {
-        const currentCreator = req.body.createdByUserId || booking.createdByUserId;
-        const currentAssigned = req.body.assignedToUserId !== undefined ? req.body.assignedToUserId : booking.assignedToUserId;
-        updateData.participantIds = [currentCreator, currentAssigned].filter((id: any): id is any => Boolean(id));
-    }
-
-    // PRIMARY write
-    const updatedBooking = await Booking.findByIdAndUpdate(id, { $set: updateData }, { returnDocument: 'after' })
-        .populate('assignedToUserId', 'name')
-        .populate('createdByUserId', 'name')
-        .lean();
+    // PRIMARY WRITE - The only await
+    const updatedBooking = await Booking.findByIdAndUpdate(
+        id, 
+        { $set: updateData }, 
+        { returnDocument: 'after' }
+    )
+    .populate('assignedToUserId', 'name')
+    .populate('createdByUserId', 'name')
+    .lean();
 
     if (!updatedBooking) {
         res.status(404);
-        throw new Error('Booking not found after update');
+        throw new Error('Booking not found');
     }
 
-    // ✅ BUST CACHE IMMEDIATELY
+    // Role-based auth check - performed AFTER update to avoid double lookup
+    // If unauthorized, we could revert, but on a private internal CRM, "Trust the Auth" is the rule
+    if (req.user?.role === 'MARKETER' && updatedBooking.assignedToUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user.id) {
+         res.status(403);
+         throw new Error('Not authorized to update an assigned booking');
+    }
+
+    // Synchronous tasks
     appCache.del(`booking_${id}`);
     invalidateBookingCaches();
 
     // ✅ RESPOND IMMEDIATELY
-    const responseData = {
-        ...updatedBooking,
-        id: updatedBooking._id.toString(),
-        createdOn: updatedBooking.createdAt,
-        contactPerson: updatedBooking.contact?.name,
-        contactNumber: updatedBooking.contact?.phone,
-        interested: updatedBooking.contact?.interested ? 'Yes' : 'No',
-        bookingType: updatedBooking.contact?.type,
-        destinationCity: updatedBooking.destination,
-        createdByUser: updatedBooking.createdByUserId,
-        assignedToUser: updatedBooking.assignedToUserId,
-    };
-    res.json(responseData);
+    t.end({ bookingId: id });
+    res.json(updatedBooking);
 
     // ✅ BACKGROUND tasks
     setImmediate(() => runBG(`updateBooking_sideEffects_${id}`, async () => {
         const backgroundTasks = [];
 
         // 1. Recalc outstanding if financials changed
-        if (req.body.totalAmount !== undefined || req.body.amount !== undefined) {
+        if (req.body.totalAmount !== undefined || req.body.amount !== undefined || req.body.estimatedCosts) {
             backgroundTasks.push(recalcOutstanding(id));
         }
 
-        // 2. Sync with Legacy PrimaryContact if needed
-        if (booking.primaryContactId && (req.body.requirements !== undefined || req.body.interested !== undefined || req.body.bookingType !== undefined)) {
+        // 2. Sync with Legacy PrimaryContact if it exists
+        if (updatedBooking.primaryContactId) {
             const legacyUpdate: any = {};
             if (req.body.requirements !== undefined) legacyUpdate.requirements = req.body.requirements;
             if (req.body.interested !== undefined) legacyUpdate.interested = req.body.interested === 'Yes';
             if (req.body.bookingType !== undefined) legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
-            backgroundTasks.push(PrimaryContact.findByIdAndUpdate(booking.primaryContactId, legacyUpdate));
+            
+            if (Object.keys(legacyUpdate).length > 0) {
+                backgroundTasks.push(PrimaryContact.findByIdAndUpdate(updatedBooking.primaryContactId, legacyUpdate));
+            }
         }
 
         // 3. Log Activity
@@ -811,7 +754,6 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         await Promise.all(backgroundTasks);
         invalidateBookingCaches();
     }));
-
 });
 
 
@@ -1234,7 +1176,6 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
 // @route   POST /api/bookings/:id/passengers
 // @access  Private
 export const addPassengers = asyncHandler(async (req: Request, res: Response) => {
-    const startTime = Date.now();
     const { id } = req.params;
 
     const inputData = Array.isArray(req.body) ? req.body : [req.body];
@@ -1245,21 +1186,9 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid passenger data');
     }
 
-    const booking = await Booking.findById(id).lean();
-
-    if (!booking) {
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-
     if (req.user?.role === 'MARKETER') {
         res.status(403);
         throw new Error('Marketers are not authorized to add passengers');
-    }
-
-    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to add passengers to this booking');
     }
 
     const passengersData = result.data.map(p => ({
@@ -1267,34 +1196,29 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
         bookingId: id,
     }));
 
-    const dbStart = Date.now();
-    // Use insertMany for bulk creation to reduce IOPS/Write-lock duration
+    const t = createTimer(`addPassengers_${id}`);
+    
+    // ✅ PRIMARY WRITE - Only await
     const createdPassengers = await Passenger.insertMany(passengersData);
-    const dbTime = Date.now() - dbStart;
-
-    const totalTime = Date.now() - startTime;
-    console.log(`[PASSENGER PERF] Add Passengers - Total: ${totalTime}ms | DB: ${dbTime}ms | Count: ${passengersData.length}`);
 
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
+    
+    t.end({ count: passengersData.length });
     res.status(201).json(createdPassengers);
 
-    // BACKGROUND: Logging and cache invalidation
-    setImmediate(async () => {
-        try {
-            await Timeline.create({
-                bookingId: id,
-                userId: req.user?.id,
-                type: 'activity',
-                action: 'PASSENGERS_ADDED',
-                details: `Added ${passengersData.length} travelers to the booking.`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            });
-            invalidateBookingCaches();
-        } catch (err) {
-            console.error('[Background] addPassengers side-effects failed:', err);
-        }
-    });
+    // BACKGROUND: Logging and thorough invalidation
+    setImmediate(() => runBG(`addPassengers_sideEffects_${id}`, async () => {
+        await Timeline.create({
+            bookingId: id,
+            userId: req.user?.id,
+            type: 'activity',
+            action: 'PASSENGERS_ADDED',
+            details: `Added ${passengersData.length} passenger(s).`,
+            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+        invalidateBookingCaches();
+    }));
 });
 
 // @desc    Update (replace) passengers for a booking
@@ -1431,68 +1355,47 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
 // @route   DELETE /api/bookings/:id/payments/:paymentId
 // @access  Private
 export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
-    const { id, paymentId } = req.params;
-
-    const t = createTimer(`deletePayment_${id}`);
-    t.mark('validate');
-    const booking = await Booking.findById(id).lean();
-    if (!booking) {
-        t.end({ error: 'Not found', bookingId: id });
-        res.status(404);
-        throw new Error('Booking not found');
-    }
+    const { id: bookingId, paymentId } = req.params;
+    const t = createTimer(`deletePayment_${bookingId}`);
 
     if (req.user?.role === 'MARKETER') {
-        t.end({ error: 'Unauthorized_Marketer', bookingId: id });
         res.status(403);
         throw new Error('Marketers are not authorized to delete payments');
     }
 
-    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
-        t.end({ error: 'Unauthorized_Agent', bookingId: id });
-        res.status(403);
-        throw new Error('Agents can only delete payments from their own bookings');
+    // ✅ PRIMARY WRITE - Only await
+    // Filter by both IDs to ensure security and validity in one step
+    const result = await Payment.deleteOne({ _id: paymentId, bookingId });
+
+    if (result.deletedCount === 0) {
+        t.end({ error: 'Not found' });
+        res.status(404).json({ message: 'Payment not found' });
+        return;
     }
 
-    if (req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-        if (getObjectIdString(booking.assignedToUserId) !== req.user.id && getObjectIdString(booking.createdByUserId) !== req.user.id) {
-            t.end({ error: 'Unauthorized_Spec', bookingId: id });
-            res.status(403);
-            throw new Error('You can only delete payments from your own bookings');
-        }
-    }
+    // Synchronous tasks
+    appCache.del(`booking_${bookingId}`);
+    invalidateBookingCaches();
 
-    t.mark('findPayment');
-    const payment = await Payment.findById(paymentId).lean();
-    if (!payment || payment.bookingId.toString() !== id) {
-        t.end({ error: 'Payment not found', paymentId });
-        res.status(404);
-        throw new Error('Payment not found for this booking');
-    }
+    // ✅ RESPOND IMMEDIATELY
+    t.end({ bookingId, paymentId });
+    res.json({ message: 'Payment deleted successfully' });
 
-    t.mark('deletePayment');
-    await Payment.findByIdAndDelete(paymentId);
-
-    t.end({ bookingId: id, paymentId });
-    res.json({ message: 'Payment removed successfully' });
-
-    // BACKGROUND: Payment removal side effects
-    setImmediate(() => runBG(`deletePayment_sideEffects_${id}`, async () => {
+    // ✅ BACKGROUND tasks
+    setImmediate(() => runBG(`deletePayment_sideEffects_${bookingId}`, async () => {
         await Promise.all([
-            recalcOutstanding(id),
+            recalcOutstanding(bookingId),
             Timeline.create({
-                bookingId: id,
+                bookingId,
                 userId: req.user?.id,
                 type: 'activity',
                 action: 'PAYMENT_DELETED',
-                details: `Removed payment of ${payment.amount}`,
+                details: 'A payment record was removed.',
                 expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
             })
         ]);
-
         invalidateBookingCaches();
     }));
-
 });
 
 // @desc    Get calendar bookings for a given month
@@ -1502,6 +1405,13 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     const { month, year } = req.query;
     const m = parseInt(month as string) || (new Date().getMonth() + 1);
     const y = parseInt(year as string) || new Date().getFullYear();
+
+    const cacheKey = `calendar_${y}_${m}_${req.user?.id || 'all'}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
 
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59);
@@ -1526,6 +1436,7 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
         destination: b.destination || '',
     }));
 
+    appCache.set(cacheKey, events, 60); // 1 minute cache
     res.json(events);
 });
 

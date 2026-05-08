@@ -12,26 +12,26 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
 // @desc    Get all agents
 // @route   GET /api/users/agents
-// @access  Private (Admin & Agent)
+// @access  Private (Admin/Manager/Agent)
+// @desc    Get all agents
+// @route   GET /api/users/agents
+// @access  Private (Admin/Manager/Agent)
 export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('getAgents');
-    t.mark('checkCache');
-    const cacheKey = 'users_agents';
+    const cacheKey = 'users_agents_list';
     const cached = appCache.get(cacheKey);
+
     if (cached) {
-        res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
 
-    t.mark('dbQuery');
     const agents = await User.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
         .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
 
-    t.mark('formatResponse');
     const now = Date.now();
     const mappedAgents = agents.map(a => {
         const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
@@ -43,8 +43,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedAgents, 120); // Reduced to 120s as per audit
-    res.setHeader('X-Cache-Status', 'MISS');
+    appCache.set(cacheKey, mappedAgents, 300); // 5 minutes
     t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });

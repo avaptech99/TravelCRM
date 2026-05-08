@@ -43,7 +43,8 @@ const notificationSchema: Schema = new Schema(
     }
 );
 
-notificationSchema.index({ userId: 1, isDismissed: 1, createdAt: -1 }); // Single covering index for bell icon and dashboard
+notificationSchema.index({ userId: 1, isDismissed: 1, createdAt: -1 });
+notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000 });
 notificationSchema.index({ bookingId: 1 });
 
 // Pre-find hook to start timer
