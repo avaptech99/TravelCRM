@@ -455,7 +455,9 @@ export const Reports: React.FC = () => {
                         </div>
                     </div>
                 )}
-                      {/* Unified Payment Dashboard */}
+            </div>
+
+            {/* Unified Payment Dashboard - Now Standalone */}
             <div className="px-2">
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <button 
@@ -512,7 +514,10 @@ export const Reports: React.FC = () => {
                                                             <div className="text-slate-700 font-semibold truncate text-xs" title={p.contactPerson}>{p.contactPerson}</div>
                                                         </td>
                                                         <td className="p-4 text-slate-500 text-[11px] truncate">{p.companyName || '—'}</td>
-                                                        <td className="p-4 text-right text-red-600 font-bold text-xs">₹{p.outstanding.toLocaleString()}</td>
+                                                        <td className="p-4 text-right">
+                                                            <div className="text-red-600 font-bold text-xs">₹{p.outstanding.toLocaleString()}</div>
+                                                            <div className="text-[8px] opacity-0 mt-0.5 select-none">SPACER</div> {/* Row height balancer */}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -533,7 +538,7 @@ export const Reports: React.FC = () => {
                                         <button 
                                             onClick={() => setPendingPage(prev => prev + 1)}
                                             disabled={!paymentBreakdown?.pending || pendingPage * 15 >= paymentBreakdown.pending.length}
-                                            className="px-2.5 py-1 text-[9px] font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                            className="px-3 py-1 text-[9px] font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
                                         >
                                             Next
                                         </button>
@@ -600,7 +605,7 @@ export const Reports: React.FC = () => {
                                         <button 
                                             onClick={() => setReceivedPage(prev => prev + 1)}
                                             disabled={!paymentBreakdown?.received || receivedPage * 15 >= paymentBreakdown.received.length}
-                                            className="px-2.5 py-1 text-[9px] font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                            className="px-3 py-1 text-[9px] font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
                                         >
                                             Next
                                         </button>
@@ -611,7 +616,8 @@ export const Reports: React.FC = () => {
                     )}
                 </div>
             </div>
-            </div>
         </div>
     );
 };
+
+export default Reports;
