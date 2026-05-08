@@ -346,14 +346,29 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         return;
     }
     
-    // 1. Get Pending Bookings (outstanding > 0)
-    const bookingQuery: any = { outstanding: { $gt: 0 } };
+    // 1. Get Pending Bookings (outstanding > 0) within date range
+    const bookingQuery: any = { 
+        outstanding: { $gt: 0 },
+        createdAt: {
+            $gte: new Date(fromDate as string),
+            $lte: new Date(toDate as string)
+        }
+    };
+
     if (company && company !== 'undefined' && company !== 'null') {
         bookingQuery.company = company as string;
     }
 
     // 2. Get Recent Received Payments
     const paymentPipeline: any[] = [
+        {
+            $match: {
+                date: {
+                    $gte: new Date(fromDate as string),
+                    $lte: new Date(toDate as string)
+                }
+            }
+        },
         {
             $lookup: {
                 from: 'bookings',

@@ -489,8 +489,8 @@ export const Reports: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
-                                            {paymentBreakdown.pending.slice((pendingPage - 1) * 15, pendingPage * 15).map((p: any) => (
-                                                <tr key={p.bookingId} className="hover:bg-slate-50/30 transition-colors">
+                                            {paymentBreakdown.pending.slice((pendingPage - 1) * 15, pendingPage * 15).map((p: any, idx: number) => (
+                                                <tr key={`${pendingPage}-${p.bookingId}-${idx}`} className="hover:bg-slate-50/30 transition-colors">
                                                     <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
                                                     <td className="p-4">
                                                         <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
@@ -555,7 +555,7 @@ export const Reports: React.FC = () => {
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {paymentBreakdown.received.slice((receivedPage - 1) * 15, receivedPage * 15).map((p: any, idx: number) => (
-                                                <tr key={idx} className="hover:bg-slate-50/30 transition-colors group">
+                                                <tr key={`${receivedPage}-${idx}`} className="hover:bg-slate-50/30 transition-colors group">
                                                     <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
                                                     <td className="p-4">
                                                         <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
