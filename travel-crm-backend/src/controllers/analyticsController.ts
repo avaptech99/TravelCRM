@@ -370,14 +370,12 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     }
 
     paymentPipeline.push({ $sort: { date: -1 } });
-    paymentPipeline.push({ $limit: 100 });
 
     // Run both pending and received queries in parallel
     const [pendingBookings, recentPayments] = await Promise.all([
         Booking.find(bookingQuery)
             .select('uniqueCode contact amount outstanding company')
             .sort({ outstanding: -1 })
-            .limit(20)
             .lean(),
         Payment.aggregate(paymentPipeline)
     ]);
@@ -406,14 +404,14 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         date: p.date
     }));
 
-    // 3. Totals with explicit number conversion
+    // 3. Totals with explicit number conversion (calculated from FULL lists)
     const totalPending = pending.reduce((sum, b) => sum + (Number(b.outstanding) || 0), 0);
     const totalReceived = received.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
     const result = {
         pending,
         totalPending,
-        received: received.slice(0, 20), // Reduced from 50 for faster load
+        received,
         totalReceived
     };
 
