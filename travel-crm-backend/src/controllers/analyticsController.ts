@@ -139,7 +139,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     }
 
     const [paymentStats, bookingStats] = await Promise.all([
-        Payment.aggregate(paymentPipeline).hint({ date: 1 }), 
+        Payment.aggregate(paymentPipeline), 
         Booking.aggregate([
             { $match: bookingMatch },
             {
