@@ -53,7 +53,6 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
         handleSubmit,
         reset,
         setValue,
-        watch,
         formState: { errors, isSubmitting },
     } = useForm<BookingFormValues & { assignedToUserId?: string }>({
         resolver: zodResolver(bookingSchema.extend({
