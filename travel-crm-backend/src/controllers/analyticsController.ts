@@ -126,7 +126,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     }
 
     const [paymentStats, bookingStats] = await Promise.all([
-        Payment.aggregate(paymentPipeline),
+        Payment.aggregate(paymentPipeline).hint({ date: 1 }), // Force use of date index if available
         Booking.aggregate([
             { $match: bookingMatch },
             {
@@ -145,7 +145,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    appCache.set(cacheKey, result, 120); // Reduced to 120s
+    appCache.set(cacheKey, result, 600); // Increased to 10 minutes to protect Atlas M0
 });
 
 // @desc    Get revenue trends over time

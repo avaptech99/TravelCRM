@@ -12,29 +12,27 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 15,    // Tuned for 4 clustered workers (60 total) on 512MB RAM
+            maxPoolSize: 25,    // Optimized for 2 clustered workers (50 total)
             minPoolSize: 5,
-            waitQueueTimeoutMS: 5000, 
-            heartbeatFrequencyMS: 10000, 
-            socketTimeoutMS: 30000,
+            waitQueueTimeoutMS: 10000, 
+            socketTimeoutMS: 45000, // Increased for heavy analytics
             serverSelectionTimeoutMS: 10000,
-            autoIndex: false,
+            autoIndex: false, // Production best practice
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
 
-        // BACKGROUND: Index synchronization
-        setImmediate(async () => {
-            console.log('Synchronizing indexes in background...');
-            try {
-                await Promise.all([
-                    Booking.syncIndexes(),
-                    Payment.syncIndexes()
-                ]);
-                console.log('✅ Index synchronization complete');
-            } catch (err) {
-                console.error('⚠️ Index sync error:', err);
-            }
-        });
+        // BACKGROUND: Optional index check (non-blocking)
+        if (process.env.SYNC_INDEXES === 'true') {
+            setImmediate(async () => {
+                console.log('Background Index Sync Started...');
+                try {
+                    await Booking.syncIndexes();
+                    console.log('✅ Index synchronization complete');
+                } catch (err) {
+                    console.error('⚠️ Index sync error:', err);
+                }
+            });
+        }
 
 
         // Graceful shutdown handlers

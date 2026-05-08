@@ -42,18 +42,20 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
     const fetchPromise = (async () => {
         const statsQuery: any = {};
         const recentQuery: any = {};
-
-        if (userRole === 'AGENT') {
-            const objId = new mongoose.Types.ObjectId(userId);
-            statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
-            recentQuery.$or = [{ assignedToUserId: userId }, { createdByUserId: userId }];
-        } else if (userRole === 'MARKETER') {
-            statsQuery.createdByUserId = new mongoose.Types.ObjectId(userId);
-            recentQuery.createdByUserId = userId;
+        
+        // Optimized visibility query using participantIds covering index
+        const userIdObj = new mongoose.Types.ObjectId(userId);
+        
+        if (userRole === 'AGENT' || userRole === 'MARKETER' || userRole === 'VISA' || userRole === 'TICKETING') {
+            statsQuery.participantIds = userIdObj;
+            recentQuery.participantIds = userId;
+        } else if (userRole === 'OPERATION' || userRole === 'ACCOUNT') {
+            statsQuery.status = 'Booked';
+            recentQuery.status = 'Booked';
         }
 
-        // Fix #2: Only fetch bookings modified in the last 24 hours for "recent" list
-        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        // Only fetch bookings modified in the last 48 hours for "recent" list (indexed by updatedAt)
+        const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };
 
         // Run all queries

@@ -139,39 +139,9 @@ if (cluster.isPrimary) {
         cluster.fork();
     });
 
-    // Run master-only background tasks (Cron + Migrations)
+    // Run master-only background tasks (Cron)
     connectDB().then(() => {
         startFollowUpCron();
-        
-        // SELF-HEALING: Backfill participantIds for legacy data
-        setImmediate(async () => {
-            try {
-                const count = await Booking.countDocuments({ participantIds: { $exists: false } });
-                if (count > 0) {
-                    console.log(`[MIGRATION] Found ${count} legacy bookings. Backfilling...`);
-                    await Booking.updateMany(
-                        { participantIds: { $exists: false } },
-                        [
-                            { 
-                                $set: { 
-                                    participantIds: {
-                                        $filter: {
-                                            input: [ "$createdByUserId", "$assignedToUserId" ],
-                                            as: "id",
-                                            cond: { $ne: [ "$$id", null ] }
-                                        }
-                                    }
-                                } 
-                            }
-                        ]
-                    );
-                    console.log('✅ Migration: participantIds backfilled successfully.');
-                }
-            } catch (err) {
-                console.error('[MIGRATION ERROR]:', err);
-            }
-        });
-
         console.log('🚀 Primary startup tasks complete.');
     });
 

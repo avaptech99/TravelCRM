@@ -162,21 +162,16 @@ bookingSchema.pre('save', async function (this: any) {
     }
 });
 
-// Indexes — Consolidated for Atlas M0 performance (sub-200ms target)
-bookingSchema.index({ createdAt: -1 }); // Default List
-bookingSchema.index({ participantIds: 1 }); // Covering index for 'My Bookings' (Agent + Marketer)
-bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 }); // Agent Dashboard
-bookingSchema.index({ status: 1, travelDate: 1 }); // Calendar/Upcoming
-bookingSchema.index({ primaryContactId: 1, createdAt: -1 }); // Contact History
-bookingSchema.index({ createdByUserId: 1, createdAt: -1 }); // Creator History
-bookingSchema.index({ 'contact.phone': 1 }); // Search
-bookingSchema.index({ status: 1, createdAt: -1 }); // Status Filter Covering Index
-bookingSchema.index({ assignedToUserId: 1, status: 1, createdAt: -1 }); // Agent + Status Covering Index
-bookingSchema.index({ createdByUserId: 1, status: 1, createdAt: -1 }); // Marketer + Status Covering Index
-bookingSchema.index({ company: 1, status: 1, createdAt: -1 }); // Company + Status Covering Index
-bookingSchema.index({ assignedToUserId: 1, updatedAt: -1 }); // Fast Dashboard Sync (Agent)
-bookingSchema.index({ createdByUserId: 1, updatedAt: -1 });  // Fast Dashboard Sync (Marketer)
-bookingSchema.index({ updatedAt: -1 }); // Global Sync
+// Indexes — Optimized for Atlas M0 (Free Tier) to balance read speed and write overhead
+bookingSchema.index({ createdAt: -1 }); 
+bookingSchema.index({ updatedAt: -1 }); 
+bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for most Agent/Marketer queries
+bookingSchema.index({ status: 1, travelDate: 1 }); 
+bookingSchema.index({ outstanding: 1, status: 1 }); // High-performance unpaid leads filtering
+bookingSchema.index({ assignedGroup: 1, status: 1 }); // Covering index for group-based dashboard
+bookingSchema.index({ 'contact.phone': 1 }); // Quick search by phone
+bookingSchema.index({ uniqueCode: 1 }, { unique: true }); // Should already be covered by schema but explicit here
+bookingSchema.index({ company: 1, status: 1, createdAt: -1 }); 
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

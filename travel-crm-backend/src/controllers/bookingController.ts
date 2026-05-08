@@ -285,21 +285,22 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
 
-    // 3. Pagination Logic (Support both skip and cursor)
+    // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
 
-    const limitNum = Math.min(parseInt(limit as string, 10), 100);
+    const limitNum = Math.min(parseInt(limit as string, 10), 50); // Hard limit of 50 for stability
     
-    // Cursor-based pagination (Primary path for performance)
-    if (cursor) {
+    // Default sort: Newest first
+    const sortQuery = { _id: -1 };
+
+    // If cursor is provided, use it. If not, this is the first page.
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {
         query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
     }
 
     const pageNum = Math.max(parseInt(page as string, 10), 1);
-    const skipNum = cursor ? 0 : (pageNum - 1) * limitNum; // Only skip if no cursor
-    const sortField = '_id'; 
-    const sortDir = -1; 
-    const sortQuery = { [sortField]: sortDir };
+    // skip is only used as a fallback for old clients; cursor is preferred
+    const skipNum = cursor ? 0 : (pageNum - 1) * limitNum; 
 
     if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {
         query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
