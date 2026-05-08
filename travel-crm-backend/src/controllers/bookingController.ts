@@ -526,7 +526,8 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     const deleteResult = await Booking.deleteOne({ _id: id });
     if (deleteResult.deletedCount === 0) {
         t.end({ error: 'Not found', bookingId: id });
-        return res.status(404).json({ message: 'Booking not found' });
+        res.status(404).json({ message: 'Booking not found' });
+        return;
     }
 
     t.end({ bookingId: id });
