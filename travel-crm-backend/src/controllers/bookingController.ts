@@ -623,7 +623,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         participantIds: [
             req.user?.id, 
             (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null
-        ].filter(Boolean),
+        ].filter((id): id is any => Boolean(id)),
         includesFlight: result.data.includesFlight ?? true,
         includesAdditionalServices: result.data.includesAdditionalServices ?? false,
         additionalServicesDetails: result.data.additionalServicesDetails || null,
@@ -746,7 +746,7 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
     if (req.body.assignedToUserId !== undefined || req.body.createdByUserId !== undefined) {
         const currentCreator = req.body.createdByUserId || booking.createdByUserId;
         const currentAssigned = req.body.assignedToUserId !== undefined ? req.body.assignedToUserId : booking.assignedToUserId;
-        updateData.participantIds = [currentCreator, currentAssigned].filter(Boolean);
+        updateData.participantIds = [currentCreator, currentAssigned].filter((id: any): id is any => Boolean(id));
     }
 
     // PRIMARY write
@@ -951,7 +951,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         const updatedParticipants = [
             booking.createdByUserId,
             newAssignedUserId
-        ].filter(Boolean);
+        ].filter((id): id is any => Boolean(id));
 
         await Booking.updateOne(
             { _id: id }, 
