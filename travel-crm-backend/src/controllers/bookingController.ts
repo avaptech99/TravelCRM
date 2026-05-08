@@ -225,27 +225,24 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             query.status = 'Booked';
         } else if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
             query.$or = [
-                { assignedToUserId: new mongoose.Types.ObjectId(req.user.id) }, 
-                { createdByUserId: new mongoose.Types.ObjectId(req.user.id) },
+                { participantIds: new mongoose.Types.ObjectId(req.user.id) },
                 { assignedGroup: { $in: userGroups } }
             ];
         } else if (req.user?.role === 'MARKETER') {
-            query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
+            query.participantIds = new mongoose.Types.ObjectId(req.user.id);
         }
     }
 
     // 2. Filters
     if (myBookings === 'true') {
-        const userMatch = [
-            { assignedToUserId: new mongoose.Types.ObjectId(req.user?.id) },
-            { createdByUserId: new mongoose.Types.ObjectId(req.user?.id) },
-        ];
+        const userId = new mongoose.Types.ObjectId(req.user?.id);
         if (query.$or) {
+            // If already restricted by group/role, intersect with myBookings
             const existingOr = query.$or;
-            query.$and = [{ $or: existingOr }, { $or: userMatch }];
+            query.$and = [{ $or: existingOr }, { participantIds: userId }];
             delete query.$or;
         } else {
-            query.$or = userMatch;
+            query.participantIds = userId;
         }
     }
 
@@ -292,8 +289,14 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     t.mark('parseFilters');
 
     const limitNum = Math.min(parseInt(limit as string, 10), 100);
+    
+    // Cursor-based pagination (Primary path for performance)
+    if (cursor) {
+        query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
+    }
+
     const pageNum = Math.max(parseInt(page as string, 10), 1);
-    const skipNum = (pageNum - 1) * limitNum;
+    const skipNum = cursor ? 0 : (pageNum - 1) * limitNum; // Only skip if no cursor
     const sortField = '_id'; 
     const sortDir = -1; 
     const sortQuery = { [sortField]: sortDir };
@@ -617,6 +620,10 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         travellers: finalTravellers,
         createdByUserId: req.user?.id,
         assignedToUserId: (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null,
+        participantIds: [
+            req.user?.id, 
+            (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null
+        ].filter(Boolean),
         includesFlight: result.data.includesFlight ?? true,
         includesAdditionalServices: result.data.includesAdditionalServices ?? false,
         additionalServicesDetails: result.data.additionalServicesDetails || null,
@@ -729,11 +736,17 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         }));
     }
 
-    // Sync financial totals from cost arrays if present
     if (req.body.estimatedCosts) {
         const total = req.body.estimatedCosts.reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
         updateData.amount = total;
         updateData.totalAmount = total;
+    }
+
+    // Sync participantIds if assignment or creator changed
+    if (req.body.assignedToUserId !== undefined || req.body.createdByUserId !== undefined) {
+        const currentCreator = req.body.createdByUserId || booking.createdByUserId;
+        const currentAssigned = req.body.assignedToUserId !== undefined ? req.body.assignedToUserId : booking.assignedToUserId;
+        updateData.participantIds = [currentCreator, currentAssigned].filter(Boolean);
     }
 
     // PRIMARY write
@@ -934,8 +947,21 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     const newAssignedUserId = assignedToUserId || null;
 
     if (previousAssignedUserId !== newAssignedUserId) {
-        booking.assignedToUserId = newAssignedUserId as any;
-        await booking.save();
+        // Sync participantIds array
+        const updatedParticipants = [
+            booking.createdByUserId,
+            newAssignedUserId
+        ].filter(Boolean);
+
+        await Booking.updateOne(
+            { _id: id }, 
+            { 
+                $set: { 
+                    assignedToUserId: newAssignedUserId,
+                    participantIds: updatedParticipants
+                } 
+            }
+        );
 
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {
@@ -1024,11 +1050,25 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     }
 
     t.mark('dbUpdateMany');
-    // Process in bulk
-    // 1. Update all bookings in one go
+    // Process in bulk using an aggregation pipeline update to keep participantIds in sync
     const updateResult = await Booking.updateMany(
         { _id: { $in: bookingIds } },
-        { $set: { assignedToUserId: newAgentId, lastInteractionAt: new Date() } }
+        [
+            { 
+                $set: { 
+                    assignedToUserId: newAgentId, 
+                    lastInteractionAt: new Date(),
+                    // Re-calculate participantIds: [createdByUserId, newAgentId] without nulls
+                    participantIds: {
+                        $filter: {
+                            input: [ "$createdByUserId", newAgentId ],
+                            as: "id",
+                            cond: { $ne: [ "$$id", null ] }
+                        }
+                    }
+                } 
+            }
+        ]
     );
 
     t.mark('cacheInvalidation');

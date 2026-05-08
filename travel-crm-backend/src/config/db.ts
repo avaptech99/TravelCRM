@@ -12,13 +12,12 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 50,    // Increased for higher concurrency, but kept safe for 512MB RAM
-            minPoolSize: 10,
+            maxPoolSize: 15,    // Tuned for 4 clustered workers (60 total) on 512MB RAM
+            minPoolSize: 5,
             waitQueueTimeoutMS: 5000, 
-            heartbeatFrequencyMS: 10000, // Frequent heartbeats to keep free-tier cluster warm
-
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
+            heartbeatFrequencyMS: 10000, 
+            socketTimeoutMS: 30000,
+            serverSelectionTimeoutMS: 10000,
             autoIndex: false,
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);

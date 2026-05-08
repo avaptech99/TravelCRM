@@ -44,9 +44,10 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
     // 3. First request — create the promise and share it
     const fetchPromise = (async () => {
         t.mark('dbQuery');
-        const notifications = await Notification.find({ userId })
+        // Filter by isDismissed: false to use our compound index effectively
+        const notifications = await Notification.find({ userId, isDismissed: false })
             .sort({ createdAt: -1 })
-            .limit(50) // increased from 20 for better user experience
+            .limit(20) 
             .lean()
             .maxTimeMS(2000);
 
@@ -56,7 +57,7 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
             id: n._id.toString()
         }));
 
-        appCache.set(cacheKey, mapped, 60); // Reduced to 1 minute for better real-time feel under single-flight
+        appCache.set(cacheKey, mapped, 300); // Increased to 5 minutes to protect Atlas M0
         return mapped;
     })();
 

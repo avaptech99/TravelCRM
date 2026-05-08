@@ -120,35 +120,76 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     });
 });
 
+import cluster from 'cluster';
+import os from 'os';
+
 const PORT = process.env.PORT || 5000;
 
-// Auto-seed admin user + backfill outstanding on startup
-mongoose.connection.once('open', async () => {
-    // Run heavy migrations and startup tasks in background to avoid blocking server readiness
-    (async () => {
-        try {
-            const count = await User.countDocuments();
-            if (count === 0) {
-                const hashedPassword = await bcrypt.hash('admin123', 10);
-                await User.create({
-                    name: 'Admin',
-                    email: 'admin@travel.com',
-                    passwordHash: hashedPassword,
-                    role: 'ADMIN',
-                });
-                console.log('Default admin user created');
+if (cluster.isPrimary) {
+    const numWorkers = parseInt(process.env.WEB_CONCURRENCY || '1');
+    console.log(`[PRIMARY] ${process.pid} is running. Forking ${numWorkers} workers...`);
+
+    // Fork workers
+    for (let i = 0; i < numWorkers; i++) {
+        cluster.fork();
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`[WORKER] ${worker.process.pid} died. Restarting...`);
+        cluster.fork();
+    });
+
+    // Run master-only background tasks (Cron + Migrations)
+    connectDB().then(() => {
+        startFollowUpCron();
+        
+        // SELF-HEALING: Backfill participantIds for legacy data
+        setImmediate(async () => {
+            try {
+                const count = await Booking.countDocuments({ participantIds: { $exists: false } });
+                if (count > 0) {
+                    console.log(`[MIGRATION] Found ${count} legacy bookings. Backfilling...`);
+                    await Booking.updateMany(
+                        { participantIds: { $exists: false } },
+                        [
+                            { 
+                                $set: { 
+                                    participantIds: {
+                                        $filter: {
+                                            input: [ "$createdByUserId", "$assignedToUserId" ],
+                                            as: "id",
+                                            cond: { $ne: [ "$$id", null ] }
+                                        }
+                                    }
+                                } 
+                            }
+                        ]
+                    );
+                    console.log('✅ Migration: participantIds backfilled successfully.');
+                }
+            } catch (err) {
+                console.error('[MIGRATION ERROR]:', err);
             }
+        });
 
-            startFollowUpCron();
-            
-            console.log('🚀 Startup tasks complete. System ready.');
-        } catch (error) {
-            console.error('[Startup Task Error]:', error);
+        console.log('🚀 Primary startup tasks complete.');
+    });
+
+} else {
+    // Workers - each handles requests in parallel
+    const startWorker = async () => {
+        try {
+            await connectDB();
+            app.listen(Number(PORT), '0.0.0.0', () => {
+                console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
+            });
+        } catch (err) {
+            console.error(`[WORKER] ${process.pid} failed to start:`, err);
+            process.exit(1);
         }
-    })();
-});
+    };
 
-app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+    startWorker();
+}
+
 
