@@ -456,141 +456,142 @@ export const Reports: React.FC = () => {
                 )}
             </div>
 
-            {/* Side-by-Side Payment Dashboard */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
-                {/* Pending Payments - Left Column */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[850px]">
-                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-50 rounded-lg text-amber-600"><ArrowDownRight size={18} /></div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-800">Pending Payments</h3>
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Outstanding: ₹{(paymentBreakdown?.totalPending || 0).toLocaleString()}</p>
+            {/* Unified Payment Dashboard */}
+            <div className="px-2">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+                        
+                        {/* Pending Payments - Left Column */}
+                        <div className="flex flex-col">
+                            <div className="p-6 bg-slate-50/50 border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-amber-50 rounded-lg text-amber-600"><ArrowDownRight size={18} /></div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800">Pending Payments</h3>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Outstanding: ₹{(paymentBreakdown?.totalPending || 0).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="overflow-x-auto">
+                                {isBreakdownLoading ? (
+                                    <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
+                                ) : (paymentBreakdown?.pending?.length || 0) === 0 ? (
+                                    <NoDataPlaceholder message="All payments collected" icon={<CheckCircle2 size={32} className="opacity-20" />} />
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-white">
+                                                <th className="text-left p-4">Booking ID</th>
+                                                <th className="text-left p-4">Contact</th>
+                                                <th className="text-left p-4">Company</th>
+                                                <th className="text-right p-4">Outstanding</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {paymentBreakdown.pending.slice((pendingPage - 1) * 15, pendingPage * 15).map((p: any) => (
+                                                <tr key={p.bookingId} className="hover:bg-slate-50/30 transition-colors">
+                                                    <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
+                                                    <td className="p-4">
+                                                        <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
+                                                    </td>
+                                                    <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
+                                                    <td className="p-4 text-right text-red-600 font-bold">₹{p.outstanding.toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            
+                            {/* Pagination for Pending */}
+                            <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {pendingPage}</span>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setPendingPage(prev => Math.max(1, prev - 1))}
+                                        disabled={pendingPage === 1}
+                                        className="px-3 py-1 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button 
+                                        onClick={() => setPendingPage(prev => prev + 1)}
+                                        disabled={!paymentBreakdown?.pending || pendingPage * 15 >= paymentBreakdown.pending.length}
+                                        className="px-3 py-1 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                    >
+                                        Next
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-auto custom-scrollbar">
-                        {isBreakdownLoading ? (
-                            <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
-                        ) : (paymentBreakdown?.pending?.length || 0) === 0 ? (
-                            <NoDataPlaceholder message="All payments collected" icon={<CheckCircle2 size={32} className="opacity-20" />} />
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-white z-10 shadow-sm">
-                                    <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                        <th className="text-left p-4">Booking ID</th>
-                                        <th className="text-left p-4">Contact</th>
-                                        <th className="text-left p-4">Company</th>
-                                        <th className="text-right p-4">Outstanding</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {paymentBreakdown.pending.slice((pendingPage - 1) * 15, pendingPage * 15).map((p: any) => (
-                                        <tr key={p.bookingId} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
-                                            <td className="p-4">
-                                                <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
-                                            </td>
-                                            <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
-                                            <td className="p-4 text-right text-red-600 font-bold">₹{p.outstanding.toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                    
-                    {/* Pagination for Pending */}
-                    <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {pendingPage}</span>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => setPendingPage(prev => Math.max(1, prev - 1))}
-                                disabled={pendingPage === 1}
-                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
-                            >
-                                Prev
-                            </button>
-                            <button 
-                                onClick={() => setPendingPage(prev => prev + 1)}
-                                disabled={!paymentBreakdown?.pending || pendingPage * 15 >= paymentBreakdown.pending.length}
-                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Received Payments - Right Column */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[850px]">
-                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><ArrowUpRight size={18} /></div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-800">Received Payments</h3>
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Collected: ₹{(paymentBreakdown?.totalReceived || 0).toLocaleString()}</p>
+                        {/* Received Payments - Right Column */}
+                        <div className="flex flex-col">
+                            <div className="p-6 bg-slate-50/50 border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><ArrowUpRight size={18} /></div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800">Received Payments</h3>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Total Collected: ₹{(paymentBreakdown?.totalReceived || 0).toLocaleString()}</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-auto custom-scrollbar">
-                        {isBreakdownLoading ? (
-                            <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
-                        ) : (paymentBreakdown?.received?.length || 0) === 0 ? (
-                            <NoDataPlaceholder message="No payments received yet" icon={<DollarSign size={32} className="opacity-20" />} />
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-white z-10 shadow-sm">
-                                    <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                        <th className="text-left p-4">Booking ID</th>
-                                        <th className="text-left p-4">Contact</th>
-                                        <th className="text-left p-4">Company</th>
-                                        <th className="text-right p-4">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {paymentBreakdown.received.slice((receivedPage - 1) * 15, receivedPage * 15).map((p: any, idx: number) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
-                                            <td className="p-4">
-                                                <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
-                                            </td>
-                                            <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
-                                            <td className="p-4 text-right">
-                                                <div className="text-emerald-600 font-bold">₹{p.amount.toLocaleString()}</div>
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{dayjs(p.date).format('DD MMM YYYY')}</div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
+                            
+                            <div className="overflow-x-auto">
+                                {isBreakdownLoading ? (
+                                    <div className="p-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-slate-300" /></div>
+                                ) : (paymentBreakdown?.received?.length || 0) === 0 ? (
+                                    <NoDataPlaceholder message="No payments received yet" icon={<DollarSign size={32} className="opacity-20" />} />
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-white">
+                                                <th className="text-left p-4">Booking ID</th>
+                                                <th className="text-left p-4">Contact</th>
+                                                <th className="text-left p-4">Company</th>
+                                                <th className="text-right p-4">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {paymentBreakdown.received.slice((receivedPage - 1) * 15, receivedPage * 15).map((p: any, idx: number) => (
+                                                <tr key={idx} className="hover:bg-slate-50/30 transition-colors group">
+                                                    <td className="p-4 font-bold text-primary text-xs">{p.uniqueCode}</td>
+                                                    <td className="p-4">
+                                                        <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={p.contactPerson}>{p.contactPerson}</div>
+                                                    </td>
+                                                    <td className="p-4 text-slate-500 text-xs truncate max-w-[100px]">{p.companyName || '—'}</td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="text-emerald-600 font-bold">₹{p.amount.toLocaleString()}</div>
+                                                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{dayjs(p.date).format('DD MMM YYYY')}</div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
 
-                    {/* Pagination for Received */}
-                    <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {receivedPage}</span>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => setReceivedPage(prev => Math.max(1, prev - 1))}
-                                disabled={receivedPage === 1}
-                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
-                            >
-                                Prev
-                            </button>
-                            <button 
-                                onClick={() => setReceivedPage(prev => prev + 1)}
-                                disabled={!paymentBreakdown?.received || receivedPage * 15 >= paymentBreakdown.received.length}
-                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
-                            >
-                                Next
-                            </button>
+                            {/* Pagination for Received */}
+                            <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {receivedPage}</span>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setReceivedPage(prev => Math.max(1, prev - 1))}
+                                        disabled={receivedPage === 1}
+                                        className="px-3 py-1 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button 
+                                        onClick={() => setReceivedPage(prev => prev + 1)}
+                                        disabled={!paymentBreakdown?.received || receivedPage * 15 >= paymentBreakdown.received.length}
+                                        className="px-3 py-1 text-[10px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors uppercase tracking-widest"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
