@@ -121,26 +121,31 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
     // Total expected from Bookings (amount)
     const bookingMatch: any = {};
     if (fromDate || toDate) {
-        bookingMatch.createdAt = {}; // Use createdAt for "Expected" revenue (when lead was created)
-        if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) {
-            const end = new Date(toDate as string);
-            end.setHours(23, 59, 59, 999);
-            bookingMatch.createdAt.$lte = end;
+        const start = fromDate ? new Date(fromDate as string) : null;
+        const end = toDate ? new Date(toDate as string) : null;
+        
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            bookingMatch.createdAt = {};
+            if (start && !isNaN(start.getTime())) bookingMatch.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                const e = new Date(end);
+                e.setHours(23, 59, 59, 999);
+                bookingMatch.createdAt.$lte = e;
+            }
         }
     }
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         bookingMatch.company = company as string;
     }
 
     const [paymentStats, bookingStats] = await Promise.all([
-        Payment.aggregate(paymentPipeline).hint({ date: 1 }), // Force use of date index if available
+        Payment.aggregate(paymentPipeline).hint({ date: 1 }), 
         Booking.aggregate([
             { $match: bookingMatch },
             {
                 $group: {
                     _id: null,
-                    totalExpected: { $sum: '$amount' }
+                    totalExpected: { $sum: { $ifNull: ['$amount', 0] } }
                 }
             }
         ])
@@ -230,7 +235,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
             }
         }
     }
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         matchQuery.company = company as string;
     }
 
