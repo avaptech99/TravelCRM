@@ -169,23 +169,20 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const bookings = await Booking.find(query)
-        .select('uniqueCode status assignedToUserId primaryContactId flightFrom flightTo destination travelDate amount createdAt')
+        .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUserId', 'name')
-        .populate('primaryContact', 'contactName contactPhoneNo contactEmail bookingType')
         .lean();
 
     const mapped = bookings.map(b => ({ 
         ...b, 
-        id: b._id.toString(),
+        id: (b as any)._id.toString(),
         createdOn: b.createdAt,
-        contactPerson: (b as any).primaryContact?.contactName,
-        contactNumber: (b as any).primaryContact?.contactPhoneNo,
-        bookingType: (b as any).primaryContact?.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
+        contactPerson: b.contact?.name,
+        contactNumber: b.contact?.phone,
+        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
         destinationCity: b.destination,
-        travellers: b.travellers,
-        travelers: (b as any).passengers,
         assignedToUser: b.assignedToUserId,
     }));
     appCache.set(cacheKey, mapped, 60);
@@ -305,7 +302,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         query._id = { $lt: new mongoose.Types.ObjectId(cursor as string) };
     }
 
-    // Always count total if no cursor is provided to support legacy pager
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking.countDocuments(query).maxTimeMS(2000),
         Booking.find(query)

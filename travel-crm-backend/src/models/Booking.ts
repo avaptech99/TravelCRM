@@ -117,22 +117,14 @@ const bookingSchema = new Schema<IBooking>(
             virtuals: true,
             transform: (doc, ret: any) => {
                 ret.id = ret._id;
-                // Flatten primaryContact fields from embedded snapshot if exists
+                // Use embedded contact snapshot for all flattened fields
                 if (ret.contact) {
                     ret.contactPerson = ret.contact.name;
                     ret.contactNumber = ret.contact.phone;
-                    ret.bookingType = ret.contact.type === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                    ret.contactEmail = ret.contact.email;
+                    ret.requirements = ret.contact.requirements;
+                    ret.bookingType = ret.contact.type === 'B2B' ? 'B2B' : 'B2C';
                     ret.interested = ret.contact.interested ? 'Yes' : 'No';
-                } else if (ret.primaryContact) {
-                    ret.contactPerson = ret.primaryContact.contactName;
-                    ret.contactNumber = ret.primaryContact.contactPhoneNo;
-                    ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
-                    ret.interested = (ret.primaryContact.interested === 'Yes' || ret.primaryContact.interested === true) ? 'Yes' : 'No';
-                }
-                
-                if (ret.primaryContact) {
-                    ret.contactEmail = ret.primaryContact.contactEmail;
-                    ret.requirements = ret.primaryContact.requirements;
                 }
                 
                 // Flatten user names for display
@@ -169,61 +161,14 @@ bookingSchema.pre('save', async function (this: any) {
     }
 });
 
-// Indexes — sorted by priority
-// 1. STANDALONE SORT INDEXES — covers primary sort orders
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ lastInteractionAt: -1 });
-
-
-// 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
-bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
-
-// 3. Agent dashboard fallback — optimal for single-agent WITHOUT status
-bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
-
-// 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
-bookingSchema.index({ status: 1, _id: -1 });
-bookingSchema.index({ status: 1, lastInteractionAt: -1 });
-
-// 4b. Status + EDT filter (Fixes 21s query)
-bookingSchema.index({ isConvertedToEDT: 1, status: 1, lastInteractionAt: -1 });
-bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
-
-
-// 5. Creator and Assignee queries (Fixes 13s - 40s spikes)
-bookingSchema.index({ assignedToUserId: 1, _id: -1 });
-bookingSchema.index({ createdByUserId: 1, _id: -1 });
-bookingSchema.index({ assignedGroup: 1, _id: -1 });
-
-// 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
-bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
-
-// 6. Analytics queries (payment breakdown)
-bookingSchema.index({ outstanding: -1 });
-
-// 7. Contact search fields
-bookingSchema.index({ 'contact.name': 1 });
-bookingSchema.index({ 'contact.phone': 1 });
-
-// 8. Calendar queries
-bookingSchema.index({ travelDate: 1 });
-
-// 9. Company filter (multi-tenant analytics)
-bookingSchema.index({ company: 1 });
-
-// 10. Delta updates / Last modified index
-// 10. Delta updates / Last modified index
-bookingSchema.index({ updatedAt: -1 });
-
-// 11. Null-safe index for unassigned filters (Fix #4)
-bookingSchema.index(
-    { assignedToUserId: 1, lastInteractionAt: -1 },
-    { name: "idx_assigned_date_v2" }
-);
-
-// 12. Priority Compound Indexes
-bookingSchema.index({ status: 1, createdAt: -1 });
-bookingSchema.index({ assignedToUserId: 1, status: 1 });
+// Indexes — Consolidated for Atlas M0 performance (sub-200ms target)
+bookingSchema.index({ createdAt: -1 }); // Default List
+bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 }); // Agent Dashboard
+bookingSchema.index({ status: 1, travelDate: 1 }); // Calendar/Upcoming
+bookingSchema.index({ primaryContactId: 1, createdAt: -1 }); // Contact History
+bookingSchema.index({ createdByUserId: 1, createdAt: -1 }); // Creator History
+bookingSchema.index({ 'contact.phone': 1 }); // Search
+bookingSchema.index({ updatedAt: -1 }); // Sync/Last Modified
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

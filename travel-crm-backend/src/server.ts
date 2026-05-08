@@ -19,7 +19,6 @@ import syncRoutes from './routes/syncRoutes';
 import externalRoutes from './routes/externalRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import connectDB from './config/db';
-import { startSelfPinging } from './utils/keepWarm';
 import { startFollowUpCron } from './utils/followUpCron';
 // Socket.io is available in ./socket.ts for future real-time upgrades
 import User from './models/User';
@@ -151,12 +150,5 @@ mongoose.connection.once('open', async () => {
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-
-    // Start self-pinging to keep server warm
-    if (process.env.BASE_URL) {
-        startSelfPinging(process.env.BASE_URL);
-    } else {
-        console.warn('⚠️  BASE_URL not set. Server may go to sleep on Render Free Tier.');
-    }
 });
 
