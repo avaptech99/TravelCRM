@@ -45,6 +45,7 @@ export interface IBooking extends Document {
         source: string;
     }[];
     lastInteractionAt: Date;
+    participantIds: mongoose.Types.ObjectId[];
     contact: {
         name: string;
         phone: string;
