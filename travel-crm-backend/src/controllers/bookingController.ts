@@ -633,6 +633,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 _id: primaryContactId,
                 contactName: result.data.contactPerson,
                 contactPhoneNo: result.data.contactNumber,
+                contactEmail: result.data.contactEmail || null,
                 bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
                 requirements: result.data.requirements || null,
                 interested: result.data.interested === 'Yes',
@@ -732,6 +733,9 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         // 2. Sync with Legacy PrimaryContact if it exists
         if (updatedBooking.primaryContactId) {
             const legacyUpdate: any = {};
+            if (req.body.contactPerson !== undefined) legacyUpdate.contactName = req.body.contactPerson;
+            if (req.body.contactNumber !== undefined) legacyUpdate.contactPhoneNo = req.body.contactNumber;
+            if (req.body.contactEmail !== undefined) legacyUpdate.contactEmail = req.body.contactEmail;
             if (req.body.requirements !== undefined) legacyUpdate.requirements = req.body.requirements;
             if (req.body.interested !== undefined) legacyUpdate.interested = req.body.interested === 'Yes';
             if (req.body.bookingType !== undefined) legacyUpdate.bookingType = req.body.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)';
