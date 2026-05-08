@@ -188,10 +188,14 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 
     const pipeline: any[] = [];
     
-    // 1. Filter out null dates first to prevent $dateToString crashes
-    pipeline.push({ $match: { date: { $ne: null, $type: 'date' } } });
+    // 1. More inclusive match to catch legacy strings
+    pipeline.push({ 
+        $match: { 
+            date: { $ne: null } 
+        } 
+    });
 
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         pipeline.push({
             $lookup: {
                 from: 'bookings',
@@ -206,8 +210,29 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 
     pipeline.push({
         $group: {
-            _id: { $dateToString: { format: format, date: '$date' } },
-            revenue: { $sum: '$amount' }
+            _id: { 
+                $dateToString: { 
+                    format: format, 
+                    date: { 
+                        $convert: { 
+                            input: '$date', 
+                            to: 'date', 
+                            onError: new Date(), 
+                            onNull: new Date() 
+                        } 
+                    } 
+                } 
+            },
+            revenue: { 
+                $sum: { 
+                    $convert: { 
+                        input: '$amount', 
+                        to: 'double', 
+                        onError: 0, 
+                        onNull: 0 
+                    } 
+                } 
+            }
         }
     });
     pipeline.push({ $sort: { _id: 1 } });
@@ -323,7 +348,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     
     // 1. Get Pending Bookings (outstanding > 0)
     const bookingQuery: any = { outstanding: { $gt: 0 } };
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         bookingQuery.company = company as string;
     }
 
@@ -340,7 +365,7 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
     ];
 
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         paymentPipeline.push({ $match: { 'booking.company': company } });
     }
 
@@ -357,15 +382,19 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         Payment.aggregate(paymentPipeline)
     ]);
 
-    const pending = pendingBookings.map((b: any) => ({
-        bookingId: b._id,
-        uniqueCode: b.uniqueCode,
-        contactPerson: b.contact?.name || 'Unknown',
-        companyName: b.company || '—',
-        totalAmount: b.amount || 0,
-        totalPaid: (b.amount || 0) - (b.outstanding || 0),
-        outstanding: b.outstanding || 0
-    }));
+    const pending = pendingBookings.map((b: any) => {
+        const amount = typeof b.amount === 'string' ? parseFloat(b.amount) || 0 : b.amount || 0;
+        const outstanding = typeof b.outstanding === 'string' ? parseFloat(b.outstanding) || 0 : b.outstanding || 0;
+        return {
+            bookingId: b._id,
+            uniqueCode: b.uniqueCode,
+            contactPerson: b.contact?.name || 'Unknown',
+            companyName: b.company || '—',
+            totalAmount: amount,
+            totalPaid: Math.max(amount - outstanding, 0),
+            outstanding: outstanding
+        };
+    });
 
     const received = recentPayments.map((p: any) => ({
         id: p._id.toString(),
@@ -373,13 +402,13 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         contactPerson: p.booking?.contact?.name || 'Unknown',
         companyName: p.booking?.company || '—',
         paymentMethod: p.paymentMethod || 'Unknown',
-        amount: p.amount || 0,
+        amount: typeof p.amount === 'string' ? parseFloat(p.amount) || 0 : p.amount || 0,
         date: p.date
     }));
 
-    // 3. Totals
-    const totalPending = pending.reduce((sum, b) => sum + b.outstanding, 0);
-    const totalReceived = received.reduce((sum, p) => sum + p.amount, 0);
+    // 3. Totals with explicit number conversion
+    const totalPending = pending.reduce((sum, b) => sum + (Number(b.outstanding) || 0), 0);
+    const totalReceived = received.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
     const result = {
         pending,
