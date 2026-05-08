@@ -168,7 +168,9 @@ bookingSchema.index({ status: 1, travelDate: 1 }); // Calendar/Upcoming
 bookingSchema.index({ primaryContactId: 1, createdAt: -1 }); // Contact History
 bookingSchema.index({ createdByUserId: 1, createdAt: -1 }); // Creator History
 bookingSchema.index({ 'contact.phone': 1 }); // Search
-bookingSchema.index({ updatedAt: -1 }); // Sync/Last Modified
+bookingSchema.index({ assignedToUserId: 1, updatedAt: -1 }); // Fast Dashboard Sync (Agent)
+bookingSchema.index({ createdByUserId: 1, updatedAt: -1 });  // Fast Dashboard Sync (Marketer)
+bookingSchema.index({ updatedAt: -1 }); // Global Sync
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

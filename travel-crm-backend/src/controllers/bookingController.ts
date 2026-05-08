@@ -428,25 +428,35 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     }
 
     const fetchPromise = (async () => {
-        const booking = await Booking.findById(id)
-            .populate('assignedToUserId', 'name role')
-            .populate('createdByUserId', 'name role')
-            .populate('passengers')
-            .populate('payments')
-            .populate({
-                path: 'timeline',
-                populate: { path: 'userId', select: 'name role' },
-                options: { sort: { createdAt: -1 }, limit: 20 }
-            })
-            .lean()
-            .maxTimeMS(3000);
-        t.mark('dbQueryWithPopulate');
+        // Parallelize sub-collection fetches to avoid N+1 sequential delay
+        const [booking, timeline, payments, passengers] = await Promise.all([
+            Booking.findById(id)
+                .populate('assignedToUserId', 'name role')
+                .populate('createdByUserId', 'name role')
+                .lean()
+                .maxTimeMS(3000),
+            Timeline.find({ bookingId: id })
+                .sort({ createdAt: -1 })
+                .limit(20)
+                .populate('userId', 'name role')
+                .lean()
+                .maxTimeMS(2000),
+            Payment.find({ bookingId: id })
+                .sort({ date: -1 })
+                .lean()
+                .maxTimeMS(2000),
+            Passenger.find({ bookingId: id })
+                .lean()
+                .maxTimeMS(2000)
+        ]);
+
+        t.mark('dbQueryParallel');
 
         if (!booking) return null;
 
         t.mark('calculateTotals');
-        const totalPaid = (booking as any).payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-        const outstanding = ((booking as any).amount || 0) - totalPaid;
+        const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+        const outstanding = (booking.amount || 0) - totalPaid;
 
         t.mark('formatResponse');
         return {
@@ -462,7 +472,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
-            travelers: (booking as any).passengers,
+            timeline: timeline,
+            payments: payments,
+            travelers: passengers,
             createdByUser: booking.createdByUserId,
             assignedToUser: booking.assignedToUserId,
         };
@@ -1134,22 +1146,26 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     });
 
-    await Booking.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
-
-    // Notification Logic
-    if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
-        // Notify the assigned agent when marketer comments
-        await Notification.create({
-            userId: booking.assignedToUserId,
-            bookingId: id,
-            message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
-        });
-    }
-
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
     invalidateBookingCaches();
+
+    // ✅ RESPOND IMMEDIATELY
     res.status(201).json(timeline);
+
+    // ✅ BACKGROUND SIDE EFFECTS
+    setImmediate(() => runBG(`addComment_sideEffects_${id}`, async () => {
+        await Booking.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
+
+        if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
+            // Notify the assigned agent when marketer comments
+            await Notification.create({
+                userId: booking.assignedToUserId,
+                bookingId: id,
+                message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
+            });
+        }
+    }));
 });
 
 // @desc    Get comments for a booking
@@ -1211,8 +1227,8 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
     }));
 
     const dbStart = Date.now();
-    // Use individual creations in parallel to ensure full validation and hook execution as per user request
-    const createdPassengers = await Promise.all(passengersData.map(p => Passenger.create(p)));
+    // Use insertMany for bulk creation to reduce IOPS/Write-lock duration
+    const createdPassengers = await Passenger.insertMany(passengersData);
     const dbTime = Date.now() - dbStart;
 
     const totalTime = Date.now() - startTime;
@@ -1487,27 +1503,31 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Only Admins and Account team can verify bookings');
     }
 
-    const booking = await Booking.findById(id);
-    if (!booking) {
+    const update: any = { isVerified };
+    if (isVerified) {
+        update.verifiedBy = req.user?.name || 'Admin';
+        update.verifiedAt = new Date();
+    } else {
+        update.verifiedBy = null;
+        update.verifiedAt = null;
+    }
+
+    const updatedBooking = await Booking.findByIdAndUpdate(
+        id,
+        update,
+        { returnDocument: 'after' }
+    ).lean();
+
+    if (!updatedBooking) {
         res.status(404);
         throw new Error('Booking not found');
     }
 
-    booking.isVerified = isVerified;
-    if (isVerified) {
-        booking.verifiedBy = req.user?.name || 'Admin';
-        booking.verifiedAt = new Date();
-    } else {
-        booking.verifiedBy = null;
-        booking.verifiedAt = null;
-    }
-    await booking.save();
-
     res.json({
-        id: booking._id,
-        isVerified: booking.isVerified,
-        verifiedBy: booking.verifiedBy,
-        verifiedAt: booking.verifiedAt
+        id: updatedBooking._id,
+        isVerified: updatedBooking.isVerified,
+        verifiedBy: updatedBooking.verifiedBy,
+        verifiedAt: updatedBooking.verifiedAt
     });
 
     // BACKGROUND: Logging and notifications
@@ -1523,11 +1543,11 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
         });
 
         // Notify assigned agent if verified
-        if (isVerified && booking.assignedToUserId) {
+        if (isVerified && updatedBooking.assignedToUserId) {
             await Notification.create({
-                userId: booking.assignedToUserId,
+                userId: updatedBooking.assignedToUserId,
                 bookingId: id,
-                message: `Your booking ${booking.uniqueCode} has been verified by the Accounts team.`,
+                message: `Your booking ${updatedBooking.uniqueCode} has been verified by the Accounts team.`,
             });
         }
 

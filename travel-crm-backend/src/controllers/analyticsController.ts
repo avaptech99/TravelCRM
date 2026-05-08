@@ -110,32 +110,17 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         }
     });
 
-    const paymentStats = await Payment.aggregate(paymentPipeline);
-
-
-    // Total expected from Bookings (amount)
-    const bookingMatch: any = {};
-    if (fromDate || toDate) {
-        bookingMatch.createdAt = {};
-        if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) {
-            const end = new Date(toDate as string);
-            end.setHours(23, 59, 59, 999);
-            bookingMatch.createdAt.$lte = end;
-        }
-    }
-    if (company) {
-        bookingMatch.company = company as string;
-    }
-
-    const bookingStats = await Booking.aggregate([
-        { $match: bookingMatch },
-        {
-            $group: {
-                _id: null,
-                totalExpected: { $sum: '$amount' }
+    const [paymentStats, bookingStats] = await Promise.all([
+        Payment.aggregate(paymentPipeline),
+        Booking.aggregate([
+            { $match: bookingMatch },
+            {
+                $group: {
+                    _id: null,
+                    totalExpected: { $sum: '$amount' }
+                }
             }
-        }
+        ])
     ]);
 
     const result = {
@@ -289,12 +274,15 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         bookingQuery.company = company as string;
     }
 
-    const pendingBookings = await Booking.find(bookingQuery)
-        .select('uniqueCode contact amount outstanding company')
-        .sort({ outstanding: -1 })
-        .limit(20) // Reduced from 50 for faster load
-        .lean();
-
+    // Run both pending and received queries in parallel
+    const [pendingBookings, recentPayments] = await Promise.all([
+        Booking.find(bookingQuery)
+            .select('uniqueCode contact amount outstanding company')
+            .sort({ outstanding: -1 })
+            .limit(20)
+            .lean(),
+        Payment.aggregate(paymentPipeline)
+    ]);
 
     const pending = pendingBookings.map((b: any) => ({
         bookingId: b._id,
@@ -305,28 +293,6 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
         totalPaid: (b.amount || 0) - (b.outstanding || 0),
         outstanding: b.outstanding || 0
     }));
-
-    // 2. Get Recent Received Payments
-    const paymentPipeline: any[] = [
-        {
-            $lookup: {
-                from: 'bookings',
-                localField: 'bookingId',
-                foreignField: '_id',
-                as: 'booking'
-            }
-        },
-        { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
-    ];
-
-    if (company) {
-        paymentPipeline.push({ $match: { 'booking.company': company } });
-    }
-
-    paymentPipeline.push({ $sort: { date: -1 } });
-    paymentPipeline.push({ $limit: 100 });
-    
-    const recentPayments = await Payment.aggregate(paymentPipeline);
 
     const received = recentPayments.map((p: any) => ({
         id: p._id.toString(),

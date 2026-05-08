@@ -44,6 +44,7 @@ const notificationSchema: Schema = new Schema(
 );
 
 notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, isDismissed: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ bookingId: 1 });
 
