@@ -12,14 +12,15 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 25,    // Optimized for 2 clustered workers (50 total)
+            dbName: process.env.DB_NAME || 'TESTDATA', // Force TESTDATA as the primary database
+            maxPoolSize: 25,    // Optimized for 1 clustered worker (50 total if concurrency increased)
             minPoolSize: 5,
             waitQueueTimeoutMS: 10000, 
-            socketTimeoutMS: 45000, // Increased for heavy analytics
+            socketTimeoutMS: 45000,
             serverSelectionTimeoutMS: 10000,
-            autoIndex: false, // Production best practice
+            autoIndex: false,
         });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        console.log(`✅ MongoDB Connected: ${conn.connection.host} | Database: ${conn.connection.name}`);
 
         // BACKGROUND: Optional index check (non-blocking)
         if (process.env.SYNC_INDEXES === 'true') {
