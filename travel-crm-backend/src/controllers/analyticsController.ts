@@ -110,6 +110,21 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         }
     });
 
+    // Total expected from Bookings (amount)
+    const bookingMatch: any = {};
+    if (fromDate || toDate) {
+        bookingMatch.createdAt = {};
+        if (fromDate) bookingMatch.createdAt.$gte = new Date(fromDate as string);
+        if (toDate) {
+            const end = new Date(toDate as string);
+            end.setHours(23, 59, 59, 999);
+            bookingMatch.createdAt.$lte = end;
+        }
+    }
+    if (company) {
+        bookingMatch.company = company as string;
+    }
+
     const [paymentStats, bookingStats] = await Promise.all([
         Payment.aggregate(paymentPipeline),
         Booking.aggregate([
@@ -273,6 +288,26 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
     if (company) {
         bookingQuery.company = company as string;
     }
+
+    // 2. Get Recent Received Payments
+    const paymentPipeline: any[] = [
+        {
+            $lookup: {
+                from: 'bookings',
+                localField: 'bookingId',
+                foreignField: '_id',
+                as: 'booking'
+            }
+        },
+        { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
+    ];
+
+    if (company) {
+        paymentPipeline.push({ $match: { 'booking.company': company } });
+    }
+
+    paymentPipeline.push({ $sort: { date: -1 } });
+    paymentPipeline.push({ $limit: 100 });
 
     // Run both pending and received queries in parallel
     const [pendingBookings, recentPayments] = await Promise.all([

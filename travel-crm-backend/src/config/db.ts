@@ -12,8 +12,8 @@ const connectDB = async () => {
         }
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 25,    // Increased to handle higher concurrency during spikes
-            minPoolSize: 5,
+            maxPoolSize: 50,    // Increased for higher concurrency, but kept safe for 512MB RAM
+            minPoolSize: 10,
             waitQueueTimeoutMS: 5000, 
             heartbeatFrequencyMS: 10000, // Frequent heartbeats to keep free-tier cluster warm
 
