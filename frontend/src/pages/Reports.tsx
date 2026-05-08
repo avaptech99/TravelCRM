@@ -136,8 +136,6 @@ export const Reports: React.FC = () => {
         },
     });
 
-    const [showPending, setShowPending] = useState(false);
-    const [showReceived, setShowReceived] = useState(false);
     const [isMetricsOpen, setIsMetricsOpen] = useState(true);
     const [pendingPage, setPendingPage] = useState(1);
     const [receivedPage, setReceivedPage] = useState(1);
