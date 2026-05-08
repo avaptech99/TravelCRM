@@ -477,15 +477,20 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = (booking.amount || 0) - totalPaid;
 
-        t.mark('formatResponse');
-        // 4. Merge and sort unified feed
+        // 4. Merge and sort unified feed with strict normalization for the frontend
         const unifiedFeed = [
-            ...timeline.map((t: any) => ({ ...t, feedType: 'activity' })),
+            ...timeline.map((t: any) => ({ 
+                ...t, 
+                id: t._id?.toString(),
+                feedType: 'activity',
+                text: t.text || t.details || '' // Map both legacy and new text fields
+            })),
             ...legacyComments.map((c: any) => ({ 
                 ...c, 
+                id: c._id?.toString(),
                 feedType: 'comment',
                 type: 'comment', 
-                text: c.text
+                text: c.text || c.comment || ''
             }))
         ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -1151,12 +1156,10 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Not authorized to comment on this booking');
     }
 
-    const timeline = await Timeline.create({
+    const comment = await Comment.create({
         bookingId: id,
         userId: userId,
-        type: 'comment',
         text: text,
-        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     });
 
     // ✅ BUST CACHE IMMEDIATELY
@@ -1164,7 +1167,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     invalidateBookingCaches();
 
     // ✅ RESPOND IMMEDIATELY
-    res.status(201).json(timeline);
+    res.status(201).json(comment);
 
     // ✅ BACKGROUND SIDE EFFECTS
     setImmediate(() => runBG(`addComment_sideEffects_${id}`, async () => {

@@ -145,7 +145,16 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
             {
                 $group: {
                     _id: null,
-                    totalExpected: { $sum: { $ifNull: ['$amount', 0] } }
+                    totalExpected: { 
+                        $sum: { 
+                            $convert: { 
+                                input: '$amount', 
+                                to: 'double', 
+                                onError: 0, 
+                                onNull: 0 
+                            } 
+                        } 
+                    }
                 }
             }
         ])
@@ -265,7 +274,16 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
                 agentName: { $first: { $ifNull: ['$agentDetails.name', 'Unassigned'] } },
                 totalBookings: { $sum: 1 },
                 convertedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-                totalRevenue: { $sum: '$amount' }
+                totalRevenue: { 
+                    $sum: { 
+                        $convert: { 
+                            input: '$amount', 
+                            to: 'double', 
+                            onError: 0, 
+                            onNull: 0 
+                        } 
+                    } 
+                }
             }
         },
         {
