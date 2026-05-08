@@ -20,12 +20,16 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
     
     const matchQuery: any = {};
     if (fromDate || toDate) {
-        matchQuery.createdAt = {};
-        if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) {
-            const end = new Date(toDate as string);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.createdAt.$lte = end;
+        const start = fromDate ? new Date(fromDate as string) : null;
+        const end = toDate ? new Date(toDate as string) : null;
+        
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.createdAt = {};
+            if (start && !isNaN(start.getTime())) matchQuery.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.createdAt.$lte = end;
+            }
         }
     }
     if (company) {
@@ -73,12 +77,16 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
 
     const matchQuery: any = {};
     if (fromDate || toDate) {
-        matchQuery.date = {};
-        if (fromDate) matchQuery.date.$gte = new Date(fromDate as string);
-        if (toDate) {
-            const end = new Date(toDate as string);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.date.$lte = end;
+        const start = fromDate ? new Date(fromDate as string) : null;
+        const end = toDate ? new Date(toDate as string) : null;
+        
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.date = {};
+            if (start && !isNaN(start.getTime())) matchQuery.date.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.date.$lte = end;
+            }
         }
     }
 
@@ -162,10 +170,13 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 
     let format = '%Y-%m';
     if (interval === 'day') format = '%Y-%m-%d';
-    if (interval === 'week') format = '%G-W%V (%b)'; // e.g., 2024-W18 (May)
+    if (interval === 'week') format = '%G-W%V'; 
 
     const pipeline: any[] = [];
     
+    // 1. Filter out null dates first to prevent $dateToString crashes
+    pipeline.push({ $match: { date: { $ne: null, $type: 'date' } } });
+
     if (company) {
         pipeline.push({
             $lookup: {
@@ -207,12 +218,16 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
 
     const matchQuery: any = {};
     if (fromDate || toDate) {
-        matchQuery.createdAt = {};
-        if (fromDate) matchQuery.createdAt.$gte = new Date(fromDate as string);
-        if (toDate) {
-            const end = new Date(toDate as string);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.createdAt.$lte = end;
+        const start = fromDate ? new Date(fromDate as string) : null;
+        const end = toDate ? new Date(toDate as string) : null;
+        
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.createdAt = {};
+            if (start && !isNaN(start.getTime())) matchQuery.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.createdAt.$lte = end;
+            }
         }
     }
     if (company) {

@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
 import Timeline from '../models/Timeline';
+import Comment from '../models/Comment';
 import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
@@ -433,18 +434,32 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
     const fetchPromise = (async () => {
         // Parallelize sub-collection fetches to avoid N+1 sequential delay
-        const [booking, timeline, payments, passengers] = await Promise.all([
+        const [booking, timeline, legacyComments, payments, passengers] = await Promise.all([
             Booking.findById(id)
                 .populate('assignedToUserId', 'name role')
                 .populate('createdByUserId', 'name role')
                 .lean()
                 .maxTimeMS(3000),
-            Timeline.find({ bookingId: id })
+            Timeline.find({ 
+                $or: [
+                    { bookingId: id },
+                    { bookingId: String(id) as any }
+                ]
+            })
                 .sort({ createdAt: -1 })
-                .limit(20)
+                .limit(50)
                 .populate('userId', 'name role')
-                .lean()
-                .maxTimeMS(2000),
+                .lean(),
+            Comment.find({ 
+                $or: [
+                    { bookingId: id },
+                    { bookingId: String(id) as any }
+                ]
+            })
+                .sort({ createdAt: -1 })
+                .limit(50)
+                .populate('userId', 'name role')
+                .lean(),
             Payment.find({ bookingId: id })
                 .sort({ date: -1 })
                 .lean()
@@ -463,6 +478,17 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const outstanding = (booking.amount || 0) - totalPaid;
 
         t.mark('formatResponse');
+        // 4. Merge and sort unified feed
+        const unifiedFeed = [
+            ...timeline.map((t: any) => ({ ...t, feedType: 'activity' })),
+            ...legacyComments.map((c: any) => ({ 
+                ...c, 
+                feedType: 'comment',
+                type: 'comment', 
+                text: c.text
+            }))
+        ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
         return {
             ...booking,
             id: booking._id.toString(),
@@ -476,7 +502,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
-            timeline: timeline,
+            timeline: unifiedFeed.slice(0, 50),
             payments: payments,
             travelers: passengers,
             createdByUser: booking.createdByUserId,

@@ -52,9 +52,13 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
         register,
         handleSubmit,
         reset,
+        setValue,
+        watch,
         formState: { errors, isSubmitting },
-    } = useForm<BookingFormValues>({
-        resolver: zodResolver(bookingSchema),
+    } = useForm<BookingFormValues & { assignedToUserId?: string }>({
+        resolver: zodResolver(bookingSchema.extend({
+            assignedToUserId: z.string().optional()
+        })),
         defaultValues: {
             contactPerson: '',
             countryCode: '+91',
@@ -62,8 +66,28 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
             requirements: '',
             bookingType: 'B2C',
             assignedGroup: 'Package / LCC',
+            assignedToUserId: '',
         },
     });
+
+    const [isAssigningToAgent, setIsAssigningToAgent] = React.useState(false);
+
+    const { data: agents } = useQuery({
+        queryKey: ['agents-minimal'],
+        queryFn: async () => {
+            const { data } = await api.get('/users/agents');
+            return data as { _id: string; name: string; groups: string[] }[];
+        },
+        enabled: isOpen,
+    });
+
+    const handleAgentSelect = (agentId: string) => {
+        const agent = agents?.find(a => a._id === agentId);
+        if (agent && agent.groups && agent.groups.length > 0) {
+            // Auto-select the first group of the agent
+            setValue('assignedGroup', agent.groups[0]);
+        }
+    };
 
     const mutation = useMutation({
         mutationFn: async (data: BookingFormValues) => {
@@ -88,6 +112,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
 
     const handleClose = () => {
         reset();
+        setIsAssigningToAgent(false);
         onClose();
     };
 
@@ -147,6 +172,44 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                     <option key={group} value={group}>{group}</option>
                                 ))}
                             </select>
+                            
+                            {!isAssigningToAgent ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAssigningToAgent(true)}
+                                    className="text-[10px] font-bold text-red-500 hover:text-red-700 underline mt-1"
+                                >
+                                    Assign to Agent instead?
+                                </button>
+                            ) : (
+                                <div className="mt-2 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <label htmlFor="assignedToUserId" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Select Agent
+                                    </label>
+                                    <select
+                                        id="assignedToUserId"
+                                        {...register('assignedToUserId')}
+                                        onChange={(e) => handleAgentSelect(e.target.value)}
+                                        className="w-full px-3 py-1.5 border border-slate-200 bg-slate-50 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-xs"
+                                    >
+                                        <option value="">-- Choose Agent --</option>
+                                        {agents?.map(agent => (
+                                            <option key={agent._id} value={agent._id}>{agent.name}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsAssigningToAgent(false);
+                                            setValue('assignedToUserId', '');
+                                        }}
+                                        className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline"
+                                    >
+                                        Back to Group only
+                                    </button>
+                                </div>
+                            )}
+                            
                             {errors.assignedGroup && (
                                 <p className="text-red-500 text-xs mt-1">{errors.assignedGroup.message}</p>
                             )}

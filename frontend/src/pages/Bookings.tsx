@@ -76,40 +76,60 @@ export const Bookings: React.FC = () => {
         setSelectedDepartment(group);
     }, [searchParams, location.pathname]);
 
-    // Update URL params only when state changes internally (via UI controls)
-    const updateUrlParams = (newDebouncedSearch: string, newStatuses: string[], newAgents: string[], newOutstanding: boolean, newGroup: string | null) => {
-        const params: Record<string, string> = {};
-        if (newDebouncedSearch) params.q = newDebouncedSearch;
-        if (newStatuses.length > 0) params.status = newStatuses.join(',');
+    // Replace the old competing useEffects with a single direct update pattern
+    const updateUrlParams = (newParams: { q?: string, status?: string[], agent?: string[], outstanding?: boolean, group?: string | null }) => {
+        const nextParams = new URLSearchParams(searchParams);
         
-        // Don't put 'unassigned' in query if we are on /unassignedbooking path
-        const filteredAgents = isUnassignedPath ? newAgents.filter(a => a !== 'unassigned') : newAgents;
-        if (filteredAgents.length > 0) params.agent = filteredAgents.join(',');
+        if (newParams.q !== undefined) {
+            if (newParams.q) nextParams.set('q', newParams.q);
+            else nextParams.delete('q');
+        }
         
-        if (newOutstanding) params.outstanding = 'true';
-        if (newGroup) params.group = newGroup;
-        if (isMyLeadsPath || searchParams.get('myBookings') === 'true') params.myBookings = 'true';
+        if (newParams.status !== undefined) {
+            if (newParams.status.length > 0) nextParams.set('status', newParams.status.join(','));
+            else nextParams.delete('status');
+        }
         
-        setSearchParams(params, { replace: true });
+        if (newParams.agent !== undefined) {
+            const filteredAgents = isUnassignedPath ? newParams.agent.filter(a => a !== 'unassigned') : newParams.agent;
+            if (filteredAgents.length > 0) nextParams.set('agent', filteredAgents.join(','));
+            else nextParams.delete('agent');
+        }
+        
+        if (newParams.outstanding !== undefined) {
+            if (newParams.outstanding) nextParams.set('outstanding', 'true');
+            else nextParams.delete('outstanding');
+        }
+        
+        if (newParams.group !== undefined) {
+            if (newParams.group) nextParams.set('group', newParams.group);
+            else nextParams.delete('group');
+        }
+
+        if (isMyLeadsPath) nextParams.set('myBookings', 'true');
+        
+        setSearchParams(nextParams, { replace: true });
     };
 
-    // Replace the old useEffect with manual triggers or a more careful sync
+    // Update local state when URL changes (Sync Down)
     useEffect(() => {
-        // Only sync to URL if the values actually changed from what's currently in the URL
-        const currentQ = searchParams.get('q') || '';
-        const currentStatus = searchParams.get('status') || '';
-        const currentAgent = searchParams.get('agent') || '';
-        const currentOutstanding = searchParams.get('outstanding') === 'true';
-        const currentGroup = searchParams.get('group') || '';
+        const q = searchParams.get('q') || '';
+        const status = searchParams.get('status')?.split(',').filter(Boolean) || [];
+        const agent = searchParams.get('agent')?.split(',').filter(Boolean) || [];
+        const outstanding = searchParams.get('outstanding') === 'true';
+        const group = searchParams.get('group') || null;
 
-        if (debouncedSearch !== currentQ || 
-            selectedStatuses.join(',') !== currentStatus || 
-            selectedAgents.join(',') !== currentAgent || 
-            isOutstandingOnly !== currentOutstanding ||
-            (selectedDepartment || '') !== currentGroup) {
-            updateUrlParams(debouncedSearch, selectedStatuses, selectedAgents, isOutstandingOnly, selectedDepartment);
+        if (isUnassignedPath && !agent.includes('unassigned')) {
+            agent.push('unassigned');
         }
-    }, [debouncedSearch, selectedStatuses, selectedAgents, isOutstandingOnly, selectedDepartment]);
+
+        setSearchTerm(q);
+        setDebouncedSearch(q);
+        setSelectedStatuses(status);
+        setSelectedAgents(agent);
+        setIsOutstandingOnly(outstanding);
+        setSelectedDepartment(group);
+    }, [searchParams.toString(), isUnassignedPath]); 
 
     const { data: agents } = useQuery({
         queryKey: ['agents'],
@@ -142,15 +162,17 @@ export const Bookings: React.FC = () => {
     }, [searchTerm]);
 
     const toggleStatus = (status: string) => {
-        setSelectedStatuses(prev =>
-            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-        );
+        const next = selectedStatuses.includes(status) 
+            ? selectedStatuses.filter(s => s !== status) 
+            : [...selectedStatuses, status];
+        updateUrlParams({ status: next });
     };
 
     const toggleAgent = (agentId: string) => {
-        setSelectedAgents(prev =>
-            prev.includes(agentId) ? prev.filter(a => a !== agentId) : [...prev, agentId]
-        );
+        const next = selectedAgents.includes(agentId) 
+            ? selectedAgents.filter(a => a !== agentId) 
+            : [...selectedAgents, agentId];
+        updateUrlParams({ agent: next });
     };
 
     const activeFilterCount = selectedStatuses.length + 
@@ -240,10 +262,12 @@ export const Bookings: React.FC = () => {
                         {activeFilterCount > 0 && (
                             <button
                                 onClick={() => {
-                                    setSelectedStatuses([]);
-                                    setSelectedAgents([]);
-                                    setIsOutstandingOnly(false);
-                                    setSelectedDepartment(null);
+                                    updateUrlParams({ 
+                                        status: [], 
+                                        agent: [], 
+                                        outstanding: false, 
+                                        group: null 
+                                    });
                                 }}
                                 className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded transition-colors uppercase tracking-tight"
                             >
@@ -278,7 +302,7 @@ export const Bookings: React.FC = () => {
                                 <input
                                     type="checkbox"
                                     checked={isOutstandingOnly}
-                                    onChange={() => setIsOutstandingOnly(!isOutstandingOnly)}
+                                    onChange={() => updateUrlParams({ outstanding: !isOutstandingOnly })}
                                     className="peer sr-only"
                                 />
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
@@ -329,7 +353,8 @@ export const Bookings: React.FC = () => {
                                             <button
                                                 key={group}
                                                 onClick={() => {
-                                                    setSelectedDepartment(group === selectedDepartment ? null : group);
+                                                    const nextGroup = group === selectedDepartment ? null : group;
+                                                    updateUrlParams({ group: nextGroup });
                                                     setIsShowingAllAgents(false);
                                                 }}
                                                 className={cn(
@@ -411,7 +436,7 @@ export const Bookings: React.FC = () => {
                                             </label>
                                             {selectedAgents.length > 0 && (
                                                 <button
-                                                    onClick={() => setSelectedAgents([])}
+                                                    onClick={() => updateUrlParams({ agent: [] })}
                                                     className="text-[10px] text-red-400 hover:text-red-600 font-bold uppercase tracking-tight"
                                                 >
                                                     Clear

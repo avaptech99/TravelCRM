@@ -21,7 +21,8 @@ const timelineSchema = new Schema<ITimeline>({
     details: { type: String },
     expireAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 }, { 
-    timestamps: true 
+    timestamps: true,
+    collection: 'activities' // Ensure it matches legacy collection name
 });
 
 // Compound index for efficient fetching
