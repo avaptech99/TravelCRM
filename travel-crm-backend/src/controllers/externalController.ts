@@ -7,7 +7,7 @@ import appCache from '../utils/cache';
 
 // Helper: Find or create a system user named "Website Lead"
 const getWebsiteLeadUser = async () => {
-    let user = await User.findOne({ email: 'website-lead@system.internal' });
+    let user = await User.findOne({ email: 'website-lead@system.internal' }).lean();
     if (!user) {
         // Create a system user (no real password, cannot login)
         user = await User.create({

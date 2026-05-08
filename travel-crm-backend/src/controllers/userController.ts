@@ -116,7 +116,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 
     const { name, email, password, role, groups } = result.data;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email }).lean();
     if (userExists) {
         res.status(400);
         throw new Error('User already exists');
@@ -157,7 +157,7 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Cannot delete your own account');
     }
 
-    const user = await User.findById(id);
+    const user = await User.findById(id).lean();
 
     if (!user) {
         res.status(404);
@@ -227,7 +227,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
     }
 
     if (email && email !== user.email) {
-        const emailExists = await User.findOne({ email });
+        const emailExists = await User.findOne({ email }).lean();
         if (emailExists) {
             res.status(400);
             throw new Error('Email is already in use by another account');
@@ -269,7 +269,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
     }
 
     if (email && email !== user.email) {
-        const emailExists = await User.findOne({ email });
+        const emailExists = await User.findOne({ email }).lean();
         if (emailExists) {
             res.status(400);
             throw new Error('Email is already in use by another account');
@@ -408,7 +408,7 @@ export const unassignUserBookings = asyncHandler(async (req: Request, res: Respo
     const { id } = req.params;
     const { timeThresholdMinutes } = req.body;
 
-    const user = await User.findById(id);
+    const user = await User.findById(id).lean();
     if (!user) {
         res.status(404);
         throw new Error('User not found');

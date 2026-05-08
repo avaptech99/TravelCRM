@@ -20,7 +20,7 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
     }
 
     t.mark('dbQuery');
-    const settings = await Setting.find();
+    const settings = await Setting.find().lean();
     const result: Record<string, string[]> = {};
     
     t.mark('mergeDefaults');

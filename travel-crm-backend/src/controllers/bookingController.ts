@@ -860,7 +860,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         });
         
         if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
-            const creator = await User.findById(updatedBooking.createdByUserId);
+            const creator = await User.findById(updatedBooking.createdByUserId).lean();
             if (creator?.role === 'MARKETER') {
                 await Notification.create({
                     userId: updatedBooking.createdByUserId,
@@ -894,7 +894,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     const { assignedToUserId } = result.data;
 
     if (assignedToUserId) {
-        const agent = await User.findById(assignedToUserId);
+        const agent = await User.findById(assignedToUserId).lean();
         if (!agent) {
             res.status(400);
             throw new Error('User not found');
@@ -905,7 +905,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         }
     }
 
-    const booking = await Booking.findById(id).populate('primaryContact', 'contactName');
+    const booking = await Booking.findById(id).populate('primaryContact', 'contactName').lean();
     if (!booking) {
         res.status(404);
         throw new Error('Booking not found');
@@ -930,7 +930,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
         let previousAgentName = 'Unassigned';
         if (previousAssignedUserId) {
-            const prevAgent = await User.findById(previousAssignedUserId);
+            const prevAgent = await User.findById(previousAssignedUserId).lean();
             if (prevAgent) {
                 previousAgentName = prevAgent.name;
             }
@@ -938,7 +938,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
         let newAgentName = 'Unassigned';
         if (newAssignedUserId) {
-            const newAgent = await User.findById(newAssignedUserId);
+            const newAgent = await User.findById(newAssignedUserId).lean();
             if (newAgent) {
                 newAgentName = newAgent.name;
             }
@@ -964,9 +964,9 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
             // Also notify the marketer who created the lead
             if (booking.createdByUserId) {
-                const creator = await User.findById(booking.createdByUserId);
+                const creator = await User.findById(booking.createdByUserId).lean();
                 if (creator?.role === 'MARKETER' && getObjectIdString(booking.createdByUserId) !== req.user?.id) {
-                    const agent = await User.findById(newAssignedUserId);
+                    const agent = await User.findById(newAssignedUserId).lean();
                     await Notification.create({
                         userId: booking.createdByUserId,
                         bookingId: id,
@@ -977,7 +977,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         }
     }
 
-    const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name');
+    const updatedBooking = await Booking.findById(id).populate('assignedToUser', 'name').lean();
 
     // ✅ BUST CACHE IMMEDIATELY
     appCache.del(`booking_${id}`);
@@ -997,7 +997,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     t.mark('validate');
 
     if (assignedToUserId) {
-        const agent = await User.findById(assignedToUserId);
+        const agent = await User.findById(assignedToUserId).lean();
         if (!agent || agent.role !== 'AGENT') {
             t.end({ error: 'Invalid agent', agentId: assignedToUserId });
             res.status(400);
@@ -1010,7 +1010,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     
     if (newAgentId) {
         t.mark('fetchNewAgent');
-        const newAgent = await User.findById(newAgentId);
+        const newAgent = await User.findById(newAgentId).lean();
         newAgentName = newAgent?.name || 'Unknown Agent';
     }
 
@@ -1080,7 +1080,7 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Only admins can bulk delete leads');
     }
 
-    const bookings = await Booking.find({ _id: { $in: bookingIds } });
+    const bookings = await Booking.find({ _id: { $in: bookingIds } }).lean();
     
     if (bookings.length > 0) {
         const validBookingIds = bookings.map(b => b._id);
@@ -1161,7 +1161,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 export const getComments = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).lean();
 
     if (!booking) {
         res.status(404);
@@ -1191,7 +1191,7 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
         throw new Error('Invalid passenger data');
     }
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).lean();
 
     if (!booking) {
         res.status(404);
@@ -1258,7 +1258,7 @@ export const updatePassengers = asyncHandler(async (req: Request, res: Response)
         throw new Error('Invalid passenger data');
     }
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).lean();
 
     if (!booking) {
         res.status(404);
@@ -1360,7 +1360,7 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
 export const getPayments = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).lean();
 
     if (!booking) {
         res.status(404);
@@ -1381,7 +1381,7 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
 
     const t = createTimer(`deletePayment_${id}`);
     t.mark('validate');
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).lean();
     if (!booking) {
         t.end({ error: 'Not found', bookingId: id });
         res.status(404);
@@ -1409,7 +1409,7 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     }
 
     t.mark('findPayment');
-    const payment = await Payment.findById(paymentId);
+    const payment = await Payment.findById(paymentId).lean();
     if (!payment || payment.bookingId.toString() !== id) {
         t.end({ error: 'Payment not found', paymentId });
         res.status(404);
