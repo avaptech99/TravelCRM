@@ -469,9 +469,6 @@ export const BookingTravelers: React.FC = () => {
                     price: parseFloat(c.price?.toString() || '0'),
                     source: c.source || ''
                 })),
-                estimatedMargin: estimatedMargin,
-                actualMargin: actualMargin,
-                actualAmount: actualLumpSumAmount,
             }));
 
             // 3. Optional: Record Pending Payment if filled but not "clicked"
