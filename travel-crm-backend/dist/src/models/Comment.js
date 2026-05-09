@@ -38,10 +38,9 @@ const commentSchema = new mongoose_1.Schema({
     bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true },
-    type: { type: String, enum: ['comment', 'activity'], default: 'comment', index: true },
 }, {
     timestamps: true,
-    collection: 'comments' // Points to the unified collection
+    collection: 'comments' // Points to the legacy collection
 });
 commentSchema.index({ bookingId: 1, createdAt: -1 });
 const Comment = mongoose_1.default.model('Comment', commentSchema);

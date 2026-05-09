@@ -90,6 +90,9 @@ const bookingSchema = new mongoose_1.Schema({
             price: { type: Number },
             source: { type: String }
         }],
+    actualAmount: { type: Number, default: 0 },
+    estimatedMargin: { type: Number, default: 0 },
+    actualMargin: { type: Number, default: 0 },
 }, {
     timestamps: true,
     toJSON: {

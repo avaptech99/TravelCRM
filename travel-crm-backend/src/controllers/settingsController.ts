@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Setting from '../models/Setting';
-import appCache from '../utils/cache';
+import { CK, TTL, CacheInvalidation, cacheGet, cacheSet } from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
 
 // @desc    Get all dropdown settings
@@ -9,8 +9,8 @@ import { createTimer } from '../utils/perfLogger';
 // @access  Private (Admin Only)
 export const getDropdowns = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('getDropdowns');
-    const cacheKey = 'settings_dropdowns';
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.dropdowns();
+    const cached = cacheGet<any>(cacheKey);
     
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
@@ -21,7 +21,7 @@ export const getDropdowns = asyncHandler(async (req: Request, res: Response) => 
 
     // If cache miss (should be rare with warmup), calculate
     const result = await calculateDropdowns();
-    appCache.set(cacheKey, result, 86400); // 24 hour cache
+    cacheSet(cacheKey, result, TTL.SETTINGS);
     
     res.setHeader('X-Cache-Status', 'MISS');
     t.end({ source: 'db' });
@@ -49,7 +49,7 @@ async function calculateDropdowns() {
 export const warmDropdownCache = async () => {
     try {
         const result = await calculateDropdowns();
-        appCache.set('settings_dropdowns', result, 86400);
+        cacheSet(CK.dropdowns(), result, TTL.SETTINGS);
         console.log('✅ Dropdown cache warmed successfully');
     } catch (error) {
         console.error('❌ Failed to warm dropdown cache:', error);
@@ -78,7 +78,7 @@ export const updateDropdown = asyncHandler(async (req: Request, res: Response) =
     }
 
     // Invalidate dropdown cache
-    appCache.del('settings_dropdowns');
+    CacheInvalidation.onSettingsWrite();
 
     res.json({ message: `${key} updated successfully`, values: setting.values });
 });

@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteNotification = exports.dismissAllNotifications = exports.dismissNotification = exports.markAllAsRead = exports.markNotificationAsRead = exports.getMyNotifications = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Notification_1 = __importDefault(require("../models/Notification"));
-const cache_1 = __importDefault(require("../utils/cache"));
+const cache_1 = require("../utils/cache");
 const perfLogger_1 = require("../utils/perfLogger");
 // Module-level map to track in-flight notification requests
 const notifInFlight = new Map();
@@ -19,12 +19,12 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
         res.status(401);
         throw new Error('Not authorized');
     }
-    const cacheKey = `notifications_${userId}`;
+    const cacheKey = cache_1.CK.notifications(userId);
     const t = (0, perfLogger_1.createTimer)(`getNotifications_${userId}`);
     t.mark('checkCache');
     // 1. Cache hit — fastest path
-    const cached = cache_1.default.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const cached = (0, cache_1.cacheGet)(cacheKey);
+    if (cached !== null) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache', userId });
         res.json(cached);
@@ -53,7 +53,7 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
             ...n,
             id: n._id.toString()
         }));
-        cache_1.default.set(cacheKey, mapped, 300); // Increased to 5 minutes to protect Atlas M0
+        (0, cache_1.cacheSet)(cacheKey, mapped, cache_1.TTL.NOTIFICATIONS); // 60s not 300s
         return mapped;
     })();
     notifInFlight.set(cacheKey, fetchPromise);
@@ -83,8 +83,7 @@ exports.markNotificationAsRead = (0, express_async_handler_1.default)(async (req
     notification.read = true;
     await notification.save();
     // Invalidate this user's notification cache
-    cache_1.default.invalidateByPrefix(`notifications_${req.user?.id}`);
-    cache_1.default.invalidateByPrefix(`sync_${req.user?.id}`);
+    cache_1.CacheInvalidation.onNotificationWrite(req.user.id);
     res.json(notification);
 });
 // @desc    Mark all notifications as read
@@ -92,8 +91,7 @@ exports.markNotificationAsRead = (0, express_async_handler_1.default)(async (req
 // @access  Private
 exports.markAllAsRead = (0, express_async_handler_1.default)(async (req, res) => {
     await Notification_1.default.updateMany({ userId: req.user?.id, read: false }, { $set: { read: true } });
-    cache_1.default.invalidateByPrefix(`notifications_${req.user?.id}`);
-    cache_1.default.invalidateByPrefix(`sync_${req.user?.id}`);
+    cache_1.CacheInvalidation.onNotificationWrite(req.user.id);
     res.json({ message: 'All notifications marked as read' });
 });
 // @desc    Dismiss a notification (hide from bell icon, keep in dashboard logs)
@@ -112,8 +110,7 @@ exports.dismissNotification = (0, express_async_handler_1.default)(async (req, r
     notification.isDismissed = true;
     notification.read = true;
     await notification.save();
-    cache_1.default.invalidateByPrefix(`notifications_${req.user?.id}`);
-    cache_1.default.invalidateByPrefix(`sync_${req.user?.id}`);
+    cache_1.CacheInvalidation.onNotificationWrite(req.user.id);
     res.json({ message: 'Notification dismissed' });
 });
 // @desc    Dismiss all notifications (hide all from bell icon)
@@ -121,8 +118,7 @@ exports.dismissNotification = (0, express_async_handler_1.default)(async (req, r
 // @access  Private
 exports.dismissAllNotifications = (0, express_async_handler_1.default)(async (req, res) => {
     await Notification_1.default.updateMany({ userId: req.user?.id }, { $set: { isDismissed: true, read: true } });
-    cache_1.default.invalidateByPrefix(`notifications_${req.user?.id}`);
-    cache_1.default.invalidateByPrefix(`sync_${req.user?.id}`);
+    cache_1.CacheInvalidation.onNotificationWrite(req.user.id);
     res.json({ message: 'All notifications dismissed' });
 });
 // @desc    Permanently delete a notification (removes from everywhere)
@@ -139,7 +135,6 @@ exports.deleteNotification = (0, express_async_handler_1.default)(async (req, re
         throw new Error('Not authorized');
     }
     await notification.deleteOne();
-    cache_1.default.invalidateByPrefix(`notifications_${req.user?.id}`);
-    cache_1.default.invalidateByPrefix(`sync_${req.user?.id}`);
+    cache_1.CacheInvalidation.onNotificationWrite(req.user.id);
     res.json({ message: 'Notification deleted permanently' });
 });

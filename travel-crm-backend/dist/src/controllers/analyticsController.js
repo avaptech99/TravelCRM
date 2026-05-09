@@ -7,14 +7,14 @@ exports.getPaymentBreakdown = exports.getAgentAnalytics = exports.getRevenueTren
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Payment_1 = __importDefault(require("../models/Payment"));
-const cache_1 = __importDefault(require("../utils/cache"));
+const cache_1 = require("../utils/cache");
 // @desc    Get booking status analytics
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_bookings_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.analytics('bookings', req.query);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -58,15 +58,15 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
         }
     ]);
     res.json(stats[0]);
-    cache_1.default.set(cacheKey, stats[0], 120); // Reduced to 120s
+    (0, cache_1.cacheSet)(cacheKey, stats[0], cache_1.TTL.ANALYTICS_SHORT);
 });
 // @desc    Get payment and revenue analytics
 // @route   GET /api/analytics/payments
 // @access  Private/Admin
 exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_payments_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.analytics('payments', req.query);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -157,15 +157,15 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    cache_1.default.set(cacheKey, result, 600); // Increased to 10 minutes to protect Atlas M0
+    (0, cache_1.cacheSet)(cacheKey, result, cache_1.TTL.ANALYTICS_LONG);
 });
 // @desc    Get revenue trends over time
 // @route   GET /api/analytics/revenue-trends
 // @access  Private/Admin
 exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res) => {
     const { interval = 'month', company } = req.query;
-    const cacheKey = `analytics_revenue_${interval}_${company || ''}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.analytics('revenue', req.query);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -224,15 +224,15 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
     pipeline.push({ $sort: { _id: 1 } });
     const trends = await Payment_1.default.aggregate(pipeline);
     res.json(trends);
-    cache_1.default.set(cacheKey, trends, 120);
+    (0, cache_1.cacheSet)(cacheKey, trends, cache_1.TTL.ANALYTICS_SHORT);
 });
 // @desc    Get agent performance analytics
 // @route   GET /api/analytics/agents
 // @access  Private/Admin
 exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_agents_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.analytics('agents', req.query);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -311,15 +311,15 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
         { $sort: { totalRevenue: -1 } }
     ]);
     res.json(agentStats);
-    cache_1.default.set(cacheKey, agentStats, 120); // Reduced to 120s
+    (0, cache_1.cacheSet)(cacheKey, agentStats, cache_1.TTL.ANALYTICS_SHORT);
 });
 // @desc    Get detailed payment breakdown (pending and received)
 // @route   GET /api/analytics/payment-breakdown
 // @access  Private/Admin
 exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, res) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_payment_breakdown_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.analytics('payment_breakdown', req.query);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -399,5 +399,5 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         totalReceived
     };
     res.json(result);
-    cache_1.default.set(cacheKey, result, 120); // Reduced to 120s
+    (0, cache_1.cacheSet)(cacheKey, result, cache_1.TTL.ANALYTICS_SHORT);
 });

@@ -122,6 +122,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 import cluster from 'cluster';
 import { warmDropdownCache } from './controllers/settingsController';
+import { warmCaches } from './utils/cacheWarm';
 
 const PORT = process.env.PORT || 5000;
 
@@ -141,7 +142,10 @@ if (cluster.isPrimary) {
 
     // Run master-only background tasks (Cron)
     connectDB().then(async () => {
-        await warmDropdownCache();
+        await Promise.all([
+            warmDropdownCache(),
+            warmCaches()
+        ]);
         startFollowUpCron();
         console.log('🚀 Primary startup tasks complete.');
     });
@@ -151,7 +155,10 @@ if (cluster.isPrimary) {
     const startWorker = async () => {
         try {
             await connectDB();
-            await warmDropdownCache();
+            await Promise.all([
+                warmDropdownCache(),
+                warmCaches()
+            ]);
             app.listen(Number(PORT), '0.0.0.0', () => {
                 console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
             });

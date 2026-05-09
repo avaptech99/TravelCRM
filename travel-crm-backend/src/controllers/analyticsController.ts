@@ -4,15 +4,15 @@ import Booking from '../models/Booking';
 import Payment from '../models/Payment';
 import User from '../models/User';
 import mongoose from 'mongoose';
-import appCache from '../utils/cache';
+import { CK, TTL, cacheGet, cacheSet } from '../utils/cache';
 
 // @desc    Get booking status analytics
 // @route   GET /api/analytics/bookings
 // @access  Private/Admin
 export const getBookingAnalytics = asyncHandler(async (req: Request, res: Response) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_bookings_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.analytics('bookings', req.query);
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -60,7 +60,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
 
     res.json(stats[0]);
 
-    appCache.set(cacheKey, stats[0], 120); // Reduced to 120s
+    cacheSet(cacheKey, stats[0], TTL.ANALYTICS_SHORT);
 });
 
 // @desc    Get payment and revenue analytics
@@ -68,8 +68,8 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
 // @access  Private/Admin
 export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Response) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_payments_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.analytics('payments', req.query);
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -167,7 +167,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    appCache.set(cacheKey, result, 600); // Increased to 10 minutes to protect Atlas M0
+    cacheSet(cacheKey, result, TTL.ANALYTICS_LONG);
 });
 
 // @desc    Get revenue trends over time
@@ -175,8 +175,8 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
 // @access  Private/Admin
 export const getRevenueTrends = asyncHandler(async (req: Request, res: Response) => {
     const { interval = 'month', company } = req.query;
-    const cacheKey = `analytics_revenue_${interval}_${company || ''}`;
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.analytics('revenue', req.query);
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -240,7 +240,7 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
     const trends = await Payment.aggregate(pipeline);
 
     res.json(trends);
-    appCache.set(cacheKey, trends, 120); 
+    cacheSet(cacheKey, trends, TTL.ANALYTICS_SHORT);
 });
 
 // @desc    Get agent performance analytics
@@ -248,8 +248,8 @@ export const getRevenueTrends = asyncHandler(async (req: Request, res: Response)
 // @access  Private/Admin
 export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_agents_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.analytics('agents', req.query);
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -331,7 +331,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
     ]);
 
     res.json(agentStats);
-    appCache.set(cacheKey, agentStats, 120); // Reduced to 120s
+    cacheSet(cacheKey, agentStats, TTL.ANALYTICS_SHORT);
 });
 
 // @desc    Get detailed payment breakdown (pending and received)
@@ -339,8 +339,8 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
 // @access  Private/Admin
 export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Response) => {
     const { fromDate, toDate, company } = req.query;
-    const cacheKey = `analytics_payment_breakdown_${fromDate || ''}_${toDate || ''}_${company || ''}`;
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.analytics('payment_breakdown', req.query);
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.json(cached);
         return;
@@ -432,5 +432,5 @@ export const getPaymentBreakdown = asyncHandler(async (req: Request, res: Respon
 
 
     res.json(result);
-    appCache.set(cacheKey, result, 120); // Reduced to 120s
+    cacheSet(cacheKey, result, TTL.ANALYTICS_SHORT);
 });

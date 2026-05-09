@@ -1,6 +1,6 @@
 import * as chrono from 'chrono-node';
 import nlp from 'compromise';
-import appCache from './cache';
+import { cacheGet, cacheSet } from './cache';
 
 interface TravelInfo {
     destinationCity?: string;
@@ -21,7 +21,7 @@ export function extractTravelInfo(text: string): TravelInfo {
     const normalizedText = text.trim().toLowerCase().substring(0, 200);
     const cacheKey = `nlp_${Buffer.from(normalizedText).toString('base64').substring(0, 32)}`;
     
-    const cached = appCache.get(cacheKey) as TravelInfo | null;
+    const cached = cacheGet<TravelInfo>(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] NLP Extraction: ${cacheKey}`);
         return { ...cached };
@@ -74,7 +74,7 @@ export function extractTravelInfo(text: string): TravelInfo {
     };
 
     // Cache the result for 1 hour — NLP logic doesn't change
-    appCache.set(cacheKey, result, 3600);
+    cacheSet(cacheKey, result, 3600);
 
     return result;
 }

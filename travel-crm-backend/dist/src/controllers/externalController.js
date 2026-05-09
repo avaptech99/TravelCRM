@@ -8,7 +8,7 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const Booking_1 = __importDefault(require("../models/Booking"));
 const PrimaryContact_1 = __importDefault(require("../models/PrimaryContact"));
 const User_1 = __importDefault(require("../models/User"));
-const cache_1 = __importDefault(require("../utils/cache"));
+const cache_1 = require("../utils/cache");
 // Helper: Find or create a system user named "Website Lead"
 const getWebsiteLeadUser = async () => {
     let user = await User_1.default.findOne({ email: 'website-lead@system.internal' }).lean();
@@ -338,9 +338,7 @@ exports.createExternalLead = (0, express_async_handler_1.default)(async (req, re
         assignedToUserId: null,
     });
     // Invalidate caches
-    cache_1.default.invalidateByPrefix('bookings_');
-    cache_1.default.invalidateByPrefix('stats_');
-    cache_1.default.invalidateByPrefix('recent_');
+    cache_1.CacheInvalidation.onBookingWrite(booking._id.toString());
     res.status(201).json({
         success: true,
         message: 'Lead created successfully',

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification';
-import appCache from '../utils/cache';
+import { CK, TTL, CacheInvalidation, cacheGet, cacheSet } from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
 
 // Module-level map to track in-flight notification requests
@@ -17,14 +17,14 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
         throw new Error('Not authorized');
     }
 
-    const cacheKey = `notifications_${userId}`;
+    const cacheKey = CK.notifications(userId);
     
     const t = createTimer(`getNotifications_${userId}`);
     t.mark('checkCache');
 
     // 1. Cache hit — fastest path
-    const cached = appCache.get(cacheKey);
-    if (cached !== undefined && cached !== null) {
+    const cached = cacheGet<any[]>(cacheKey);
+    if (cached !== null) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache', userId });
         res.json(cached);
@@ -57,7 +57,7 @@ export const getMyNotifications = asyncHandler(async (req: Request, res: Respons
             id: n._id.toString()
         }));
 
-        appCache.set(cacheKey, mapped, 300); // Increased to 5 minutes to protect Atlas M0
+        cacheSet(cacheKey, mapped, TTL.NOTIFICATIONS); // 60s not 300s
         return mapped;
     })();
 
@@ -94,8 +94,7 @@ export const markNotificationAsRead = asyncHandler(async (req: Request, res: Res
     await notification.save();
 
     // Invalidate this user's notification cache
-    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
-    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    CacheInvalidation.onNotificationWrite(req.user!.id);
     res.json(notification);
 });
 
@@ -108,8 +107,7 @@ export const markAllAsRead = asyncHandler(async (req: Request, res: Response) =>
         { $set: { read: true } }
     );
 
-    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
-    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    CacheInvalidation.onNotificationWrite(req.user!.id);
     res.json({ message: 'All notifications marked as read' });
 });
 
@@ -133,8 +131,7 @@ export const dismissNotification = asyncHandler(async (req: Request, res: Respon
     notification.read = true;
     await notification.save();
 
-    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
-    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    CacheInvalidation.onNotificationWrite(req.user!.id);
     res.json({ message: 'Notification dismissed' });
 });
 
@@ -147,8 +144,7 @@ export const dismissAllNotifications = asyncHandler(async (req: Request, res: Re
         { $set: { isDismissed: true, read: true } }
     );
 
-    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
-    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    CacheInvalidation.onNotificationWrite(req.user!.id);
     res.json({ message: 'All notifications dismissed' });
 });
 
@@ -170,7 +166,6 @@ export const deleteNotification = asyncHandler(async (req: Request, res: Respons
 
     await notification.deleteOne();
 
-    appCache.invalidateByPrefix(`notifications_${req.user?.id}`);
-    appCache.invalidateByPrefix(`sync_${req.user?.id}`);
+    CacheInvalidation.onNotificationWrite(req.user!.id);
     res.json({ message: 'Notification deleted permanently' });
 });

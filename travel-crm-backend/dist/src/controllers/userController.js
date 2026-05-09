@@ -9,7 +9,7 @@ const User_1 = __importDefault(require("../models/User"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const types_1 = require("../types");
 const bcrypt_1 = __importDefault(require("bcrypt"));
-const cache_1 = __importDefault(require("../utils/cache"));
+const cache_1 = require("../utils/cache");
 const perfLogger_1 = require("../utils/perfLogger");
 // ONLINE_THRESHOLD in milliseconds (5 minutes)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
@@ -21,8 +21,8 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @access  Private (Admin/Manager/Agent)
 exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
     const t = (0, perfLogger_1.createTimer)('getAgents');
-    const cacheKey = 'users_agents_list';
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.agents();
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         t.end({ source: 'cache' });
         res.json(cached);
@@ -42,7 +42,7 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedAgents, 300); // 5 minutes
+    (0, cache_1.cacheSet)(cacheKey, mappedAgents, cache_1.TTL.AGENTS);
     t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });
@@ -52,8 +52,8 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
 exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
     const t = (0, perfLogger_1.createTimer)('getAllUsers');
     t.mark('checkCache');
-    const cacheKey = 'users_all';
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.allUsers();
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -76,7 +76,7 @@ exports.getAllUsers = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedUsers, 60); // Reduced to 60s as per audit
+    (0, cache_1.cacheSet)(cacheKey, mappedUsers, cache_1.TTL.USERS);
     res.setHeader('X-Cache-Status', 'MISS');
     t.end({ source: 'db', count: mappedUsers.length });
     res.json(mappedUsers);
@@ -113,7 +113,7 @@ exports.createUser = (0, express_async_handler_1.default)(async (req, res) => {
         groups: groups || [],
     });
     // Invalidate user caches
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     res.status(201).json({
         id: user._id,
         name: user.name,
@@ -147,7 +147,7 @@ exports.deleteUser = (0, express_async_handler_1.default)(async (req, res) => {
     }
     await User_1.default.findByIdAndDelete(id);
     // Invalidate user caches
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     res.json({ message: 'User removed successfully' });
 });
 // @desc    Change password for logged in user
@@ -198,7 +198,7 @@ exports.updateProfile = (0, express_async_handler_1.default)(async (req, res) =>
     user.email = email || user.email;
     await user.save();
     // Invalidate user caches
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     // Generate a new token since the payload contains name and email
     const { generateToken } = require('../utils/jwt');
     const newToken = generateToken(user);
@@ -243,7 +243,7 @@ exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) =
     }
     await user.save();
     // Invalidate user caches
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     res.json({
         id: user._id,
         name: user.name,
@@ -270,7 +270,7 @@ exports.updateStatus = (0, express_async_handler_1.default)(async (req, res) => 
     user.lastSeen = new Date();
     await user.save();
     // Invalidate user caches
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     res.json({
         id: user._id,
         isOnline: user.isOnline,
@@ -290,7 +290,7 @@ exports.setOffline = (0, express_async_handler_1.default)(async (req, res) => {
         isOnline: false,
         lastSeen: new Date(),
     });
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.onUserWrite();
     res.json({ success: true });
 });
 // @desc    Unassign bookings from offline agents
@@ -323,8 +323,7 @@ exports.unassignOfflineBookings = (0, express_async_handler_1.default)(async (re
         $set: { assignedToUserId: null }
     });
     // Invalidate booking and user caches
-    cache_1.default.invalidateByPrefix('bookings_');
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.flush();
     res.json({
         message: `Successfully unassigned ${result.modifiedCount} bookings from ${offlineAgentIds.length} offline agents.`,
         modifiedCount: result.modifiedCount
@@ -352,8 +351,7 @@ exports.unassignUserBookings = (0, express_async_handler_1.default)(async (req, 
     }
     const result = await Booking_1.default.updateMany(query, { $set: { assignedToUserId: null } });
     // Invalidate booking and user caches
-    cache_1.default.invalidateByPrefix('bookings_');
-    cache_1.default.invalidateByPrefix('users_');
+    cache_1.CacheInvalidation.flush();
     res.json({
         message: `Successfully unassigned ${result.modifiedCount} bookings from ${user.name}.`,
         modifiedCount: result.modifiedCount

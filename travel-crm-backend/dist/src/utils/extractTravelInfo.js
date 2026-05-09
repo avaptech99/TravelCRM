@@ -39,7 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractTravelInfo = extractTravelInfo;
 const chrono = __importStar(require("chrono-node"));
 const compromise_1 = __importDefault(require("compromise"));
-const cache_1 = __importDefault(require("./cache"));
+const cache_1 = require("./cache");
 function extractTravelInfo(text) {
     if (!text) {
         return {
@@ -51,7 +51,7 @@ function extractTravelInfo(text) {
     // Normalize text for cache key (lowercase, trimmed, max 200 chars to avoid huge keys)
     const normalizedText = text.trim().toLowerCase().substring(0, 200);
     const cacheKey = `nlp_${Buffer.from(normalizedText).toString('base64').substring(0, 32)}`;
-    const cached = cache_1.default.get(cacheKey);
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] NLP Extraction: ${cacheKey}`);
         return { ...cached };
@@ -99,6 +99,6 @@ function extractTravelInfo(text) {
         travellers,
     };
     // Cache the result for 1 hour — NLP logic doesn't change
-    cache_1.default.set(cacheKey, result, 3600);
+    (0, cache_1.cacheSet)(cacheKey, result, 3600);
     return result;
 }

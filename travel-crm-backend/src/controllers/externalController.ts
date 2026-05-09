@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
 import User from '../models/User';
-import appCache from '../utils/cache';
+import { CacheInvalidation } from '../utils/cache';
 
 // Helper: Find or create a system user named "Website Lead"
 const getWebsiteLeadUser = async () => {
@@ -331,9 +331,7 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     });
 
     // Invalidate caches
-    appCache.invalidateByPrefix('bookings_');
-    appCache.invalidateByPrefix('stats_');
-    appCache.invalidateByPrefix('recent_');
+    CacheInvalidation.onBookingWrite(booking._id.toString());
 
     res.status(201).json({
         success: true,

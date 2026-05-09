@@ -4,7 +4,7 @@ import User from '../models/User';
 import Booking from '../models/Booking';
 import { createUserSchema } from '../types';
 import bcrypt from 'bcrypt';
-import appCache from '../utils/cache';
+import { CK, TTL, CacheInvalidation, cacheGet, cacheSet } from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
 
 // ONLINE_THRESHOLD in milliseconds (5 minutes)
@@ -18,8 +18,8 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @access  Private (Admin/Manager/Agent)
 export const getAgents = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('getAgents');
-    const cacheKey = 'users_agents_list';
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.agents();
+    const cached = cacheGet<any>(cacheKey);
 
     if (cached) {
         t.end({ source: 'cache' });
@@ -43,7 +43,7 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedAgents, 300); // 5 minutes
+    cacheSet(cacheKey, mappedAgents, TTL.AGENTS);
     t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });
@@ -54,8 +54,8 @@ export const getAgents = asyncHandler(async (req: Request, res: Response) => {
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     const t = createTimer('getAllUsers');
     t.mark('checkCache');
-    const cacheKey = 'users_all';
-    const cached = appCache.get(cacheKey);
+    const cacheKey = CK.allUsers();
+    const cached = cacheGet<any>(cacheKey);
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -81,7 +81,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    appCache.set(cacheKey, mappedUsers, 60); // Reduced to 60s as per audit
+    cacheSet(cacheKey, mappedUsers, TTL.USERS);
     res.setHeader('X-Cache-Status', 'MISS');
     t.end({ source: 'db', count: mappedUsers.length });
     res.json(mappedUsers);
@@ -132,7 +132,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     });
 
     // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
 
     res.status(201).json({
         id: user._id,
@@ -174,7 +174,7 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
     await User.findByIdAndDelete(id);
 
     // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
 
     res.json({ message: 'User removed successfully' });
 });
@@ -239,7 +239,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
     await user.save();
 
     // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
 
     // Generate a new token since the payload contains name and email
     const { generateToken } = require('../utils/jwt');
@@ -291,7 +291,7 @@ export const updateUserById = asyncHandler(async (req: Request, res: Response) =
     await user.save();
 
     // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
 
     res.json({
         id: user._id,
@@ -323,7 +323,7 @@ export const updateStatus = asyncHandler(async (req: Request, res: Response) => 
     await user.save();
 
     // Invalidate user caches
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
 
     res.json({
         id: user._id,
@@ -347,7 +347,7 @@ export const setOffline = asyncHandler(async (req: Request, res: Response) => {
         lastSeen: new Date(),
     });
 
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.onUserWrite();
     res.json({ success: true });
 });
 
@@ -391,8 +391,7 @@ export const unassignOfflineBookings = asyncHandler(async (req: Request, res: Re
     );
 
     // Invalidate booking and user caches
-    appCache.invalidateByPrefix('bookings_');
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.flush();
 
     res.json({
         message: `Successfully unassigned ${result.modifiedCount} bookings from ${offlineAgentIds.length} offline agents.`,
@@ -427,8 +426,7 @@ export const unassignUserBookings = asyncHandler(async (req: Request, res: Respo
     const result = await Booking.updateMany(query, { $set: { assignedToUserId: null } });
 
     // Invalidate booking and user caches
-    appCache.invalidateByPrefix('bookings_');
-    appCache.invalidateByPrefix('users_');
+    CacheInvalidation.flush();
 
     res.json({
         message: `Successfully unassigned ${result.modifiedCount} bookings from ${user.name}.`,

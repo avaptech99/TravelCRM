@@ -37,6 +37,10 @@ exports.createBookingSchema = zod_1.z.object({
     additionalServicesDetails: zod_1.z.string().optional().nullable(),
     assignedGroup: zod_1.z.string().optional(),
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
+    assignedToUserId: zod_1.z.string().optional().nullable(),
+    actualAmount: zod_1.z.number().nonnegative().optional(),
+    estimatedMargin: zod_1.z.number().optional(),
+    actualMargin: zod_1.z.number().optional(),
 });
 exports.updateBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().optional(),
@@ -76,6 +80,7 @@ exports.updateBookingSchema = zod_1.z.object({
         price: zod_1.z.number(),
         source: zod_1.z.string()
     })).optional(),
+    actualAmount: zod_1.z.number().nonnegative().optional(),
 });
 exports.updateBookingStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['Pending', 'Working', 'Sent', 'Booked', 'Follow Up']),

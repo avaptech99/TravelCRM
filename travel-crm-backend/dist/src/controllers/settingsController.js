@@ -6,15 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateDropdown = exports.warmDropdownCache = exports.getDropdowns = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Setting_1 = __importDefault(require("../models/Setting"));
-const cache_1 = __importDefault(require("../utils/cache"));
+const cache_1 = require("../utils/cache");
 const perfLogger_1 = require("../utils/perfLogger");
 // @desc    Get all dropdown settings
 // @route   GET /api/settings/dropdowns
 // @access  Private (Admin Only)
 exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => {
     const t = (0, perfLogger_1.createTimer)('getDropdowns');
-    const cacheKey = 'settings_dropdowns';
-    const cached = cache_1.default.get(cacheKey);
+    const cacheKey = cache_1.CK.dropdowns();
+    const cached = (0, cache_1.cacheGet)(cacheKey);
     if (cached) {
         res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
@@ -23,7 +23,7 @@ exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => 
     }
     // If cache miss (should be rare with warmup), calculate
     const result = await calculateDropdowns();
-    cache_1.default.set(cacheKey, result, 86400); // 24 hour cache
+    (0, cache_1.cacheSet)(cacheKey, result, cache_1.TTL.SETTINGS);
     res.setHeader('X-Cache-Status', 'MISS');
     t.end({ source: 'db' });
     res.json(result);
@@ -47,7 +47,7 @@ async function calculateDropdowns() {
 const warmDropdownCache = async () => {
     try {
         const result = await calculateDropdowns();
-        cache_1.default.set('settings_dropdowns', result, 86400);
+        (0, cache_1.cacheSet)(cache_1.CK.dropdowns(), result, cache_1.TTL.SETTINGS);
         console.log('✅ Dropdown cache warmed successfully');
     }
     catch (error) {
@@ -74,6 +74,6 @@ exports.updateDropdown = (0, express_async_handler_1.default)(async (req, res) =
         setting = await Setting_1.default.create({ key, values });
     }
     // Invalidate dropdown cache
-    cache_1.default.del('settings_dropdowns');
+    cache_1.CacheInvalidation.onSettingsWrite();
     res.json({ message: `${key} updated successfully`, values: setting.values });
 });
