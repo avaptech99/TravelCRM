@@ -1,0 +1,39 @@
+CRM 3.0 MIGRATION SYSTEM - INSTRUCTIONS
+
+This directory contains the master migration scripts for CRM 3.0. These scripts are designed to normalize data types, backfill contact snapshots, and optimize the database for the new architecture.
+
+PREREQUISITES:
+- MongoDB Shell (mongosh) installed locally.
+- Access to the MongoDB database (Local or Atlas).
+
+HOW TO RUN THE SCRIPTS:
+
+1. OPEN TERMINAL / COMMAND PROMPT
+   Navigate to this directory:
+   cd "migration script"
+
+2. CONNECT TO YOUR DATABASE
+   Run the connection command for your environment:
+   
+   Local:
+   mongosh "mongodb://localhost:27017/travel-crm"
+   
+   Atlas:
+   mongosh "mongodb+srv://your-cluster-url" --username your-username
+
+3. LOAD AND EXECUTE THE SCRIPTS
+   Once connected to the mongosh prompt, run the desired version:
+
+   To run Version 3 (Standard):
+   load("masterMigrationV3.js")
+
+   To run Version 4 (High Performance Bulk Edition):
+   load("masterMigrationV4.js")
+
+   To verify the migration results:
+   load("verifyMigration.js")
+
+NOTE:
+- Version 4 is recommended for larger datasets as it uses bulk operations.
+- Always run 'verifyMigration.js' after a migration to ensure data integrity.
+- It is recommended to take a database backup before running any migration scripts.
