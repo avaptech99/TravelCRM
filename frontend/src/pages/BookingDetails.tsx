@@ -443,12 +443,16 @@ export const BookingDetails: React.FC = () => {
                                                 <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100 uppercase tracking-wider">
                                                     Est: {(() => {
                                                         const sum = (booking.estimatedCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
-                                                        if (sum > 0) return sum.toLocaleString();
-                                                        return (booking.totalAmount || booking.amount || 0).toLocaleString();
+                                                        const total = booking.totalAmount || booking.amount || sum || 0;
+                                                        return total.toLocaleString();
                                                     })()}
                                                 </span>
                                                 <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100 uppercase tracking-wider">
-                                                    Act: {(booking.actualCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0).toLocaleString()}
+                                                    Act: {(() => {
+                                                        const sum = (booking.actualCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
+                                                        const total = booking.actualAmount || sum || 0;
+                                                        return total.toLocaleString();
+                                                    })()}
                                                 </span>
                                             </div>
                                         )}
