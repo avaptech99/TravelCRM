@@ -96,22 +96,14 @@ const bookingSchema = new mongoose_1.Schema({
         virtuals: true,
         transform: (doc, ret) => {
             ret.id = ret._id;
-            // Flatten primaryContact fields from embedded snapshot if exists
+            // Use embedded contact snapshot for all flattened fields
             if (ret.contact) {
                 ret.contactPerson = ret.contact.name;
                 ret.contactNumber = ret.contact.phone;
-                ret.bookingType = ret.contact.type === 'Agent (B2B)' ? 'B2B' : 'B2C';
+                ret.contactEmail = ret.contact.email;
+                ret.requirements = ret.contact.requirements;
+                ret.bookingType = ret.contact.type === 'B2B' ? 'B2B' : 'B2C';
                 ret.interested = ret.contact.interested ? 'Yes' : 'No';
-            }
-            else if (ret.primaryContact) {
-                ret.contactPerson = ret.primaryContact.contactName;
-                ret.contactNumber = ret.primaryContact.contactPhoneNo;
-                ret.bookingType = ret.primaryContact.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C';
-                ret.interested = (ret.primaryContact.interested === 'Yes' || ret.primaryContact.interested === true) ? 'Yes' : 'No';
-            }
-            if (ret.primaryContact) {
-                ret.contactEmail = ret.primaryContact.contactEmail;
-                ret.requirements = ret.primaryContact.requirements;
             }
             // Flatten user names for display
             if (ret.assignedToUserId && typeof ret.assignedToUserId.name === 'string') {
@@ -140,38 +132,17 @@ bookingSchema.pre('save', async function () {
         }
     }
 });
-// Indexes — sorted by priority
-// 1. STANDALONE SORT INDEXES — covers primary sort orders
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ lastInteractionAt: -1 });
-// 2. Agent dashboard compound (from DB redesign doc) — optimal for single-agent + status
-bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 });
-// 3. Agent dashboard fallback — optimal for single-agent WITHOUT status
-bookingSchema.index({ assignedToUserId: 1, lastInteractionAt: -1 });
-// 4. Status filter + sort (status tabs like "Pending", "Booked", etc.)
-bookingSchema.index({ status: 1, _id: -1 });
-bookingSchema.index({ status: 1, lastInteractionAt: -1 });
-// 4b. Status + EDT filter (Fixes 21s query)
-bookingSchema.index({ isConvertedToEDT: 1, status: 1, lastInteractionAt: -1 });
-bookingSchema.index({ status: 1, isConvertedToEDT: 1, lastInteractionAt: -1 });
-// 5. Creator and Assignee queries (Fixes 13s - 40s spikes)
-bookingSchema.index({ assignedToUserId: 1, _id: -1 });
-bookingSchema.index({ createdByUserId: 1, _id: -1 });
-bookingSchema.index({ assignedGroup: 1, _id: -1 });
-// 5b. Departmental visibility (Fixes 8.7s unassigned/departmental query)
-bookingSchema.index({ assignedGroup: 1, lastInteractionAt: -1 });
-// 6. Analytics queries (payment breakdown)
-bookingSchema.index({ outstanding: -1 });
-// 7. Contact search fields
-bookingSchema.index({ 'contact.name': 1 });
-bookingSchema.index({ 'contact.phone': 1 });
-// 8. Calendar queries
+// Indexes — Optimized for Atlas M0 (Free Tier) to balance read speed and write overhead
 bookingSchema.index({ travelDate: 1 });
-// 9. Company filter (multi-tenant analytics)
-bookingSchema.index({ company: 1 });
-// 10. Delta updates / Last modified index
-bookingSchema.index({ updatedAt: -1 });
-bookingSchema.index({ _id: -1 }); // Global stable sort index
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ uniqueCode: 1 });
+bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for most Agent/Marketer queries
+bookingSchema.index({ status: 1, travelDate: 1 });
+bookingSchema.index({ outstanding: 1, status: 1 }); // High-performance unpaid leads filtering
+bookingSchema.index({ assignedGroup: 1, status: 1 }); // Covering index for group-based dashboard
+bookingSchema.index({ 'contact.phone': 1 }); // Quick search by phone
+bookingSchema.index({ uniqueCode: 1 }, { unique: true }); // Should already be covered by schema but explicit here
+bookingSchema.index({ company: 1, status: 1, createdAt: -1 });
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',
@@ -206,18 +177,26 @@ bookingSchema.virtual('passengers', {
     localField: '_id',
     foreignField: 'bookingId',
 });
+bookingSchema.virtual('comments', {
+    ref: 'Comment',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
+bookingSchema.virtual('activities', {
+    ref: 'Timeline',
+    localField: '_id',
+    foreignField: 'bookingId',
+});
 // Pre-find hook to start timer
-bookingSchema.pre(/^find/, function (next) {
+bookingSchema.pre(/^find/, function () {
     this._queryStart = Date.now();
-    next();
 });
 // Post-find hook to log slow queries
-bookingSchema.post(/^find/, function (docs, next) {
+bookingSchema.post(/^find/, function () {
     const duration = Date.now() - this._queryStart;
     if (duration > 100) {
-        console.log(`[MONGOOSE SLOW] Booking.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+        console.log(`[MONGOOSE SLOW] Booking.${this.op} - ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
     }
-    next();
 });
 const Booking = mongoose_1.default.model('Booking', bookingSchema);
 exports.default = Booking;

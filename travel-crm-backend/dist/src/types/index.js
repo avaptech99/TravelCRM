@@ -16,6 +16,7 @@ exports.createUserSchema = zod_1.z.object({
 exports.createBookingSchema = zod_1.z.object({
     contactPerson: zod_1.z.string().min(2, 'Contact Person must be at least 2 characters'),
     contactNumber: zod_1.z.string().min(10, 'Contact Number must be a valid phone number'),
+    contactEmail: zod_1.z.string().email().optional().nullable(),
     bookingType: zod_1.z.enum(['B2B', 'B2C']),
     destination: zod_1.z.string().optional().nullable(),
     travelDate: zod_1.z.string().optional().nullable(),
@@ -38,6 +39,9 @@ exports.createBookingSchema = zod_1.z.object({
     interested: zod_1.z.enum(['Yes', 'No']).optional(),
 });
 exports.updateBookingSchema = zod_1.z.object({
+    contactPerson: zod_1.z.string().optional(),
+    contactNumber: zod_1.z.string().optional(),
+    contactEmail: zod_1.z.string().email().optional().nullable(),
     destination: zod_1.z.string().optional().nullable(),
     travelDate: zod_1.z.string().optional().nullable(),
     flightFrom: zod_1.z.string().optional().nullable(),

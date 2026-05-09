@@ -10,17 +10,20 @@ const Notification_1 = __importDefault(require("../models/Notification"));
 const User_1 = __importDefault(require("../models/User"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
+const perfLogger_1 = require("../utils/perfLogger");
 // Request deduplication for sync fetches
 const syncFetchInFlight = new Map();
 // @desc    Get combined dashboard data (stats + recent bookings + notifications)
 // @route   GET /api/sync
 // @access  Private
 exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) => {
+    const t = (0, perfLogger_1.createTimer)('getGlobalSync');
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const cacheKey = `sync_${userId || 'all'}`;
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
+        t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
@@ -29,6 +32,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         try {
             console.log(`[DEDUPLICATED] Sync request for ${userId} served from in-flight promise`);
             const data = await syncFetchInFlight.get(cacheKey);
+            t.end({ source: 'deduplicated' });
             res.json(data);
             return;
         }
@@ -39,15 +43,19 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
     const fetchPromise = (async () => {
         const statsQuery = {};
         const recentQuery = {};
-        if (userRole === 'AGENT') {
-            const objId = new mongoose_1.default.Types.ObjectId(userId);
-            statsQuery.$or = [{ assignedToUserId: objId }, { createdByUserId: objId }];
-            recentQuery.$or = [{ assignedToUserId: userId }, { createdByUserId: userId }];
+        // Optimized visibility query using participantIds covering index
+        const userIdObj = new mongoose_1.default.Types.ObjectId(userId);
+        if (userRole === 'AGENT' || userRole === 'MARKETER' || userRole === 'VISA' || userRole === 'TICKETING') {
+            statsQuery.participantIds = userIdObj;
+            recentQuery.participantIds = userId;
         }
-        else if (userRole === 'MARKETER') {
-            statsQuery.createdByUserId = new mongoose_1.default.Types.ObjectId(userId);
-            recentQuery.createdByUserId = userId;
+        else if (userRole === 'OPERATION' || userRole === 'ACCOUNT') {
+            statsQuery.status = 'Booked';
+            recentQuery.status = 'Booked';
         }
+        // Only fetch bookings modified in the last 48 hours for "recent" list (indexed by updatedAt)
+        const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        recentQuery.updatedAt = { $gte: since };
         // Run all queries
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking_1.default.aggregate([
@@ -65,7 +73,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
             ]),
             Booking_1.default.find(recentQuery)
                 .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
-                .sort({ createdAt: -1 })
+                .sort({ updatedAt: -1 }) // Sort by modified date for "sync"
                 .limit(5)
                 .populate('assignedToUserId', 'name')
                 .lean(),
@@ -75,6 +83,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
                 .lean(),
             userRole === 'ADMIN' ? User_1.default.countDocuments({ role: 'AGENT' }) : Promise.resolve(0)
         ]);
+        t.mark('dbQuery');
         const stats = statsResult.length > 0 ? {
             total: statsResult[0].total,
             booked: statsResult[0].booked,
@@ -102,7 +111,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
             ...n,
             id: n._id.toString(),
         }));
-        return {
+        const response = {
             stats: {
                 ...stats,
                 agents: agentsCount,
@@ -110,10 +119,13 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
         };
+        t.mark('formatResponse');
+        return response;
     })();
     syncFetchInFlight.set(cacheKey, fetchPromise);
     try {
         const result = await fetchPromise;
+        t.end({ source: 'db', bookingsCount: result.recentBookings.length });
         cache_1.default.set(cacheKey, result, 120); // Increased to 120s as per audit
         res.json(result);
     }

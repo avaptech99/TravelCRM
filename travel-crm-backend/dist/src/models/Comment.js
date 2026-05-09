@@ -35,22 +35,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
 const commentSchema = new mongoose_1.Schema({
-    bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true },
-    createdById: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    bookingId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
+    userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now },
+    type: { type: String, enum: ['comment', 'activity'], default: 'comment', index: true },
 }, {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    timestamps: true,
+    collection: 'comments' // Points to the unified collection
 });
-// Virtual for createdBy (mirroring Prisma format)
-commentSchema.index({ bookingId: 1 });
-commentSchema.index({ createdById: 1 });
-commentSchema.virtual('createdBy', {
-    ref: 'User',
-    localField: 'createdById',
-    foreignField: '_id',
-    justOne: true,
-});
+commentSchema.index({ bookingId: 1, createdAt: -1 });
 const Comment = mongoose_1.default.model('Comment', commentSchema);
 exports.default = Comment;

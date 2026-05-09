@@ -12,7 +12,12 @@ function createTimer(label) {
             lastMark = now;
         },
         end(extra) {
-            const total = Date.now() - start;
+            const now = Date.now();
+            const total = now - start;
+            // If there's time since the last mark, add it as 'final'
+            if (now > lastMark) {
+                segments.push({ name: 'finalProcessing', duration: now - lastMark });
+            }
             const breakdown = segments.map(s => `${s.name}: ${s.duration}ms`).join(' | ');
             console.log(`[PERF] ${label} — Total: ${total}ms | ${breakdown}`, extra ?? '');
             return total;

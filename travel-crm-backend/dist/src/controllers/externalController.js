@@ -11,7 +11,7 @@ const User_1 = __importDefault(require("../models/User"));
 const cache_1 = __importDefault(require("../utils/cache"));
 // Helper: Find or create a system user named "Website Lead"
 const getWebsiteLeadUser = async () => {
-    let user = await User_1.default.findOne({ email: 'website-lead@system.internal' });
+    let user = await User_1.default.findOne({ email: 'website-lead@system.internal' }).lean();
     if (!user) {
         // Create a system user (no real password, cannot login)
         user = await User_1.default.create({

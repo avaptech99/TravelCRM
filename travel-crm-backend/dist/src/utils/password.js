@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.needsUpgrade = exports.matchPassword = exports.hashPassword = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const hashPassword = async (password) => {
-    return await bcrypt_1.default.hash(password, 8);
+    return await bcrypt_1.default.hash(password, 10);
 };
 exports.hashPassword = hashPassword;
 const matchPassword = async (enteredPassword, storedHash) => {
@@ -15,7 +15,7 @@ const matchPassword = async (enteredPassword, storedHash) => {
 exports.matchPassword = matchPassword;
 const needsUpgrade = (hash) => {
     try {
-        return bcrypt_1.default.getRounds(hash) > 8;
+        return bcrypt_1.default.getRounds(hash) > 10;
     }
     catch (error) {
         return false;

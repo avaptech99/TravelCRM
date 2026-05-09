@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateDropdown = exports.getDropdowns = void 0;
+exports.updateDropdown = exports.warmDropdownCache = exports.getDropdowns = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const Setting_1 = __importDefault(require("../models/Setting"));
 const cache_1 = __importDefault(require("../utils/cache"));
@@ -13,7 +13,6 @@ const perfLogger_1 = require("../utils/perfLogger");
 // @access  Private (Admin Only)
 exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => {
     const t = (0, perfLogger_1.createTimer)('getDropdowns');
-    t.mark('checkCache');
     const cacheKey = 'settings_dropdowns';
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
@@ -22,33 +21,40 @@ exports.getDropdowns = (0, express_async_handler_1.default)(async (req, res) => 
         res.json(cached);
         return;
     }
-    t.mark('dbQuery');
-    const settings = await Setting_1.default.find();
-    const result = {};
-    t.mark('mergeDefaults');
-    // Initialize default if empty
-    const defaultKeys = ['companies', 'costTypes', 'costSources', 'groups'];
+    // If cache miss (should be rare with warmup), calculate
+    const result = await calculateDropdowns();
+    cache_1.default.set(cacheKey, result, 86400); // 24 hour cache
+    res.setHeader('X-Cache-Status', 'MISS');
+    t.end({ source: 'db' });
+    res.json(result);
+});
+// Helper to calculate merged dropdowns (Pure JS logic)
+async function calculateDropdowns() {
+    const settings = await Setting_1.default.find().lean();
     const defaults = {
         companies: ['Skylight', 'Travowords', 'Travel Window Dubai', 'Travel Window Canada'],
         costTypes: ['Air Ticket', 'Hotel', 'Visa', 'Insurance', 'Transport', 'Others'],
         costSources: ['Self', 'Agent', 'Direct Vendor'],
         groups: ['Package / LCC', 'Ticketing INT', 'Visa', 'Operation', 'Account']
     };
+    const result = { ...defaults };
     settings.forEach(s => {
         result[s.key] = s.values;
     });
-    // Merge with defaults if missing
-    defaultKeys.forEach(key => {
-        if (!result[key]) {
-            result[key] = defaults[key];
-        }
-    });
-    // Cache the merged result for 1 hour
-    cache_1.default.set(cacheKey, result, 3600);
-    res.setHeader('X-Cache-Status', 'MISS');
-    t.end({ source: 'db' });
-    res.json(result);
-});
+    return result;
+}
+// Warmup function to be called at server startup
+const warmDropdownCache = async () => {
+    try {
+        const result = await calculateDropdowns();
+        cache_1.default.set('settings_dropdowns', result, 86400);
+        console.log('✅ Dropdown cache warmed successfully');
+    }
+    catch (error) {
+        console.error('❌ Failed to warm dropdown cache:', error);
+    }
+};
+exports.warmDropdownCache = warmDropdownCache;
 // @desc    Update a specific dropdown setting
 // @route   PUT /api/settings/dropdowns/:key
 // @access  Private (Admin Only)

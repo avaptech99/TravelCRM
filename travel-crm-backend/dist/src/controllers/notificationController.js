@@ -42,9 +42,10 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
     // 3. First request — create the promise and share it
     const fetchPromise = (async () => {
         t.mark('dbQuery');
-        const notifications = await Notification_1.default.find({ userId })
+        // Filter by isDismissed: false to use our compound index effectively
+        const notifications = await Notification_1.default.find({ userId, isDismissed: false })
             .sort({ createdAt: -1 })
-            .limit(50) // increased from 20 for better user experience
+            .limit(20)
             .lean()
             .maxTimeMS(2000);
         t.mark('formatResponse');
@@ -52,7 +53,7 @@ exports.getMyNotifications = (0, express_async_handler_1.default)(async (req, re
             ...n,
             id: n._id.toString()
         }));
-        cache_1.default.set(cacheKey, mapped, 60); // Reduced to 1 minute for better real-time feel under single-flight
+        cache_1.default.set(cacheKey, mapped, 300); // Increased to 5 minutes to protect Atlas M0
         return mapped;
     })();
     notifInFlight.set(cacheKey, fetchPromise);

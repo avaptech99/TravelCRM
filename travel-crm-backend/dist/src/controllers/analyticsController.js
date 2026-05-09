@@ -21,13 +21,16 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
     }
     const matchQuery = {};
     if (fromDate || toDate) {
-        matchQuery.createdAt = {};
-        if (fromDate)
-            matchQuery.createdAt.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.createdAt.$lte = end;
+        const start = fromDate ? new Date(fromDate) : null;
+        const end = toDate ? new Date(toDate) : null;
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.createdAt = {};
+            if (start && !isNaN(start.getTime()))
+                matchQuery.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.createdAt.$lte = end;
+            }
         }
     }
     if (company) {
@@ -70,13 +73,16 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
     }
     const matchQuery = {};
     if (fromDate || toDate) {
-        matchQuery.date = {};
-        if (fromDate)
-            matchQuery.date.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.date.$lte = end;
+        const start = fromDate ? new Date(fromDate) : null;
+        const end = toDate ? new Date(toDate) : null;
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.date = {};
+            if (start && !isNaN(start.getTime()))
+                matchQuery.date.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.date.$lte = end;
+            }
         }
     }
     // Total collected from Payments (Filtered by company if provided)
@@ -104,30 +110,45 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
             count: { $sum: 1 }
         }
     });
-    const paymentStats = await Payment_1.default.aggregate(paymentPipeline);
     // Total expected from Bookings (amount)
     const bookingMatch = {};
     if (fromDate || toDate) {
-        bookingMatch.createdAt = {};
-        if (fromDate)
-            bookingMatch.createdAt.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            bookingMatch.createdAt.$lte = end;
-        }
-    }
-    if (company) {
-        bookingMatch.company = company;
-    }
-    const bookingStats = await Booking_1.default.aggregate([
-        { $match: bookingMatch },
-        {
-            $group: {
-                _id: null,
-                totalExpected: { $sum: '$amount' }
+        const start = fromDate ? new Date(fromDate) : null;
+        const end = toDate ? new Date(toDate) : null;
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            bookingMatch.createdAt = {};
+            if (start && !isNaN(start.getTime()))
+                bookingMatch.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                const e = new Date(end);
+                e.setHours(23, 59, 59, 999);
+                bookingMatch.createdAt.$lte = e;
             }
         }
+    }
+    if (company && company !== 'undefined' && company !== 'null') {
+        bookingMatch.company = company;
+    }
+    const [paymentStats, bookingStats] = await Promise.all([
+        Payment_1.default.aggregate(paymentPipeline),
+        Booking_1.default.aggregate([
+            { $match: bookingMatch },
+            {
+                $group: {
+                    _id: null,
+                    totalExpected: {
+                        $sum: {
+                            $convert: {
+                                input: '$amount',
+                                to: 'double',
+                                onError: 0,
+                                onNull: 0
+                            }
+                        }
+                    }
+                }
+            }
+        ])
     ]);
     const result = {
         totalCollected: paymentStats[0]?.totalCollected || 0,
@@ -136,7 +157,7 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
         paymentCount: paymentStats[0]?.count || 0
     };
     res.json(result);
-    cache_1.default.set(cacheKey, result, 120); // Reduced to 120s
+    cache_1.default.set(cacheKey, result, 600); // Increased to 10 minutes to protect Atlas M0
 });
 // @desc    Get revenue trends over time
 // @route   GET /api/analytics/revenue-trends
@@ -153,9 +174,15 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
     if (interval === 'day')
         format = '%Y-%m-%d';
     if (interval === 'week')
-        format = '%G-W%V (%b)'; // e.g., 2024-W18 (May)
+        format = '%G-W%V';
     const pipeline = [];
-    if (company) {
+    // 1. More inclusive match to catch legacy strings
+    pipeline.push({
+        $match: {
+            date: { $ne: null }
+        }
+    });
+    if (company && company !== 'undefined' && company !== 'null') {
         pipeline.push({
             $lookup: {
                 from: 'bookings',
@@ -169,8 +196,29 @@ exports.getRevenueTrends = (0, express_async_handler_1.default)(async (req, res)
     }
     pipeline.push({
         $group: {
-            _id: { $dateToString: { format: format, date: '$date' } },
-            revenue: { $sum: '$amount' }
+            _id: {
+                $dateToString: {
+                    format: format,
+                    date: {
+                        $convert: {
+                            input: '$date',
+                            to: 'date',
+                            onError: new Date(),
+                            onNull: new Date()
+                        }
+                    }
+                }
+            },
+            revenue: {
+                $sum: {
+                    $convert: {
+                        input: '$amount',
+                        to: 'double',
+                        onError: 0,
+                        onNull: 0
+                    }
+                }
+            }
         }
     });
     pipeline.push({ $sort: { _id: 1 } });
@@ -191,16 +239,19 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
     }
     const matchQuery = {};
     if (fromDate || toDate) {
-        matchQuery.createdAt = {};
-        if (fromDate)
-            matchQuery.createdAt.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            matchQuery.createdAt.$lte = end;
+        const start = fromDate ? new Date(fromDate) : null;
+        const end = toDate ? new Date(toDate) : null;
+        if ((start && !isNaN(start.getTime())) || (end && !isNaN(end.getTime()))) {
+            matchQuery.createdAt = {};
+            if (start && !isNaN(start.getTime()))
+                matchQuery.createdAt.$gte = start;
+            if (end && !isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                matchQuery.createdAt.$lte = end;
+            }
         }
     }
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         matchQuery.company = company;
     }
     const agentStats = await Booking_1.default.aggregate([
@@ -229,7 +280,16 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
                 agentName: { $first: { $ifNull: ['$agentDetails.name', 'Unassigned'] } },
                 totalBookings: { $sum: 1 },
                 convertedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-                totalRevenue: { $sum: '$amount' }
+                totalRevenue: {
+                    $sum: {
+                        $convert: {
+                            input: '$amount',
+                            to: 'double',
+                            onError: 0,
+                            onNull: 0
+                        }
+                    }
+                }
             }
         },
         {
@@ -264,27 +324,27 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         res.json(cached);
         return;
     }
-    // 1. Get Pending Bookings (outstanding > 0)
-    const bookingQuery = { outstanding: { $gt: 0 } };
-    if (company) {
+    // 1. Get Pending Bookings (outstanding > 0) within date range
+    const bookingQuery = {
+        outstanding: { $gt: 0 },
+        createdAt: {
+            $gte: new Date(fromDate),
+            $lte: new Date(toDate)
+        }
+    };
+    if (company && company !== 'undefined' && company !== 'null') {
         bookingQuery.company = company;
     }
-    const pendingBookings = await Booking_1.default.find(bookingQuery)
-        .select('uniqueCode contact amount outstanding company')
-        .sort({ outstanding: -1 })
-        .limit(20) // Reduced from 50 for faster load
-        .lean();
-    const pending = pendingBookings.map((b) => ({
-        bookingId: b._id,
-        uniqueCode: b.uniqueCode,
-        contactPerson: b.contact?.name || 'Unknown',
-        companyName: b.company || '—',
-        totalAmount: b.amount || 0,
-        totalPaid: (b.amount || 0) - (b.outstanding || 0),
-        outstanding: b.outstanding || 0
-    }));
     // 2. Get Recent Received Payments
     const paymentPipeline = [
+        {
+            $match: {
+                date: {
+                    $gte: new Date(fromDate),
+                    $lte: new Date(toDate)
+                }
+            }
+        },
         {
             $lookup: {
                 from: 'bookings',
@@ -295,28 +355,47 @@ exports.getPaymentBreakdown = (0, express_async_handler_1.default)(async (req, r
         },
         { $unwind: { path: '$booking', preserveNullAndEmptyArrays: true } }
     ];
-    if (company) {
+    if (company && company !== 'undefined' && company !== 'null') {
         paymentPipeline.push({ $match: { 'booking.company': company } });
     }
     paymentPipeline.push({ $sort: { date: -1 } });
-    paymentPipeline.push({ $limit: 100 });
-    const recentPayments = await Payment_1.default.aggregate(paymentPipeline);
+    // Run both pending and received queries in parallel
+    const [pendingBookings, recentPayments] = await Promise.all([
+        Booking_1.default.find(bookingQuery)
+            .select('uniqueCode contact amount outstanding company')
+            .sort({ outstanding: -1 })
+            .lean(),
+        Payment_1.default.aggregate(paymentPipeline)
+    ]);
+    const pending = pendingBookings.map((b) => {
+        const amount = typeof b.amount === 'string' ? parseFloat(b.amount) || 0 : b.amount || 0;
+        const outstanding = typeof b.outstanding === 'string' ? parseFloat(b.outstanding) || 0 : b.outstanding || 0;
+        return {
+            bookingId: b._id,
+            uniqueCode: b.uniqueCode,
+            contactPerson: b.contact?.name || 'Unknown',
+            companyName: b.company || '—',
+            totalAmount: amount,
+            totalPaid: Math.max(amount - outstanding, 0),
+            outstanding: outstanding
+        };
+    });
     const received = recentPayments.map((p) => ({
         id: p._id.toString(),
         uniqueCode: p.booking?.uniqueCode || 'N/A',
         contactPerson: p.booking?.contact?.name || 'Unknown',
         companyName: p.booking?.company || '—',
         paymentMethod: p.paymentMethod || 'Unknown',
-        amount: p.amount || 0,
+        amount: typeof p.amount === 'string' ? parseFloat(p.amount) || 0 : p.amount || 0,
         date: p.date
     }));
-    // 3. Totals
-    const totalPending = pending.reduce((sum, b) => sum + b.outstanding, 0);
-    const totalReceived = received.reduce((sum, p) => sum + p.amount, 0);
+    // 3. Totals with explicit number conversion (calculated from FULL lists)
+    const totalPending = pending.reduce((sum, b) => sum + (Number(b.outstanding) || 0), 0);
+    const totalReceived = received.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const result = {
         pending,
         totalPending,
-        received: received.slice(0, 20), // Reduced from 50 for faster load
+        received,
         totalReceived
     };
     res.json(result);

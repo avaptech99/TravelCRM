@@ -22,11 +22,7 @@ const syncRoutes_1 = __importDefault(require("./routes/syncRoutes"));
 const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
 const settingsRoutes_1 = __importDefault(require("./routes/settingsRoutes"));
 const db_1 = __importDefault(require("./config/db"));
-const keepWarm_1 = require("./utils/keepWarm");
 const followUpCron_1 = require("./utils/followUpCron");
-// Socket.io is available in ./socket.ts for future real-time upgrades
-const User_1 = __importDefault(require("./models/User"));
-const bcrypt_1 = __importDefault(require("bcrypt"));
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
@@ -107,38 +103,41 @@ app.use((err, req, res, next) => {
         stack: process.env.NODE_ENV === 'production' ? null : err.stack,
     });
 });
+const cluster_1 = __importDefault(require("cluster"));
+const settingsController_1 = require("./controllers/settingsController");
 const PORT = process.env.PORT || 5000;
-// Auto-seed admin user + backfill outstanding on startup
-mongoose_1.default.connection.once('open', async () => {
-    // Run heavy migrations and startup tasks in background to avoid blocking server readiness
-    (async () => {
+if (cluster_1.default.isPrimary) {
+    const numWorkers = parseInt(process.env.WEB_CONCURRENCY || '1');
+    console.log(`[PRIMARY] ${process.pid} is running. Forking ${numWorkers} workers...`);
+    // Fork workers
+    for (let i = 0; i < numWorkers; i++) {
+        cluster_1.default.fork();
+    }
+    cluster_1.default.on('exit', (worker, code, signal) => {
+        console.log(`[WORKER] ${worker.process.pid} died. Restarting...`);
+        cluster_1.default.fork();
+    });
+    // Run master-only background tasks (Cron)
+    (0, db_1.default)().then(async () => {
+        await (0, settingsController_1.warmDropdownCache)();
+        (0, followUpCron_1.startFollowUpCron)();
+        console.log('🚀 Primary startup tasks complete.');
+    });
+}
+else {
+    // Workers - each handles requests in parallel
+    const startWorker = async () => {
         try {
-            const count = await User_1.default.countDocuments();
-            if (count === 0) {
-                const hashedPassword = await bcrypt_1.default.hash('admin123', 10);
-                await User_1.default.create({
-                    name: 'Admin',
-                    email: 'admin@travel.com',
-                    passwordHash: hashedPassword,
-                    role: 'ADMIN',
-                });
-                console.log('Default admin user created');
-            }
-            (0, followUpCron_1.startFollowUpCron)();
-            console.log('🚀 Startup tasks complete. System ready.');
+            await (0, db_1.default)();
+            await (0, settingsController_1.warmDropdownCache)();
+            app.listen(Number(PORT), '0.0.0.0', () => {
+                console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
+            });
         }
-        catch (error) {
-            console.error('[Startup Task Error]:', error);
+        catch (err) {
+            console.error(`[WORKER] ${process.pid} failed to start:`, err);
+            process.exit(1);
         }
-    })();
-});
-app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    // Start self-pinging to keep server warm
-    if (process.env.BASE_URL) {
-        (0, keepWarm_1.startSelfPinging)(process.env.BASE_URL);
-    }
-    else {
-        console.warn('⚠️  BASE_URL not set. Server may go to sleep on Render Free Tier.');
-    }
-});
+    };
+    startWorker();
+}

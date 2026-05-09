@@ -57,17 +57,15 @@ const passengerSchema = new mongoose_1.Schema({
 });
 passengerSchema.index({ bookingId: 1 });
 // Pre-find hook to start timer
-passengerSchema.pre(/^find/, function (next) {
+passengerSchema.pre(/^find/, function () {
     this._queryStart = Date.now();
-    next();
 });
 // Post-find hook to log slow queries
-passengerSchema.post(/^find/, function (docs, next) {
+passengerSchema.post(/^find/, function () {
     const duration = Date.now() - this._queryStart;
     if (duration > 100) {
-        console.log(`[MONGOOSE SLOW] Passenger.${this.op} — ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
+        console.log(`[MONGOOSE SLOW] Passenger.${this.op} - ${duration}ms | filter: ${JSON.stringify(this._conditions)}`);
     }
-    next();
 });
 const Passenger = mongoose_1.default.model('Passenger', passengerSchema);
 exports.default = Passenger;

@@ -15,24 +15,23 @@ const perfLogger_1 = require("../utils/perfLogger");
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 // @desc    Get all agents
 // @route   GET /api/users/agents
-// @access  Private (Admin & Agent)
+// @access  Private (Admin/Manager/Agent)
+// @desc    Get all agents
+// @route   GET /api/users/agents
+// @access  Private (Admin/Manager/Agent)
 exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
     const t = (0, perfLogger_1.createTimer)('getAgents');
-    t.mark('checkCache');
-    const cacheKey = 'users_agents';
+    const cacheKey = 'users_agents_list';
     const cached = cache_1.default.get(cacheKey);
     if (cached) {
-        res.setHeader('X-Cache-Status', 'HIT');
         t.end({ source: 'cache' });
         res.json(cached);
         return;
     }
-    t.mark('dbQuery');
     const agents = await User_1.default.find({ role: { $in: ['AGENT', 'MANAGER', 'ADMIN'] } })
         .select('name email role lastSeen groups')
         .sort({ name: 1 })
         .lean();
-    t.mark('formatResponse');
     const now = Date.now();
     const mappedAgents = agents.map(a => {
         const lastSeenTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
@@ -43,8 +42,7 @@ exports.getAgents = (0, express_async_handler_1.default)(async (req, res) => {
             isOnline
         };
     });
-    cache_1.default.set(cacheKey, mappedAgents, 120); // Reduced to 120s as per audit
-    res.setHeader('X-Cache-Status', 'MISS');
+    cache_1.default.set(cacheKey, mappedAgents, 300); // 5 minutes
     t.end({ source: 'db', count: mappedAgents.length });
     res.json(mappedAgents);
 });
@@ -101,12 +99,12 @@ exports.createUser = (0, express_async_handler_1.default)(async (req, res) => {
         throw new Error('Invalid input');
     }
     const { name, email, password, role, groups } = result.data;
-    const userExists = await User_1.default.findOne({ email });
+    const userExists = await User_1.default.findOne({ email }).lean();
     if (userExists) {
         res.status(400);
         throw new Error('User already exists');
     }
-    const passwordHash = await bcrypt_1.default.hash(password, 8);
+    const passwordHash = await bcrypt_1.default.hash(password, 10);
     const user = await User_1.default.create({
         name,
         email,
@@ -135,7 +133,7 @@ exports.deleteUser = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(400);
         throw new Error('Cannot delete your own account');
     }
-    const user = await User_1.default.findById(id);
+    const user = await User_1.default.findById(id).lean();
     if (!user) {
         res.status(404);
         throw new Error('User not found');
@@ -175,7 +173,7 @@ exports.changePassword = (0, express_async_handler_1.default)(async (req, res) =
         res.status(401);
         throw new Error('Current password is incorrect');
     }
-    user.passwordHash = await bcrypt_1.default.hash(newPassword, 8);
+    user.passwordHash = await bcrypt_1.default.hash(newPassword, 10);
     await user.save();
     res.json({ message: 'Password changed successfully' });
 });
@@ -190,7 +188,7 @@ exports.updateProfile = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('User not found');
     }
     if (email && email !== user.email) {
-        const emailExists = await User_1.default.findOne({ email });
+        const emailExists = await User_1.default.findOne({ email }).lean();
         if (emailExists) {
             res.status(400);
             throw new Error('Email is already in use by another account');
@@ -224,7 +222,7 @@ exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) =
         throw new Error('User not found');
     }
     if (email && email !== user.email) {
-        const emailExists = await User_1.default.findOne({ email });
+        const emailExists = await User_1.default.findOne({ email }).lean();
         if (emailExists) {
             res.status(400);
             throw new Error('Email is already in use by another account');
@@ -241,7 +239,7 @@ exports.updateUserById = (0, express_async_handler_1.default)(async (req, res) =
             res.status(400);
             throw new Error('Password must be at least 6 characters');
         }
-        user.passwordHash = await bcrypt_1.default.hash(password, 8);
+        user.passwordHash = await bcrypt_1.default.hash(password, 10);
     }
     await user.save();
     // Invalidate user caches
@@ -338,7 +336,7 @@ exports.unassignOfflineBookings = (0, express_async_handler_1.default)(async (re
 exports.unassignUserBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const { id } = req.params;
     const { timeThresholdMinutes } = req.body;
-    const user = await User_1.default.findById(id);
+    const user = await User_1.default.findById(id).lean();
     if (!user) {
         res.status(404);
         throw new Error('User not found');
