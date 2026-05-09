@@ -12,6 +12,7 @@ const commentSchema = new Schema<IComment>({
     bookingId: { type: Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true },
+    type: { type: String, enum: ['comment', 'activity'], default: 'comment' },
 }, { 
     timestamps: true,
     collection: 'comments' // Points to the legacy collection

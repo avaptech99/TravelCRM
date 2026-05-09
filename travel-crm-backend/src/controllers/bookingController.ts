@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
-import Timeline from '../models/Timeline';
 import Comment from '../models/Comment';
 import Passenger from '../models/Passenger';
 import User from '../models/User';
@@ -452,14 +451,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
                 .lean(),
             Comment.find({ 
                 $or: [
-                    { bookingId: id },
-                    { bookingId: String(id) as any }
-                ]
-            })
-                .sort({ createdAt: -1 })
-                .limit(50)
-                .populate('userId', 'name role')
-                .lean(),
+            Comment.find({ bookingId: id }).populate('userId', 'name role').sort({ createdAt: -1 }).lean(),
             Payment.find({ bookingId: id })
                 .sort({ date: -1 })
                 .lean()
@@ -477,48 +469,33 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = (booking.amount || 0) - totalPaid;
 
-        // 4. Map for Legacy "Old Style" Compatibility (Agent Name : Action)
-        const processedComments = (legacyComments || []).map((c: any) => {
+        // 4. Map Unified History (Comment Table only)
+        const processedTimeline = (comments || []).map((c: any) => {
             const agentName = c.userId?.name || (typeof c.userId === 'string' ? c.userId : 'User');
+            
+            // Special formatting for "Booking Assigned" to remove redundant prefix
+            if (c.type === 'activity' && c.text && c.text.includes('Booking Assigned to')) {
+                return {
+                    ...c,
+                    id: c._id?.toString(),
+                    details: c.text,
+                    text: c.text
+                };
+            }
+
+            const prefix = c.type === 'activity' ? agentName : agentName; // Same for both now
+
             return {
                 ...c,
                 id: c._id?.toString(),
                 createdBy: c.userId || { name: agentName },
-                text: `${agentName} : ${c.text || c.comment || c.remark || ''}`
+                text: `${agentName} : ${c.text || ''}`,
+                details: `${agentName} : ${c.text || ''}`,
+                action: c.type === 'activity' ? 'Activity' : 'Comment'
             };
         });
 
-        // Filter out noisy activities and format the rest
-        const processedActivities = (timeline || [])
-            .filter((t: any) => {
-                const action = (t.action || '').toUpperCase();
-                // Hide noisy technical logs
-                if (action === 'BOOKING_UPDATED' || action === 'PASSENGERS_ADDED' || action === 'PASSENGERS_UPDATED') {
-                    return false;
-                }
-                return true;
-            })
-            .map((t: any) => {
-                const agentName = t.userId?.name || (typeof t.userId === 'string' ? t.userId : 'System');
-                
-                // Special formatting for "Booking Assigned" to remove redundant prefix
-                if (t.details && t.details.includes('Booking Assigned to')) {
-                    return {
-                        ...t,
-                        id: t._id?.toString(),
-                        details: t.details // No prefix for this specific message as requested
-                    };
-                }
-
-                return {
-                    ...t,
-                    id: t._id?.toString(),
-                    action: t.action || t.type || 'Activity',
-                    details: `${agentName} : ${t.text || t.details || 'System activity'}`
-                };
-            });
-
-        // 5. Flatten User Objects for Frontend Header (Ensures names show instead of blanks)
+        // 5. Flatten User Objects for Frontend Header
         const createdByUser = booking.createdByUserId && typeof booking.createdByUserId === 'object' 
             ? booking.createdByUserId 
             : { name: (typeof booking.createdByUserId === 'string' ? booking.createdByUserId : 'System Admin') };
@@ -540,9 +517,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
-            timeline: [...processedActivities, ...processedComments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-            comments: processedComments,
-            activities: processedActivities,
+            timeline: processedTimeline.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+            comments: processedTimeline.filter(t => t.type === 'comment'),
+            activities: processedTimeline.filter(t => t.type === 'activity'),
             payments: payments,
             travelers: passengers,
             createdByUser: createdByUser,
@@ -613,7 +590,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     // ✅ Step 5: Background Heavy Cleanup
     setImmediate(() => runBG(`deleteBooking_cleanup_${bookingId}`, async () => {
         const cleanupTasks: Promise<any>[] = [
-            Timeline.deleteMany({ bookingId }),
+            Comment.deleteMany({ bookingId }),
             Passenger.deleteMany({ bookingId }),
             Payment.deleteMany({ bookingId }),
             Notification.deleteMany({ bookingId }),
@@ -704,21 +681,17 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 requirements: result.data.requirements || null,
                 interested: result.data.interested === 'Yes',
             }),
-            Timeline.create({
+            Comment.create({
                 bookingId: booking._id,
                 userId: req.user?.id,
                 type: 'activity',
-                action: 'BOOKING_CREATED',
-                details: `Booking created for ${booking.contact?.name || 'Customer'}`,
-                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                text: `Booking created for ${booking.contact?.name || 'Customer'}`
             }),
-            Timeline.create({
+            Comment.create({
                 bookingId: booking._id,
                 userId: req.user?.id,
                 type: 'activity',
-                action: 'ASSIGNED',
-                details: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System'}(${req.user?.groups?.[0] || 'Admin'})`,
-                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                text: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System'}(${req.user?.groups?.[0] || 'Admin'})`
             }),
             // Notification
             booking.assignedToUserId ? Notification.create({
@@ -839,6 +812,12 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     const { status } = result.data;
+    const oldBooking = await Booking.findById(id).lean();
+    if (!oldBooking) {
+        res.status(404);
+        throw new Error('Booking not found');
+    }
+    const oldStatus = oldBooking.status;
 
     const t = createTimer(`updateStatus_${id}`);
     // PRIMARY write only
@@ -884,13 +863,11 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
 
     // ✅ BACKGROUND side effects
     setImmediate(() => runBG(`updateStatus_sideEffects_${id}`, async () => {
-        await Timeline.create({
+        await Comment.create({
             bookingId: id,
             userId: req.user?.id,
             type: 'activity',
-            action: 'STATUS_CHANGE',
-            details: `Status updated from ${updatedBooking.status} to ${status}`,
-            expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            text: `Status updated from ${oldStatus} to ${status}`
         });
         
         if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
@@ -984,23 +961,23 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         }
 
         let newAgentName = 'Unassigned';
+        let newAgentGroup = 'Admin';
+        
         if (newAssignedUserId) {
             const newAgent = await User.findById(newAssignedUserId).lean();
             if (newAgent) {
                 newAgentName = newAgent.name;
+                newAgentGroup = newAgent.groups?.[0] || 'Admin';
             }
         }
 
-        const newAgentGroup = newAgent?.groups?.[0] || 'Admin';
         const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}(${newAgentGroup})`;
 
-        await Timeline.create({
+        await Comment.create({
             bookingId: id,
             userId: req.user?.id,
             type: 'activity',
-            action: 'ASSIGNED',
-            details: commentText,
-            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            text: commentText
         });
 
         if (newAssignedUserId) {
@@ -1093,13 +1070,11 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     // 2. Prepare side-effects in background to avoid blocking the response
     setImmediate(async () => {
         try {
-            const timelineEntries = bookingIds.map((id: string) => ({
+            const commentEntries = bookingIds.map((id: string) => ({
                 bookingId: id,
                 userId: req.user?.id,
                 type: 'activity',
-                action: 'ASSIGNED',
-                details: `Bulk Assignment: Changed to ${newAgentName}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                text: `Bulk Assignment: Changed to ${newAgentName}`
             }));
 
             const notificationEntries = newAgentId ? bookingIds.map((id: string) => ({
@@ -1109,7 +1084,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
             })) : [];
 
             await Promise.all([
-                Timeline.insertMany(timelineEntries),
+                Comment.insertMany(commentEntries),
                 notificationEntries.length > 0 ? Notification.insertMany(notificationEntries) : Promise.resolve()
             ]);
             
@@ -1149,7 +1124,7 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
         const contactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
 
         await Promise.all([
-            Timeline.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Comment.deleteMany({ bookingId: { $in: validBookingIds } }),
             Passenger.deleteMany({ bookingId: { $in: validBookingIds } }),
             Payment.deleteMany({ bookingId: { $in: validBookingIds } }),
             Notification.deleteMany({ bookingId: { $in: validBookingIds } }),
@@ -1232,7 +1207,7 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    const comments = await Timeline.find({ bookingId: id, type: 'comment' })
+    const comments = await Comment.find({ bookingId: id })
         .populate('userId', 'name role')
         .sort({ createdAt: -1 })
         .lean();
@@ -1277,14 +1252,7 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
 
     // BACKGROUND: Logging and thorough invalidation
     setImmediate(() => runBG(`addPassengers_sideEffects_${id}`, async () => {
-        await Timeline.create({
-            bookingId: id,
-            userId: req.user?.id,
-            type: 'activity',
-            action: 'PASSENGERS_ADDED',
-            details: `Added ${passengersData.length} passenger(s).`,
-            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-        });
+        // Removed technical timeline logging
         invalidateBookingCaches();
     }));
 });
@@ -1378,13 +1346,11 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
     setImmediate(() => runBG('addPayment_sideEffects', async () => {
         await Promise.all([
             recalcOutstanding(id),
-            Timeline.create({
+            Comment.create({
                 bookingId: id,
                 userId: req.user?.id,
                 type: 'activity',
-                action: 'PAYMENT_ADDED',
-                details: `Payment recorded via ${result.data.paymentMethod}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                text: `Payment recorded via ${result.data.paymentMethod}`
             })
         ]);
         invalidateBookingCaches();
