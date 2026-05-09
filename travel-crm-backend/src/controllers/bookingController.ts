@@ -474,8 +474,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
         // 4. Map for Legacy "Old Style" Compatibility
         const historyData = (legacyComments || []);
-        const processedHistory = (legacyComments || []).map((c: any) => {
-            const agentName = c.userId?.name || booking.createdByUser?.name || booking.createdByUserId?.name || 'System Admin';
+        const processedHistory = historyData.map((c: any) => {
+            const agentName = c.userId?.name || 'System Admin';
             // Ensure every history item follows the "Name : Action" style
             let displayText = c.text || '';
             if (displayText && !displayText.includes(' : ')) {
