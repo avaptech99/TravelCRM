@@ -43,7 +43,7 @@ export const Users: React.FC = () => {
             const { data } = await api.get('/users');
             return data;
         },
-        refetchInterval: 30000, // Refresh status every 30s
+        staleTime: 60000,
     });
 
     const displayUsers = users?.filter((u: User) => u.email !== 'website-lead@system.internal');

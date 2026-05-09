@@ -1,5 +1,6 @@
 import Booking from '../models/Booking';
 import Notification from '../models/Notification';
+import { pushToUser } from '../sse/sseManager';
 
 /**
  * Check for bookings with "Follow Up" status where followUpDate is today or overdue.
@@ -44,13 +45,22 @@ export async function processFollowUpReminders(): Promise<void> {
             if (existingNotification) continue; // Already notified today
 
             const expireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-            await Notification.create({
+            const notification = await Notification.create({
                 userId: targetUserId,
                 bookingId: (booking as any)._id,
                 message: `Follow-up reminder: ${contactName} — Booking ${(booking as any).uniqueCode} is due for follow-up today.`,
                 read: false,
                 isDismissed: false,
                 expireAt,
+            });
+
+            // Push SSE notification
+            pushToUser(String(targetUserId), 'notification_new', {
+                _id: String(notification._id),
+                message: notification.message,
+                bookingId: String(notification.bookingId),
+                createdAt: notification.createdAt,
+                read: false,
             });
 
             // Log activity in Timeline

@@ -26,6 +26,9 @@ import Booking from './models/Booking';
 import Payment from './models/Payment';
 import bcrypt from 'bcrypt';
 
+import sseRoutes from './routes/sseRoutes';
+import { startSSEHeartbeat, shutdownSSE } from './sse/sseManager';
+
 const app: Express = express();
 
 // Connect to MongoDB
@@ -46,8 +49,6 @@ app.use(requestCounter);
 app.use(pollLogger);
 
 
-
-
 // Enable CORS
 app.use(cors({
     origin: (origin, callback) => {
@@ -60,6 +61,9 @@ app.use(cors({
     },
     credentials: true,
 }));
+
+// Mount SSE route (BEFORE other routes, no body parsing needed for the stream itself)
+app.use('/api/stream', sseRoutes);
 
 // Logging middleware
 if (process.env.NODE_ENV !== 'production') {
@@ -159,6 +163,10 @@ if (cluster.isPrimary) {
                 warmDropdownCache(),
                 warmCaches()
             ]);
+            
+            // Start SSE heartbeat in worker
+            startSSEHeartbeat();
+
             app.listen(Number(PORT), '0.0.0.0', () => {
                 console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
             });
@@ -170,5 +178,20 @@ if (cluster.isPrimary) {
 
     startWorker();
 }
+
+// Graceful shutdown
+const handleShutdown = async (signal: string) => {
+    console.log(`[${signal}] Received. Shutting down gracefully...`);
+    shutdownSSE();
+    if (mongoose.connection.readyState === 1) {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed.');
+    }
+    process.exit(0);
+};
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+
 
 

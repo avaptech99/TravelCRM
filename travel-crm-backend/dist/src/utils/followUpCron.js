@@ -40,6 +40,7 @@ exports.processFollowUpReminders = processFollowUpReminders;
 exports.startFollowUpCron = startFollowUpCron;
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Notification_1 = __importDefault(require("../models/Notification"));
+const sseManager_1 = require("../sse/sseManager");
 /**
  * Check for bookings with "Follow Up" status where followUpDate is today or overdue.
  * Create a notification for the assigned agent (or creator if unassigned).
@@ -77,13 +78,21 @@ async function processFollowUpReminders() {
             if (existingNotification)
                 continue; // Already notified today
             const expireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-            await Notification_1.default.create({
+            const notification = await Notification_1.default.create({
                 userId: targetUserId,
                 bookingId: booking._id,
                 message: `Follow-up reminder: ${contactName} — Booking ${booking.uniqueCode} is due for follow-up today.`,
                 read: false,
                 isDismissed: false,
                 expireAt,
+            });
+            // Push SSE notification
+            (0, sseManager_1.pushToUser)(String(targetUserId), 'notification_new', {
+                _id: String(notification._id),
+                message: notification.message,
+                bookingId: String(notification.bookingId),
+                createdAt: notification.createdAt,
+                read: false,
             });
             // Log activity in Timeline
             const Timeline = (await Promise.resolve().then(() => __importStar(require('../models/Timeline')))).default;

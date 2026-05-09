@@ -1,113 +1,57 @@
 /**
- * CRM 3.0 Master Migration V4 - High Performance Bulk Edition
+ * CRM 3.0 Master Migration V4 - Final Cleanup & Optimization
  * 
- * Performance: Uses bulkWrite() to minimize network round-trips.
- * Ideal for large datasets on Atlas M0.
+ * Instructions:
+ * 1. Open mongosh (locally or via Atlas).
+ * 2. Connect to your database.
+ * 3. Copy and paste this script or run: load("masterMigrationV4.js")
  */
 
 const dbName = db.getName();
-print("\n🚀 Starting High-Performance Bulk Migration V4 on: " + dbName);
+print("\n🔥 Starting Final Cleanup Migration V4 on: " + dbName);
 
-const BATCH_SIZE = 500;
-let bulkOps = [];
-let totalProcessed = 0;
+// 1. Drop Legacy Collections (Unified into 'comments' and 'passengers')
+print("\n--- 1. Dropping Obsolete Collections ---");
 
-// 1. Unified Booking Migration (Types + Snapshots + Participants)
-print("\n[1/2] Processing Bookings (Bulk Mode)...");
+const collectionsToDrop = [
+    'timelines',      // Unified into comments
+    'activities',     // Unified into comments
+    'crmsettings',    // Obsolete
+    'travellers',     // Unified into passengers
+    'activities_backup' // Old backup
+];
 
-const bookingCursor = db.bookings.find({
-    $or: [
-        { contact: { $exists: false } },
-        { amount: { $type: "string" } },
-        { totalAmount: { $type: "string" } },
-        { participantIds: { $exists: false } }
-    ]
-});
-
-bookingCursor.forEach(doc => {
-    let updateFields = {};
-    
-    // Type Normalization
-    if (typeof doc.amount === 'string') updateFields.amount = parseFloat(doc.amount) || 0;
-    if (typeof doc.totalAmount === 'string') updateFields.totalAmount = parseFloat(doc.totalAmount) || 0;
-    if (typeof doc.outstanding === 'string') updateFields.outstanding = parseFloat(doc.outstanding) || 0;
-    if (typeof doc.includesFlight === 'string') updateFields.includesFlight = (doc.includesFlight === 'true');
-
-    // Contact Snapshot
-    const pcId = doc.primaryContactId || doc.contactId;
-    if (pcId && !doc.contact) {
-        const objId = (typeof pcId === 'string') ? ObjectId(pcId) : pcId;
-        const pc = db.primarycontacts.findOne({ _id: objId });
-        if (pc) {
-            updateFields.contact = {
-                name: pc.contactName,
-                phone: pc.contactPhoneNo,
-                email: pc.contactEmail || null,
-                type: pc.bookingType === 'Agent (B2B)' ? 'B2B' : 'B2C',
-                requirements: pc.requirements || null,
-                interested: (pc.interested === 'Yes' || pc.interested === true)
-            };
-            updateFields.primaryContactId = objId;
-        }
-    }
-
-    // Participants
-    if (!doc.participantIds || doc.participantIds.length === 0) {
-        let ids = [];
-        if (doc.createdByUserId) ids.push(doc.createdByUserId);
-        if (doc.assignedToUserId) ids.push(doc.assignedToUserId);
-        updateFields.participantIds = [...new Set(ids.filter(id => id != null))];
-    }
-
-    if (Object.keys(updateFields).length > 0) {
-        bulkOps.push({
-            updateOne: {
-                filter: { _id: doc._id },
-                update: { $set: updateFields }
-            }
-        });
-    }
-
-    // Execute Batch
-    if (bulkOps.length >= BATCH_SIZE) {
-        db.bookings.bulkWrite(bulkOps);
-        totalProcessed += bulkOps.length;
-        print("   - Processed " + totalProcessed + " bookings...");
-        bulkOps = [];
+collectionsToDrop.forEach(col => {
+    // Note: in mongosh, db.collection.exists() is not a function, 
+    // we use getCollectionNames().includes(col) or just call drop() (it's safe if it doesn't exist)
+    if (db.getCollectionNames().includes(col)) {
+        db.getCollection(col).drop();
+        print("✅ Dropped collection: " + col);
+    } else {
+        print("ℹ️  Collection already gone: " + col);
     }
 });
 
-// Final Flush
-if (bulkOps.length > 0) {
-    db.bookings.bulkWrite(bulkOps);
-    totalProcessed += bulkOps.length;
-    bulkOps = [];
-}
-print("✅ Booking bulk migration complete (" + totalProcessed + " updated).");
+// 2. Final Index Optimization for Bookings (Atlas M0 Optimized)
+print("\n--- 2. Optimizing Indexes ---");
 
-// 2. Unified Payment Migration
-print("\n[2/2] Processing Payments (Bulk Mode)...");
-let paymentCount = 0;
-db.payments.find({ amount: { $type: "string" } }).forEach(doc => {
-    bulkOps.push({
-        updateOne: {
-            filter: { _id: doc._id },
-            update: { $set: { amount: parseFloat(doc.amount) || 0 } }
-        }
-    });
+print("   - Creating high-performance covering indexes...");
+db.bookings.createIndex({ participantIds: 1, status: 1, createdAt: -1 }, { background: true });
+db.bookings.createIndex({ outstanding: 1, status: 1 }, { background: true });
+db.bookings.createIndex({ assignedGroup: 1, status: 1 }, { background: true });
+db.bookings.createIndex({ createdAt: -1 }, { background: true });
 
-    if (bulkOps.length >= BATCH_SIZE) {
-        db.payments.bulkWrite(bulkOps);
-        paymentCount += bulkOps.length;
-        bulkOps = [];
-    }
-});
+print("✅ Index optimization complete.");
 
-if (bulkOps.length > 0) {
-    db.payments.bulkWrite(bulkOps);
-    paymentCount += bulkOps.length;
-    bulkOps = [];
-}
-print("✅ Payment bulk migration complete (" + paymentCount + " updated).");
+// 3. Comments Schema Final Polish
+print("\n--- 3. Final Polish for Comments ---");
+// Ensure all legacy entries are synced before dropping (Double check)
+db.comments.updateMany(
+  { userId: { $exists: false }, createdById: { $exists: true } },
+  [{ $set: { userId: "$createdById" } }]
+);
+db.comments.updateMany({}, { $unset: { createdById: "", type: "", __v: "" } });
+print("✅ Comments collection polished.");
 
-print("\n🚀 Bulk Migration V4 Completed Successfully!\n");
+print("\n🎉 Master Migration V4 Completed! Your database is now clean and optimized.");
+print("You can now safely delete old migration scripts from the /scripts directory.\n");

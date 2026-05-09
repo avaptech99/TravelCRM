@@ -84,11 +84,19 @@ db.bookings.find({ $or: [{ participantIds: { $exists: false } }, { participantId
 });
 print("✅ Participant IDs backfilled.");
 
-// 4. Notification Cleanup
-print("\n--- 4. Cleaning Up Old Notifications ---");
-const ninetyDaysAgo = new Date();
-ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-const res = db.notifications.deleteMany({ createdAt: { $lt: ninetyDaysAgo } });
-print("✅ Removed " + res.deletedCount + " expired notifications.");
+// 5. Unified History (Comments) Cleanup
+print("\n--- 5. Cleaning Up Unified History (Comments) ---");
+print("   - Syncing legacy createdById to userId...");
+db.comments.updateMany(
+  { userId: { $exists: false }, createdById: { $exists: true } },
+  [{ $set: { userId: "$createdById" } }]
+);
+
+print("   - Dropping redundant legacy columns...");
+db.comments.updateMany(
+  {},
+  { $unset: { createdById: "", type: "", __v: "" } }
+);
+print("✅ Comments collection normalized.");
 
 print("\n🚀 Master Migration V3 Completed Successfully!");

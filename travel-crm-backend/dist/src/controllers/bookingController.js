@@ -19,6 +19,7 @@ const background_1 = require("../utils/background");
 const perfLogger_1 = require("../utils/perfLogger");
 const types_1 = require("../types");
 const extractTravelInfo_1 = require("../utils/extractTravelInfo");
+const sseManager_1 = require("../sse/sseManager");
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map();
 // Helper to recalculate and save outstanding balance on a booking
@@ -491,6 +492,8 @@ exports.deleteBooking = (0, express_async_handler_1.default)(async (req, res) =>
         }
         await Promise.all(cleanupTasks);
         // Invalidation already handled synchronously above
+        // ✅ Push to ALL — every user should remove this from their list
+        (0, sseManager_1.pushToAll)('booking_deleted', { bookingId });
     }));
 });
 exports.createBooking = (0, express_async_handler_1.default)(async (req, res) => {
@@ -594,6 +597,16 @@ exports.createBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 message: `New lead ${result.data.contactPerson || booking.destination || 'Unassigned'} assigned to you.`,
             }) : Promise.resolve()
         ]);
+        // ✅ Push to users who can see this booking
+        (0, sseManager_1.pushBookingEvent)('booking_created', {
+            bookingId: String(booking._id),
+            status: booking.status,
+            assignedToUserId: String(booking.assignedToUserId || ''),
+            assignedGroup: booking.assignedGroup || '',
+            createdByUserId: String(booking.createdByUserId || ''),
+            contactName: booking.contact?.name || '',
+            travelDate: booking.travelDate,
+        });
     }));
 });
 exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) => {
@@ -678,6 +691,13 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         // 3. Log Activity - Removed technical timeline logging
         await Promise.all(backgroundTasks);
         // Invalidation handled synchronously
+        (0, sseManager_1.pushBookingEvent)('booking_updated', {
+            bookingId: id,
+            assignedToUserId: String(updatedBooking.assignedToUserId || ''),
+            assignedGroup: updatedBooking.assignedGroup || '',
+            createdByUserId: String(updatedBooking.createdByUserId || ''),
+            changes: req.body, // send what changed
+        });
     }));
 });
 // @desc    Update booking status
@@ -736,6 +756,15 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
                 });
             }
         }
+        // ✅ Push status change to all who can see this booking
+        (0, sseManager_1.pushBookingEvent)('status_changed', {
+            bookingId: id,
+            status,
+            assignedToUserId: String(updatedBooking.assignedToUserId || ''),
+            assignedGroup: updatedBooking.assignedGroup || '',
+            createdByUserId: String(updatedBooking.createdByUserId || ''),
+            lastInteractionAt: updatedBooking.lastInteractionAt,
+        });
     }));
 });
 // @desc    Assign an agent to a booking
@@ -837,6 +866,20 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const updatedBooking = await Booking_1.default.findById(id).populate('assignedToUser', 'name').lean();
     // ✅ BUST CACHE IMMEDIATELY
     cache_1.CacheInvalidation.onBookingWrite(id, req.user?.id);
+    // ✅ Push to newly assigned agent
+    if (newAssignedUserId) {
+        (0, sseManager_1.pushToUser)(newAssignedUserId, 'booking_assigned', {
+            bookingId: id,
+            message: `A booking has been assigned to you: ${booking.destination || 'Untitled'}`,
+        });
+    }
+    // ✅ Push update to all watchers
+    (0, sseManager_1.pushBookingEvent)('booking_updated', {
+        bookingId: id,
+        assignedToUserId: newAssignedUserId || '',
+        assignedGroup: booking.assignedGroup || '',
+        createdByUserId: String(booking.createdByUserId || ''),
+    });
     res.json(updatedBooking);
 });
 // @desc    Bulk assign bookings to an agent (or unassign)
@@ -988,6 +1031,12 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
                 message: `Marketer ${req.user.name} added a remark on lead ${booking.primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
             });
         }
+        (0, sseManager_1.pushBookingEvent)('comment_added', {
+            bookingId: id,
+            assignedToUserId: String(booking.assignedToUserId || ''),
+            assignedGroup: booking.assignedGroup || '',
+            createdByUserId: String(booking.createdByUserId || ''),
+        });
     }));
 });
 // @desc    Get comments for a booking
@@ -1039,7 +1088,10 @@ exports.addPassengers = (0, express_async_handler_1.default)(async (req, res) =>
             userId: req.user?.id,
             text: `Added ${passengersData.length} passenger(s).`
         });
-        // Invalidation handled synchronously
+        (0, sseManager_1.pushBookingEvent)('passenger_added', {
+            bookingId: id,
+            count: passengersData.length,
+        });
     }));
 });
 // @desc    Update (replace) passengers for a booking
@@ -1118,7 +1170,12 @@ exports.addPayment = (0, express_async_handler_1.default)(async (req, res) => {
                 text: `Payment recorded via ${result.data.paymentMethod}`
             })
         ]);
-        // Invalidation handled synchronously
+        // Analytics data changed — tell frontend to refresh
+        (0, sseManager_1.pushToAll)('analytics_stale', { reason: 'payment_added', bookingId: id });
+        (0, sseManager_1.pushBookingEvent)('payment_added', {
+            bookingId: id,
+            amount: result.data.amount,
+        });
     }));
 });
 // @desc    Get payments for a booking
@@ -1167,7 +1224,10 @@ exports.deletePayment = (0, express_async_handler_1.default)(async (req, res) =>
                 text: 'A payment record was removed.'
             })
         ]);
-        // Invalidation handled synchronously
+        (0, sseManager_1.pushToAll)('analytics_stale', { reason: 'payment_deleted', bookingId });
+        (0, sseManager_1.pushBookingEvent)('payment_deleted', {
+            bookingId,
+        });
     }));
 });
 // @desc    Get calendar bookings for a given month
@@ -1254,7 +1314,10 @@ exports.verifyBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 message: `Your booking ${updatedBooking.uniqueCode} has been verified by the Accounts team.`,
             });
         }
-        // Invalidation handled synchronously
+        (0, sseManager_1.pushBookingEvent)('booking_verified', {
+            bookingId: id,
+            isVerified,
+        });
     }));
 });
 // @desc    Get activity log for a booking

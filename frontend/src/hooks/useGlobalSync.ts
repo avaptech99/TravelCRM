@@ -25,7 +25,6 @@ export const useGlobalSync = () => {
             return data;
         },
         enabled: !!user?.id,
-        refetchInterval: 20000, // Poll every 20s — feels live without WebSockets
-        staleTime: 15000,
+        staleTime: 60000,
     });
 };

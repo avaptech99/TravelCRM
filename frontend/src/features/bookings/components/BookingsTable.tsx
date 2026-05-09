@@ -150,9 +150,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             const { data } = await api.get(`/bookings?${params.toString()}`);
             return data;
         },
-        staleTime: 15000,         // Consider data fresh for 15s
+        staleTime: 60000,         // Consider data fresh for 60s
         gcTime: 1000 * 60 * 10,   // Keep in memory for 10 minutes
-        refetchInterval: 20000,    // Auto-refresh every 20s — live feel without WebSockets
     });
 
     const columnHelper = createColumnHelper<Booking>();

@@ -28,7 +28,7 @@ export const Topbar: React.FC = () => {
             return data;
         },
         enabled: !!user?.id,
-        refetchInterval: 20000,
+        staleTime: 300000, // Keep notifications in cache for 5 min (SSE handles real-time)
     });
 
     const markAsReadMutation = useMutation({

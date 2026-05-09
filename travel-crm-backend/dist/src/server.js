@@ -23,6 +23,8 @@ const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
 const settingsRoutes_1 = __importDefault(require("./routes/settingsRoutes"));
 const db_1 = __importDefault(require("./config/db"));
 const followUpCron_1 = require("./utils/followUpCron");
+const sseRoutes_1 = __importDefault(require("./routes/sseRoutes"));
+const sseManager_1 = require("./sse/sseManager");
 const app = (0, express_1.default)();
 // Connect to MongoDB
 (0, db_1.default)();
@@ -49,6 +51,8 @@ app.use((0, cors_1.default)({
     },
     credentials: true,
 }));
+// Mount SSE route (BEFORE other routes, no body parsing needed for the stream itself)
+app.use('/api/stream', sseRoutes_1.default);
 // Logging middleware
 if (process.env.NODE_ENV !== 'production') {
     app.use((0, morgan_1.default)('dev'));
@@ -137,6 +141,8 @@ else {
                 (0, settingsController_1.warmDropdownCache)(),
                 (0, cacheWarm_1.warmCaches)()
             ]);
+            // Start SSE heartbeat in worker
+            (0, sseManager_1.startSSEHeartbeat)();
             app.listen(Number(PORT), '0.0.0.0', () => {
                 console.log(`[WORKER] ${process.pid} started on port ${PORT}`);
             });
@@ -148,3 +154,15 @@ else {
     };
     startWorker();
 }
+// Graceful shutdown
+const handleShutdown = async (signal) => {
+    console.log(`[${signal}] Received. Shutting down gracefully...`);
+    (0, sseManager_1.shutdownSSE)();
+    if (mongoose_1.default.connection.readyState === 1) {
+        await mongoose_1.default.connection.close();
+        console.log('MongoDB connection closed.');
+    }
+    process.exit(0);
+};
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));

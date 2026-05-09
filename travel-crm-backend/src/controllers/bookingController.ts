@@ -22,6 +22,11 @@ import {
     createPaymentSchema,
 } from '../types';
 import { extractTravelInfo } from '../utils/extractTravelInfo';
+import {
+    pushBookingEvent,
+    pushToAll,
+    pushToUser,
+} from '../sse/sseManager';
 
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map<string, Promise<any>>();
@@ -567,6 +572,9 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
 
         await Promise.all(cleanupTasks);
         // Invalidation already handled synchronously above
+
+        // ✅ Push to ALL — every user should remove this from their list
+        pushToAll('booking_deleted', { bookingId });
     }));
 });
 
@@ -677,6 +685,17 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 message: `New lead ${result.data.contactPerson || booking.destination || 'Unassigned'} assigned to you.`,
             }) : Promise.resolve()
         ]);
+
+        // ✅ Push to users who can see this booking
+        pushBookingEvent('booking_created', {
+            bookingId:        String(booking._id),
+            status:           booking.status,
+            assignedToUserId: String(booking.assignedToUserId || ''),
+            assignedGroup:    booking.assignedGroup || '',
+            createdByUserId:  String(booking.createdByUserId || ''),
+            contactName:      booking.contact?.name || '',
+            travelDate:       booking.travelDate,
+        });
     }));
 });
 
@@ -771,6 +790,14 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
         await Promise.all(backgroundTasks);
         // Invalidation handled synchronously
+
+        pushBookingEvent('booking_updated', {
+            bookingId:        id,
+            assignedToUserId: String(updatedBooking.assignedToUserId || ''),
+            assignedGroup:    updatedBooking.assignedGroup || '',
+            createdByUserId:  String(updatedBooking.createdByUserId || ''),
+            changes:          req.body, // send what changed
+        });
     }));
 });
 
@@ -844,6 +871,16 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
                 });
             }
         }
+
+        // ✅ Push status change to all who can see this booking
+        pushBookingEvent('status_changed', {
+            bookingId:        id,
+            status,
+            assignedToUserId: String(updatedBooking.assignedToUserId || ''),
+            assignedGroup:    updatedBooking.assignedGroup || '',
+            createdByUserId:  String(updatedBooking.createdByUserId || ''),
+            lastInteractionAt: updatedBooking.lastInteractionAt,
+        });
     }));
 });
 
@@ -968,6 +1005,22 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
     // ✅ BUST CACHE IMMEDIATELY
     CacheInvalidation.onBookingWrite(id, req.user?.id);
+
+    // ✅ Push to newly assigned agent
+    if (newAssignedUserId) {
+        pushToUser(newAssignedUserId, 'booking_assigned', {
+            bookingId: id,
+            message: `A booking has been assigned to you: ${booking.destination || 'Untitled'}`,
+        });
+    }
+
+    // ✅ Push update to all watchers
+    pushBookingEvent('booking_updated', {
+        bookingId: id,
+        assignedToUserId: newAssignedUserId || '',
+        assignedGroup: booking.assignedGroup || '',
+        createdByUserId: String(booking.createdByUserId || ''),
+    });
 
     res.json(updatedBooking);
 });
@@ -1152,6 +1205,13 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
                 message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
             });
         }
+
+        pushBookingEvent('comment_added', {
+            bookingId: id,
+            assignedToUserId: String(booking.assignedToUserId || ''),
+            assignedGroup:    booking.assignedGroup || '',
+            createdByUserId:  String(booking.createdByUserId || ''),
+        });
     }));
 });
 
@@ -1218,7 +1278,11 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
             userId: req.user?.id,
             text: `Added ${passengersData.length} passenger(s).`
         });
-        // Invalidation handled synchronously
+        
+        pushBookingEvent('passenger_added', {
+            bookingId: id,
+            count: passengersData.length,
+        });
     }));
 });
 
@@ -1316,7 +1380,14 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
                 text: `Payment recorded via ${result.data.paymentMethod}`
             })
         ]);
-        // Invalidation handled synchronously
+
+        // Analytics data changed — tell frontend to refresh
+        pushToAll('analytics_stale', { reason: 'payment_added', bookingId: id });
+
+        pushBookingEvent('payment_added', {
+            bookingId: id,
+            amount: result.data.amount,
+        });
     }));
 
 });
@@ -1379,7 +1450,12 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
                 text: 'A payment record was removed.'
             })
         ]);
-        // Invalidation handled synchronously
+
+        pushToAll('analytics_stale', { reason: 'payment_deleted', bookingId });
+
+        pushBookingEvent('payment_deleted', {
+            bookingId,
+        });
     }));
 });
 
@@ -1488,7 +1564,10 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
             });
         }
 
-        // Invalidation handled synchronously
+        pushBookingEvent('booking_verified', {
+            bookingId: id,
+            isVerified,
+        });
     }));
 });
 
