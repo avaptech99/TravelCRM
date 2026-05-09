@@ -441,7 +441,11 @@ export const BookingDetails: React.FC = () => {
                                         {!isCostsExpanded && (
                                             <div className="flex gap-2">
                                                 <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100 uppercase tracking-wider">
-                                                    Est: {(booking.estimatedCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0).toLocaleString()}
+                                                    Est: (() => {
+                                                        const sum = (booking.estimatedCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
+                                                        if (sum > 0) return sum.toLocaleString();
+                                                        return (booking.totalAmount || booking.amount || 0).toLocaleString();
+                                                    })()
                                                 </span>
                                                 <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100 uppercase tracking-wider">
                                                     Act: {(booking.actualCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0).toLocaleString()}
@@ -461,7 +465,9 @@ export const BookingDetails: React.FC = () => {
                                             title="Estimated Costs" 
                                             icon={<Clock size={18} />}
                                             color="blue"
-                                            costs={booking.estimatedCosts || []}
+                                            costs={(booking.estimatedCosts && booking.estimatedCosts.length > 0) 
+                                                ? booking.estimatedCosts 
+                                                : [{ costType: 'Lump Sum', price: booking.totalAmount || booking.amount || 0, source: 'Legacy' }]}
                                             dropdownSettings={dropdownSettings}
                                             onSave={(newCosts) => updateCostsMutation.mutate({ estimatedCosts: newCosts })}
                                             isEditable={!isReadOnly && user?.role !== 'ACCOUNT'}

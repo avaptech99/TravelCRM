@@ -58,7 +58,7 @@ const invalidateBookingCaches = () => {
 const recalcOutstanding = async (bookingId: string) => {
     const [payments, booking] = await Promise.all([
         Payment.find({ bookingId }).select('amount').lean(),
-        Booking.findById(bookingId).select('totalAmount amount').lean()
+        Booking.findById(bookingId).select('totalAmount amount estimatedCosts').lean()
     ]);
     
     const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
