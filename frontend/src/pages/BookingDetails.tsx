@@ -465,9 +465,8 @@ export const BookingDetails: React.FC = () => {
                                             title="Estimated Costs" 
                                             icon={<Clock size={18} />}
                                             color="blue"
-                                            costs={(booking.estimatedCosts && booking.estimatedCosts.length > 0) 
-                                                ? booking.estimatedCosts 
-                                                : [{ costType: 'Lump Sum', price: booking.totalAmount || booking.amount || 0, source: 'Legacy' }]}
+                                            costs={booking.estimatedCosts || []}
+                                            fallbackTotal={booking.totalAmount || booking.amount}
                                             dropdownSettings={dropdownSettings}
                                             onSave={(newCosts) => updateCostsMutation.mutate({ estimatedCosts: newCosts })}
                                             isEditable={!isReadOnly && user?.role !== 'ACCOUNT'}
@@ -1001,9 +1000,10 @@ interface CostSectionProps {
     isEditable: boolean;
     isLoading: boolean;
     restrictedMessage?: string;
+    fallbackTotal?: number;
 }
 
-const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage }) => {
+const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage, fallbackTotal }) => {
     const [localCosts, setLocalCosts] = React.useState(costs);
 
 
@@ -1026,7 +1026,8 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
         setLocalCosts(newCosts);
     };
 
-    const total = localCosts.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+    const sumTotal = localCosts.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+    const displayTotal = (sumTotal > 0 || localCosts.length > 0) ? sumTotal : (fallbackTotal || 0);
 
     return (
         <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full`}>
@@ -1038,7 +1039,7 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
                     <h2 className="font-bold text-slate-800 text-sm">{title}</h2>
                 </div>
                 <span className={`px-2 py-1 bg-${color}-50 text-${color}-700 text-xs font-black rounded-lg border border-${color}-100`}>
-                    Total: {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    Total: {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
             </div>
 

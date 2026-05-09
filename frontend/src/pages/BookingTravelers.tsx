@@ -299,8 +299,10 @@ export const BookingTravelers: React.FC = () => {
                 });
             }
 
-            if (booking.totalAmount !== undefined && booking.totalAmount !== null) {
+            if (booking.totalAmount) {
                 setLumpSumAmount(booking.totalAmount);
+            } else if (booking.amount) {
+                setLumpSumAmount(booking.amount);
             } else if (booking.pricePerTicket) {
                 // Fallback for older records
                 const passengerCount = booking.travelers ? booking.travelers.length : 1;
