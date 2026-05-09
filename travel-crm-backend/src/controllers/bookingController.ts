@@ -498,6 +498,15 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             };
         });
 
+        // 5. Flatten User Objects for Frontend Header (Ensures names show instead of blanks)
+        const createdByUser = booking.createdByUserId && typeof booking.createdByUserId === 'object' 
+            ? booking.createdByUserId 
+            : { name: 'System Admin' };
+            
+        const assignedToUser = booking.assignedToUserId && typeof booking.assignedToUserId === 'object'
+            ? booking.assignedToUserId
+            : null;
+
         return {
             ...booking,
             id: booking._id.toString(),
@@ -516,8 +525,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             activities: processedActivities,
             payments: payments,
             travelers: passengers,
-            createdByUser: booking.createdByUserId,
-            assignedToUser: booking.assignedToUserId,
+            createdByUser: createdByUser,
+            assignedToUser: assignedToUser,
         };
     })();
 
