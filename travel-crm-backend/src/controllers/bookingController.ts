@@ -7,6 +7,7 @@ import Passenger from '../models/Passenger';
 import User from '../models/User';
 import Payment from '../models/Payment';
 import Notification from '../models/Notification';
+import Timeline from '../models/Timeline';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
