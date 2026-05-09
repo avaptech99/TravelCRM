@@ -474,8 +474,8 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
         // 4. Map for Legacy "Old Style" Compatibility
         const historyData = (legacyComments || []);
-        const processedHistory = historyData.map((c: any) => {
-            const agentName = c.userId?.name || (typeof c.userId === 'string' ? c.userId : 'User');
+        const processedHistory = (legacyComments || []).map((c: any) => {
+            const agentName = c.userId?.name || booking.createdByUser?.name || booking.createdByUserId?.name || 'System Admin';
             // Ensure every history item follows the "Name : Action" style
             let displayText = c.text || '';
             if (displayText && !displayText.includes(' : ')) {
@@ -645,10 +645,10 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         amount: result.data.amount || 0,
         travellers: finalTravellers,
         createdByUserId: req.user?.id,
-        assignedToUserId: (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null,
+        assignedToUserId: result.data.assignedToUserId || (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC') ? req.user.id : null),
         participantIds: [
             req.user?.id, 
-            (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC')) ? req.user.id : null
+            result.data.assignedToUserId || (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC') ? req.user.id : null)
         ].filter((id): id is any => Boolean(id)),
         includesFlight: result.data.includesFlight ?? true,
         includesAdditionalServices: result.data.includesAdditionalServices ?? false,
@@ -681,11 +681,25 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 userId: req.user?.id,
                 text: `Booking created for ${booking.contact?.name || 'Customer'}`
             }),
-            Comment.create({
-                bookingId: booking._id,
-                userId: req.user?.id,
-                text: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System'}(${req.user?.groups?.[0] || 'Admin'})`
-            }),
+            async () => {
+                const assignedAgentId = booking.assignedToUserId;
+                if (assignedAgentId) {
+                    const agent = await User.findById(assignedAgentId).lean();
+                    const agentName = agent?.name || 'Unknown Agent';
+                    const agentGroup = agent?.groups?.[0] || booking.assignedGroup || 'Package / LCC';
+                    await Comment.create({
+                        bookingId: booking._id,
+                        userId: req.user?.id,
+                        text: `Booking Assigned to ${agentName}(${agentGroup}) by ${req.user?.name || 'System Admin'}(${req.user?.groups?.[0] || 'Admin'})`
+                    });
+                } else {
+                    await Comment.create({
+                        bookingId: booking._id,
+                        userId: req.user?.id,
+                        text: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System Admin'}(${req.user?.groups?.[0] || 'Admin'})`
+                    });
+                }
+            },
             // Notification
             booking.assignedToUserId ? Notification.create({
                 userId: booking.assignedToUserId,
