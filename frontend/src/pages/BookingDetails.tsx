@@ -475,19 +475,23 @@ export const BookingDetails: React.FC = () => {
                                             onSave={(newCosts) => updateCostsMutation.mutate({ estimatedCosts: newCosts })}
                                             isEditable={false}
                                             isLoading={updateCostsMutation.isPending}
+                                            margin={booking.estimatedMargin}
                                         />
-                                        <CostSection 
-                                            title="Actual Costs" 
-                                            icon={<CheckCircle2 size={18} />}
-                                            color="emerald"
-                                            costs={booking.actualCosts || []}
-                                            fallbackTotal={booking.actualAmount}
-                                            dropdownSettings={dropdownSettings}
-                                            onSave={(newCosts) => updateCostsMutation.mutate({ actualCosts: newCosts })}
-                                            isEditable={false}
-                                            isLoading={updateCostsMutation.isPending}
-                                            restrictedMessage={!isFinanceOps ? "Only Operation or Account team can edit Actual Costs" : undefined}
-                                        />
+                                        <div className="flex-1">
+                                            <CostSection 
+                                                title="Actual Costs" 
+                                                icon={<CheckCircle2 size={18} />}
+                                                color="emerald"
+                                                costs={booking.actualCosts || []}
+                                                fallbackTotal={booking.actualAmount}
+                                                dropdownSettings={dropdownSettings}
+                                                onSave={(newCosts) => updateCostsMutation.mutate({ actualCosts: newCosts })}
+                                                isEditable={false}
+                                                isLoading={updateCostsMutation.isPending}
+                                                margin={booking.actualMargin}
+                                                restrictedMessage={!isFinanceOps ? "Only Operation or Account team can edit Actual Costs" : undefined}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1006,9 +1010,10 @@ interface CostSectionProps {
     isLoading: boolean;
     restrictedMessage?: string;
     fallbackTotal?: number;
+    margin?: number;
 }
 
-const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage, fallbackTotal }) => {
+const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage, fallbackTotal, margin }) => {
     const [localCosts, setLocalCosts] = React.useState(costs);
 
 
@@ -1142,8 +1147,19 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-6 text-slate-400 text-xs italic">
+                            <div className="text-center py-6 text-slate-400 text-xs italic flex-1 flex items-center justify-center">
                                 No {title.toLowerCase()} recorded.
+                            </div>
+                        )}
+                        
+                        {margin !== undefined && (
+                            <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {title.includes('Est') ? 'Est. Margin' : 'Act. Margin'}
+                                </span>
+                                <div className={`px-2.5 py-1 rounded-md ${margin >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'} border text-xs font-black shadow-sm`}>
+                                    {margin.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </div>
                             </div>
                         )}
                     </div>
