@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
+import Timeline from '../models/Timeline';
 import Comment from '../models/Comment';
 import Passenger from '../models/Passenger';
 import User from '../models/User';
@@ -449,9 +450,11 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
                 .limit(50)
                 .populate('userId', 'name role')
                 .lean(),
-            Comment.find({ 
-                $or: [
-            Comment.find({ bookingId: id }).populate('userId', 'name role').sort({ createdAt: -1 }).lean(),
+            Comment.find({ bookingId: id })
+                .sort({ createdAt: -1 })
+                .limit(100)
+                .populate('userId', 'name role')
+                .lean(),
             Payment.find({ bookingId: id })
                 .sort({ date: -1 })
                 .lean()
@@ -469,29 +472,21 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = (booking.amount || 0) - totalPaid;
 
-        // 4. Map Unified History (Comment Table only)
-        const processedTimeline = (comments || []).map((c: any) => {
+        // 4. Map for Legacy "Old Style" Compatibility
+        const historyData = (legacyComments || []);
+        const processedHistory = historyData.map((c: any) => {
             const agentName = c.userId?.name || (typeof c.userId === 'string' ? c.userId : 'User');
-            
-            // Special formatting for "Booking Assigned" to remove redundant prefix
-            if (c.type === 'activity' && c.text && c.text.includes('Booking Assigned to')) {
-                return {
-                    ...c,
-                    id: c._id?.toString(),
-                    details: c.text,
-                    text: c.text
-                };
+            // Ensure every history item follows the "Name : Action" style
+            let displayText = c.text || '';
+            if (displayText && !displayText.includes(' : ')) {
+                displayText = `${agentName} : ${displayText}`;
             }
-
-            const prefix = c.type === 'activity' ? agentName : agentName; // Same for both now
-
+            
             return {
                 ...c,
                 id: c._id?.toString(),
                 createdBy: c.userId || { name: agentName },
-                text: `${agentName} : ${c.text || ''}`,
-                details: `${agentName} : ${c.text || ''}`,
-                action: c.type === 'activity' ? 'Activity' : 'Comment'
+                text: displayText
             };
         });
 
@@ -517,9 +512,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
-            timeline: processedTimeline.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-            comments: processedTimeline.filter(t => t.type === 'comment'),
-            activities: processedTimeline.filter(t => t.type === 'activity'),
+            timeline: processedHistory, // Everything is now in one array from one table
+            comments: processedHistory,
+            activities: [], // Obsolete
             payments: payments,
             travelers: passengers,
             createdByUser: createdByUser,
@@ -590,7 +585,7 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
     // ✅ Step 5: Background Heavy Cleanup
     setImmediate(() => runBG(`deleteBooking_cleanup_${bookingId}`, async () => {
         const cleanupTasks: Promise<any>[] = [
-            Comment.deleteMany({ bookingId }),
+            Timeline.deleteMany({ bookingId }),
             Passenger.deleteMany({ bookingId }),
             Payment.deleteMany({ bookingId }),
             Notification.deleteMany({ bookingId }),
@@ -684,13 +679,11 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
             Comment.create({
                 bookingId: booking._id,
                 userId: req.user?.id,
-                type: 'activity',
                 text: `Booking created for ${booking.contact?.name || 'Customer'}`
             }),
             Comment.create({
                 bookingId: booking._id,
                 userId: req.user?.id,
-                type: 'activity',
                 text: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System'}(${req.user?.groups?.[0] || 'Admin'})`
             }),
             // Notification
@@ -812,12 +805,6 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     }
 
     const { status } = result.data;
-    const oldBooking = await Booking.findById(id).lean();
-    if (!oldBooking) {
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-    const oldStatus = oldBooking.status;
 
     const t = createTimer(`updateStatus_${id}`);
     // PRIMARY write only
@@ -866,8 +853,7 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         await Comment.create({
             bookingId: id,
             userId: req.user?.id,
-            type: 'activity',
-            text: `Status updated from ${oldStatus} to ${status}`
+            text: `Status updated from ${updatedBooking.status} to ${status}`
         });
         
         if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
@@ -962,7 +948,6 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
 
         let newAgentName = 'Unassigned';
         let newAgentGroup = 'Admin';
-        
         if (newAssignedUserId) {
             const newAgent = await User.findById(newAssignedUserId).lean();
             if (newAgent) {
@@ -976,7 +961,6 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         await Comment.create({
             bookingId: id,
             userId: req.user?.id,
-            type: 'activity',
             text: commentText
         });
 
@@ -1070,11 +1054,13 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     // 2. Prepare side-effects in background to avoid blocking the response
     setImmediate(async () => {
         try {
-            const commentEntries = bookingIds.map((id: string) => ({
+            const timelineEntries = bookingIds.map((id: string) => ({
                 bookingId: id,
                 userId: req.user?.id,
                 type: 'activity',
-                text: `Bulk Assignment: Changed to ${newAgentName}`
+                action: 'ASSIGNED',
+                details: `Bulk Assignment: Changed to ${newAgentName}`,
+                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
             }));
 
             const notificationEntries = newAgentId ? bookingIds.map((id: string) => ({
@@ -1084,7 +1070,7 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
             })) : [];
 
             await Promise.all([
-                Comment.insertMany(commentEntries),
+                Timeline.insertMany(timelineEntries),
                 notificationEntries.length > 0 ? Notification.insertMany(notificationEntries) : Promise.resolve()
             ]);
             
@@ -1124,7 +1110,7 @@ export const bulkDelete = asyncHandler(async (req: Request, res: Response) => {
         const contactIds = bookings.map(b => b.primaryContactId).filter(Boolean);
 
         await Promise.all([
-            Comment.deleteMany({ bookingId: { $in: validBookingIds } }),
+            Timeline.deleteMany({ bookingId: { $in: validBookingIds } }),
             Passenger.deleteMany({ bookingId: { $in: validBookingIds } }),
             Payment.deleteMany({ bookingId: { $in: validBookingIds } }),
             Notification.deleteMany({ bookingId: { $in: validBookingIds } }),
@@ -1207,7 +1193,7 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
         throw new Error('Booking not found');
     }
 
-    const comments = await Comment.find({ bookingId: id })
+    const comments = await Timeline.find({ bookingId: id, type: 'comment' })
         .populate('userId', 'name role')
         .sort({ createdAt: -1 })
         .lean();
@@ -1252,7 +1238,11 @@ export const addPassengers = asyncHandler(async (req: Request, res: Response) =>
 
     // BACKGROUND: Logging and thorough invalidation
     setImmediate(() => runBG(`addPassengers_sideEffects_${id}`, async () => {
-        // Removed technical timeline logging
+        await Comment.create({
+            bookingId: id,
+            userId: req.user?.id,
+            text: `Added ${passengersData.length} passenger(s).`
+        });
         invalidateBookingCaches();
     }));
 });
@@ -1349,7 +1339,6 @@ export const addPayment = asyncHandler(async (req: Request, res: Response) => {
             Comment.create({
                 bookingId: id,
                 userId: req.user?.id,
-                type: 'activity',
                 text: `Payment recorded via ${result.data.paymentMethod}`
             })
         ]);
@@ -1411,13 +1400,10 @@ export const deletePayment = asyncHandler(async (req: Request, res: Response) =>
     setImmediate(() => runBG(`deletePayment_sideEffects_${bookingId}`, async () => {
         await Promise.all([
             recalcOutstanding(bookingId),
-            Timeline.create({
+            Comment.create({
                 bookingId,
                 userId: req.user?.id,
-                type: 'activity',
-                action: 'PAYMENT_DELETED',
-                details: 'A payment record was removed.',
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                text: 'A payment record was removed.'
             })
         ]);
         invalidateBookingCaches();
