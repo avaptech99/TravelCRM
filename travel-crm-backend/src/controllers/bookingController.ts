@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import PrimaryContact from '../models/PrimaryContact';
-import Timeline from '../models/Timeline';
 import Comment from '../models/Comment';
 import Passenger from '../models/Passenger';
 import User from '../models/User';
@@ -434,22 +433,12 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
     const fetchPromise = (async () => {
         // Parallelize sub-collection fetches to avoid N+1 sequential delay
-        const [booking, timeline, legacyComments, payments, passengers] = await Promise.all([
+        const [booking, legacyComments, payments, passengers] = await Promise.all([
             Booking.findById(id)
                 .populate('assignedToUserId', 'name role')
                 .populate('createdByUserId', 'name role')
                 .lean()
                 .maxTimeMS(3000),
-            Timeline.find({ 
-                $or: [
-                    { bookingId: id },
-                    { bookingId: String(id) as any }
-                ]
-            })
-                .sort({ createdAt: -1 })
-                .limit(50)
-                .populate('userId', 'name role')
-                .lean(),
             Comment.find({ bookingId: id })
                 .sort({ createdAt: -1 })
                 .limit(100)
@@ -1511,13 +1500,10 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
     // BACKGROUND: Logging and notifications
     setImmediate(() => runBG(`verifyBooking_sideEffects_${id}`, async () => {
         // Log activity
-        await Timeline.create({
+        await Comment.create({
             bookingId: id,
             userId: req.user?.id,
-            type: 'activity',
-            action: 'BOOKING_VERIFIED',
-            details: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
-            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            text: isVerified ? `Booking verified by ${req.user?.name}` : `Verification removed by ${req.user?.name}`,
         });
 
         // Notify assigned agent if verified
@@ -1537,7 +1523,7 @@ export const verifyBooking = asyncHandler(async (req: Request, res: Response) =>
 // @route   GET /api/bookings/:id/activity
 // @access  Private
 export const getBookingActivity = asyncHandler(async (req: Request, res: Response) => {
-    const activities = await Timeline.find({ bookingId: req.params.id, type: 'activity' })
+    const activities = await Comment.find({ bookingId: req.params.id })
         .sort({ createdAt: -1 })
         .limit(50)
         .populate('userId', 'name')
@@ -1545,9 +1531,9 @@ export const getBookingActivity = asyncHandler(async (req: Request, res: Respons
 
     const mapped = activities.map((a: any) => ({
         id: a._id.toString(),
-        action: a.action,
-        details: a.details,
-        user: a.userId?.name || 'System',
+        action: 'COMMENT',
+        details: a.text,
+        user: a.userId?.name || 'System Admin',
         createdAt: a.createdAt,
     }));
 
