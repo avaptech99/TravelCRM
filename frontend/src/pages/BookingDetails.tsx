@@ -204,14 +204,7 @@ export const BookingDetails: React.FC = () => {
     });
 
     const updateCostsMutation = useMutation({
-        mutationFn: async (data: { 
-            estimatedCosts?: any[], 
-            actualCosts?: any[], 
-            company?: string,
-            totalAmount?: number,
-            amount?: number,
-            actualAmount?: number
-        }) => {
+        mutationFn: async (data: { estimatedCosts?: any[], actualCosts?: any[], company?: string }) => {
             await api.put(`/bookings/${id}`, data);
         },
         onSuccess: () => {
@@ -479,8 +472,8 @@ export const BookingDetails: React.FC = () => {
                                             costs={booking.estimatedCosts || []}
                                             fallbackTotal={booking.totalAmount || booking.amount}
                                             dropdownSettings={dropdownSettings}
-                                            onSave={(newCosts, newTotal) => updateCostsMutation.mutate({ estimatedCosts: newCosts, totalAmount: newTotal, amount: newTotal })}
-                                            isEditable={!isReadOnly && user?.role !== 'ACCOUNT'}
+                                            onSave={(newCosts) => updateCostsMutation.mutate({ estimatedCosts: newCosts })}
+                                            isEditable={false}
                                             isLoading={updateCostsMutation.isPending}
                                         />
                                         <CostSection 
@@ -490,8 +483,8 @@ export const BookingDetails: React.FC = () => {
                                             costs={booking.actualCosts || []}
                                             fallbackTotal={booking.actualAmount}
                                             dropdownSettings={dropdownSettings}
-                                            onSave={(newCosts, newTotal) => updateCostsMutation.mutate({ actualCosts: newCosts, actualAmount: newTotal })}
-                                            isEditable={isFinanceOps}
+                                            onSave={(newCosts) => updateCostsMutation.mutate({ actualCosts: newCosts })}
+                                            isEditable={false}
                                             isLoading={updateCostsMutation.isPending}
                                             restrictedMessage={!isFinanceOps ? "Only Operation or Account team can edit Actual Costs" : undefined}
                                         />
@@ -1008,7 +1001,7 @@ interface CostSectionProps {
     color: 'blue' | 'emerald';
     costs: any[];
     dropdownSettings?: Record<string, string[]>;
-    onSave: (costs: any[], total: number) => void;
+    onSave: (costs: any[]) => void;
     isEditable: boolean;
     isLoading: boolean;
     restrictedMessage?: string;
@@ -1017,12 +1010,11 @@ interface CostSectionProps {
 
 const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage, fallbackTotal }) => {
     const [localCosts, setLocalCosts] = React.useState(costs);
-    const [localTotal, setLocalTotal] = React.useState(fallbackTotal || 0);
+
 
     React.useEffect(() => {
         setLocalCosts(costs);
-        setLocalTotal(fallbackTotal || 0);
-    }, [costs, fallbackTotal]);
+    }, [costs]);
 
     const toggleCostType = (type: string) => {
         const isActive = localCosts.some(c => c.costType === type);
@@ -1040,7 +1032,7 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
     };
 
     const sumTotal = localCosts.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
-    const displayTotal = isEditable ? localTotal : (fallbackTotal || sumTotal || 0);
+    const displayTotal = fallbackTotal || sumTotal || 0;
 
     return (
         <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full`}>
@@ -1059,23 +1051,6 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
             <div className="p-4 flex-1 flex flex-col min-h-0">
                 {isEditable ? (
                     <div className="flex flex-col h-full space-y-4">
-                        <div className={`p-3 bg-${color}-50/50 rounded-xl border border-${color}-100 shrink-0`}>
-                            <label className={`text-[10px] font-black text-${color}-700 uppercase tracking-wider block mb-1.5`}>
-                                {title === 'Estimated Costs' ? 'TOTAL QUOTED PRICE (SELLING)' : 'TOTAL ACTUAL PRICE (SELLING)'}
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    value={localTotal}
-                                    onChange={(e) => setLocalTotal(parseFloat(e.target.value) || 0)}
-                                    className={`w-full text-base font-bold text-slate-800 bg-white border border-${color}-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-${color}-500 transition-all`}
-                                    placeholder="0.00"
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                    <CreditCard size={16} />
-                                </div>
-                            </div>
-                        </div>
                         <div className="shrink-0">
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Cost Types</label>
                             <div className="flex flex-wrap gap-1.5">
@@ -1137,8 +1112,8 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
                         </div>
 
                         <button 
-                            onClick={() => onSave(localCosts, localTotal)}
-                            disabled={isLoading || (JSON.stringify(localCosts) === JSON.stringify(costs) && localTotal === fallbackTotal)}
+                            onClick={() => onSave(localCosts)}
+                            disabled={isLoading || JSON.stringify(localCosts) === JSON.stringify(costs)}
                             className={`w-full py-2.5 rounded-xl text-white font-black text-xs bg-${color}-600 hover:bg-${color}-700 shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none shrink-0`}
                         >
                             {isLoading ? 'Saving...' : 'Update Records'}
