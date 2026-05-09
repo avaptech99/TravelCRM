@@ -330,8 +330,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         bookingType: b.contact?.type,
         interested: b.contact?.interested ? 'Yes' : 'No',
         destinationCity: b.destination,
-        assignedToUser: b.assignedToUserId,
-        createdByUser: b.createdByUserId,
+        assignedToUser: b.assignedToUserId && typeof b.assignedToUserId === 'object' ? b.assignedToUserId : { name: 'Unassigned' },
+        createdByUser: b.createdByUserId && typeof b.createdByUserId === 'object' ? b.createdByUserId : { name: req.user?.name || 'System Admin' },
     }));
 
     const nextCursor = rawBookings.length === limitNum 
@@ -681,7 +681,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 userId: req.user?.id,
                 text: `Booking created for ${booking.contact?.name || 'Customer'}`
             }),
-            async () => {
+            (async () => {
                 const assignedAgentId = booking.assignedToUserId;
                 if (assignedAgentId) {
                     const agent = await User.findById(assignedAgentId).lean();
@@ -699,7 +699,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                         text: `Booking Assigned to ${booking.assignedGroup} by ${req.user?.name || 'System Admin'}(${req.user?.groups?.[0] || 'Admin'})`
                     });
                 }
-            },
+            })(),
             // Notification
             booking.assignedToUserId ? Notification.create({
                 userId: booking.assignedToUserId,
