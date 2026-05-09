@@ -477,6 +477,7 @@ export const BookingDetails: React.FC = () => {
                                             icon={<CheckCircle2 size={18} />}
                                             color="emerald"
                                             costs={booking.actualCosts || []}
+                                            fallbackTotal={booking.actualAmount}
                                             dropdownSettings={dropdownSettings}
                                             onSave={(newCosts) => updateCostsMutation.mutate({ actualCosts: newCosts })}
                                             isEditable={isFinanceOps}

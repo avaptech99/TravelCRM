@@ -64,17 +64,26 @@ const recalcOutstanding = async (bookingId: string) => {
     const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     
     if (booking) {
-        // Standardize: Ensure amount/totalAmount matches the sum of estimated costs if they exist
-        let bookingTotal = booking.totalAmount || booking.amount || 0;
-        if (booking.estimatedCosts && booking.estimatedCosts.length > 0) {
-            bookingTotal = booking.estimatedCosts.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
+        // The selling price is the basis for outstanding balance.
+        // We prioritize totalAmount/amount if they are set (respecting manual user entry).
+        let sellingPrice = booking.totalAmount || booking.amount || 0;
+        
+        // If no total price is set but we have a cost breakdown, use the breakdown sum as a smart fallback
+        if (sellingPrice === 0 && booking.estimatedCosts && booking.estimatedCosts.length > 0) {
+            sellingPrice = booking.estimatedCosts.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
         }
 
-        const outstanding = Math.max(bookingTotal - totalPaid, 0);
-        // Save back the standardized totals to ensure analytics picks them up
+        const outstanding = Math.max(sellingPrice - totalPaid, 0);
+        
+        // Update the booking with the new outstanding balance. 
+        // We only update amount/totalAmount if they were zero to provide the fallback value.
+        const updateData: any = { outstanding };
+        if (booking.totalAmount === 0 && sellingPrice > 0) updateData.totalAmount = sellingPrice;
+        if (booking.amount === 0 && sellingPrice > 0) updateData.amount = sellingPrice;
+
         await Booking.updateOne(
             { _id: bookingId }, 
-            { $set: { outstanding, amount: bookingTotal, totalAmount: bookingTotal } }
+            { $set: updateData }
         );
     }
 };

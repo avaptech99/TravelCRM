@@ -38,6 +38,7 @@ export const createBookingSchema = z.object({
     assignedGroup: z.string().optional(),
     interested: z.enum(['Yes', 'No']).optional(),
     assignedToUserId: z.string().optional().nullable(),
+    actualAmount: z.number().nonnegative().optional(),
 });
 
 export const updateBookingSchema = z.object({
@@ -78,6 +79,7 @@ export const updateBookingSchema = z.object({
         price: z.number(),
         source: z.string()
     })).optional(),
+    actualAmount: z.number().nonnegative().optional(),
 });
 
 export const updateBookingStatusSchema = z.object({
