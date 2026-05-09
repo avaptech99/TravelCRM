@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export type SSEMode = 'connecting' | 'connected' | 'polling' | 'disabled';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const MAX_FAILURES  = 3;    // fall back to polling after 3 consecutive failures
 const RECONNECT_MAX = 8000; // max jitter delay before reconnect attempt (8s)
 const POLL_INTERVAL = 20000; // fallback poll interval (matches your current 20s)
@@ -152,7 +152,7 @@ export function useSSE(token: string | null) {
       esRef.current = null;
     }
 
-    const url = `${API_BASE}/api/stream?token=${encodeURIComponent(token)}`;
+    const url = `${API_BASE}/stream?token=${encodeURIComponent(token)}`;
     const es  = new EventSource(url);
     esRef.current = es;
 
