@@ -204,7 +204,14 @@ export const BookingDetails: React.FC = () => {
     });
 
     const updateCostsMutation = useMutation({
-        mutationFn: async (data: { estimatedCosts?: any[], actualCosts?: any[], company?: string }) => {
+        mutationFn: async (data: { 
+            estimatedCosts?: any[], 
+            actualCosts?: any[], 
+            company?: string,
+            totalAmount?: number,
+            amount?: number,
+            actualAmount?: number
+        }) => {
             await api.put(`/bookings/${id}`, data);
         },
         onSuccess: () => {
