@@ -45,6 +45,8 @@ export interface IBooking extends Document {
         source: string;
     }[];
     actualAmount: number;
+    estimatedMargin: number;
+    actualMargin: number;
     lastInteractionAt: Date;
     participantIds: mongoose.Types.ObjectId[];
     contact: {
@@ -113,6 +115,8 @@ const bookingSchema = new Schema<IBooking>(
             source: { type: String }
         }],
         actualAmount: { type: Number, default: 0 },
+        estimatedMargin: { type: Number, default: 0 },
+        actualMargin: { type: Number, default: 0 },
     },
     {
         timestamps: true,

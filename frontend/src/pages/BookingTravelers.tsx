@@ -336,9 +336,9 @@ export const BookingTravelers: React.FC = () => {
             if (booking.company) setCompany(booking.company);
             if (booking.estimatedCosts) setEstimatedCosts(booking.estimatedCosts);
             if (booking.actualCosts) setActualCosts(booking.actualCosts);
+            if (booking.actualAmount) setActualLumpSumAmount(booking.actualAmount);
             if (booking.estimatedMargin) setEstimatedMargin(booking.estimatedMargin);
             if (booking.actualMargin) setActualMargin(booking.actualMargin);
-            if (booking.actualAmount) setActualLumpSumAmount(booking.actualAmount);
 
             isInitialized.current = true;
         }
@@ -443,6 +443,9 @@ export const BookingTravelers: React.FC = () => {
                 pricePerTicket: derivedPricePerTicket,
                 amount: lumpSumAmount || 0,
                 totalAmount: lumpSumAmount || 0,
+                actualAmount: actualLumpSumAmount || 0,
+                estimatedMargin: estimatedMargin || 0,
+                actualMargin: actualMargin || 0,
                 finalQuotation: finalQuotationAmount,
                 destination: primaryTraveler?.country || null,
                 travelDate: primaryTraveler?.departureTime ? new Date(primaryTraveler.departureTime) : null,

@@ -1028,7 +1028,7 @@ const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dr
     };
 
     const sumTotal = localCosts.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
-    const displayTotal = (sumTotal > 0 || localCosts.length > 0) ? sumTotal : (fallbackTotal || 0);
+    const displayTotal = fallbackTotal || sumTotal || 0;
 
     return (
         <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full`}>

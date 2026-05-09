@@ -39,6 +39,8 @@ export const createBookingSchema = z.object({
     interested: z.enum(['Yes', 'No']).optional(),
     assignedToUserId: z.string().optional().nullable(),
     actualAmount: z.number().nonnegative().optional(),
+    estimatedMargin: z.number().optional(),
+    actualMargin: z.number().optional(),
 });
 
 export const updateBookingSchema = z.object({
