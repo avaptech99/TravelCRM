@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { Plane, Calendar, CreditCard, Plus, ArrowLeft, ArrowLeftRight, User, Phone, Mail, MapPin, MessageSquare, Clock, Edit2, UserPlus, Building2, UserCircle, List, Activity, CheckCircle2, ShieldCheck, Check, Layers } from 'lucide-react';
+import { Plane, Calendar, CreditCard, Plus, ArrowLeft, ArrowLeftRight, User, Phone, Mail, MapPin, MessageSquare, Clock, Edit2, UserPlus, Building2, UserCircle, List, CheckCircle2, ShieldCheck, Check, Layers } from 'lucide-react';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
