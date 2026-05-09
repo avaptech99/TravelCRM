@@ -980,6 +980,7 @@ export const BookingDetails: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
         </div>
     );
 };
