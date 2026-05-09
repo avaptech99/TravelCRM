@@ -479,7 +479,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
         // 4. Map for Legacy "Old Style" Compatibility (Agent Name : Action)
         const processedComments = (legacyComments || []).map((c: any) => {
-            const agentName = c.userId?.name || 'User';
+            const agentName = c.userId?.name || (typeof c.userId === 'string' ? c.userId : 'User');
             return {
                 ...c,
                 id: c._id?.toString(),
@@ -489,7 +489,7 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         });
 
         const processedActivities = (timeline || []).map((t: any) => {
-            const agentName = t.userId?.name || 'System';
+            const agentName = t.userId?.name || (typeof t.userId === 'string' ? t.userId : 'System');
             return {
                 ...t,
                 id: t._id?.toString(),
@@ -501,11 +501,11 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         // 5. Flatten User Objects for Frontend Header (Ensures names show instead of blanks)
         const createdByUser = booking.createdByUserId && typeof booking.createdByUserId === 'object' 
             ? booking.createdByUserId 
-            : { name: 'System Admin' };
+            : { name: (typeof booking.createdByUserId === 'string' ? booking.createdByUserId : 'System Admin') };
             
         const assignedToUser = booking.assignedToUserId && typeof booking.assignedToUserId === 'object'
             ? booking.assignedToUserId
-            : null;
+            : (typeof booking.assignedToUserId === 'string' ? { name: booking.assignedToUserId } : null);
 
         return {
             ...booking,
@@ -690,8 +690,8 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 userId: req.user?.id,
                 type: 'activity',
                 action: 'BOOKING_CREATED',
-                details: `Booking created by ${req.user?.name}`,
-                expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                details: `Booking created for ${booking.contact?.name || 'Customer'}`,
+                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             }),
             // Notification
             booking.assignedToUserId ? Notification.create({
@@ -870,8 +870,8 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
             userId: req.user?.id,
             type: 'activity',
             action: 'STATUS_CHANGE',
-            details: `Status updated to ${status}`,
-            expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            details: `Status updated from ${updatedBooking.status} to ${status}`,
+            expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
         
         if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
