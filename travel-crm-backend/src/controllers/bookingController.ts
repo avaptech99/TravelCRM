@@ -477,22 +477,20 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = (booking.amount || 0) - totalPaid;
 
-        // 4. Merge and sort unified feed with strict normalization for the frontend
-        const unifiedFeed = [
-            ...timeline.map((t: any) => ({ 
-                ...t, 
-                id: t._id?.toString(),
-                feedType: 'activity',
-                text: t.text || t.details || '' // Map both legacy and new text fields
-            })),
-            ...legacyComments.map((c: any) => ({ 
-                ...c, 
-                id: c._id?.toString(),
-                feedType: 'comment',
-                type: 'comment', 
-                text: c.text || c.comment || ''
-            }))
-        ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // 4. Map for Frontend Compatibility (BookingDetails.tsx expects separate comments and activities)
+        const processedComments = (legacyComments || []).map((c: any) => ({
+            ...c,
+            id: c._id?.toString(),
+            createdBy: c.userId || { name: 'User' },
+            text: c.text || c.comment || c.remark || ''
+        }));
+
+        const processedActivities = (timeline || []).map((t: any) => ({
+            ...t,
+            id: t._id?.toString(),
+            action: t.action || t.type || 'Activity',
+            details: t.text || t.details || 'System activity'
+        }));
 
         return {
             ...booking,
@@ -507,7 +505,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             bookingType: booking.contact?.type,
             destinationCity: booking.destination,
             travellers: booking.travellers,
-            timeline: unifiedFeed.slice(0, 50),
+            timeline: [...processedActivities, ...processedComments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+            comments: processedComments,
+            activities: processedActivities,
             payments: payments,
             travelers: passengers,
             createdByUser: booking.createdByUserId,
