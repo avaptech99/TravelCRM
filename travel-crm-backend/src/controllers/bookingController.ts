@@ -477,20 +477,26 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
         const outstanding = (booking.amount || 0) - totalPaid;
 
-        // 4. Map for Frontend Compatibility (BookingDetails.tsx expects separate comments and activities)
-        const processedComments = (legacyComments || []).map((c: any) => ({
-            ...c,
-            id: c._id?.toString(),
-            createdBy: c.userId || { name: 'User' },
-            text: c.text || c.comment || c.remark || ''
-        }));
+        // 4. Map for Legacy "Old Style" Compatibility (Agent Name : Action)
+        const processedComments = (legacyComments || []).map((c: any) => {
+            const agentName = c.userId?.name || 'User';
+            return {
+                ...c,
+                id: c._id?.toString(),
+                createdBy: c.userId || { name: agentName },
+                text: `${agentName} : ${c.text || c.comment || c.remark || ''}`
+            };
+        });
 
-        const processedActivities = (timeline || []).map((t: any) => ({
-            ...t,
-            id: t._id?.toString(),
-            action: t.action || t.type || 'Activity',
-            details: t.text || t.details || 'System activity'
-        }));
+        const processedActivities = (timeline || []).map((t: any) => {
+            const agentName = t.userId?.name || 'System';
+            return {
+                ...t,
+                id: t._id?.toString(),
+                action: t.action || t.type || 'Activity',
+                details: `${agentName} : ${t.text || t.details || 'System activity'}`
+            };
+        });
 
         return {
             ...booking,

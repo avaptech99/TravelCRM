@@ -786,14 +786,13 @@ export const BookingDetails: React.FC = () => {
                                         return (
                                             <div key={`comment-${item.id || item._id}`} className="relative pl-4 border-l-2 border-secondary/20">
                                                 <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
-                                                <div className="flex justify-between items-start mb-1 gap-2">
-                                                    <span className="text-xs font-semibold text-slate-900 truncate max-w-[120px]">{item.createdBy?.name || 'User'}</span>
+                                                <div className="flex justify-end mb-1 gap-2">
                                                     <span className="text-[10px] text-slate-400 flex items-center shrink-0">
                                                         <Clock size={10} className="mr-1" />
                                                         {dayjs(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap">
+                                                <p className="text-xs text-slate-700 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap font-medium">
                                                     {item.text}
                                                 </p>
                                             </div>
@@ -803,16 +802,16 @@ export const BookingDetails: React.FC = () => {
                                             <div key={`activity-${item.id || item._id}`} className="relative pl-4 border-l-2 border-slate-200">
                                                 <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300"></div>
                                                 <div className="flex justify-between items-start mb-1 gap-2">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight flex items-center gap-1 min-w-0">
-                                                        <Activity size={10} className="shrink-0" /> <span className="truncate">{item.action.replace(/_/g, ' ')}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1 min-w-0">
+                                                        <Activity size={10} className="shrink-0" /> {item.action.replace(/_/g, ' ')}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 flex items-center shrink-0">
                                                         <Clock size={10} className="mr-1" />
                                                         {dayjs(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
-                                                <div className="text-[11px] text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap">
-                                                    <span className="font-medium">{item.userId?.name || 'System'}</span>: {item.details}
+                                                <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap font-medium">
+                                                    {item.details}
                                                 </div>
                                             </div>
                                         );
