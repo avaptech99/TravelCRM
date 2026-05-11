@@ -44,7 +44,7 @@ export const getBookingAnalytics = asyncHandler(async (req: Request, res: Respon
                     { $group: { _id: '$status', count: { $sum: 1 } } }
                 ],
                 byType: [
-                    { $group: { _id: '$tripType', count: { $sum: 1 } } }
+                    { $group: { _id: { $arrayElemAt: ['$segments.tripType', 0] }, count: { $sum: 1 } } }
                 ],
                 byInterest: [
                     { 
@@ -148,7 +148,7 @@ export const getPaymentAnalytics = asyncHandler(async (req: Request, res: Respon
                     totalExpected: { 
                         $sum: { 
                             $convert: { 
-                                input: '$amount', 
+                                input: '$totalAmount', 
                                 to: 'double', 
                                 onError: 0, 
                                 onNull: 0 
@@ -302,7 +302,7 @@ export const getAgentAnalytics = asyncHandler(async (req: Request, res: Response
                 totalRevenue: { 
                     $sum: { 
                         $convert: { 
-                            input: '$amount', 
+                            input: '$totalAmount', 
                             to: 'double', 
                             onError: 0, 
                             onNull: 0 

@@ -3,7 +3,6 @@ import mongoose, { Document, Model, Schema } from 'mongoose';
 export interface IPrimaryContact extends Document {
     contactName: string;
     contactPhoneNo: string;
-    contactEmail?: string | null;
     bookingType: 'Agent (B2B)' | 'Direct (B2C)';
     requirements: string | null;
     interested: boolean;
@@ -13,7 +12,6 @@ const primaryContactSchema = new Schema<IPrimaryContact>(
     {
         contactName: { type: String, required: true },
         contactPhoneNo: { type: String, required: true },
-        contactEmail: { type: String, default: null },
         bookingType: { type: String, enum: ['Agent (B2B)', 'Direct (B2C)'], required: true, default: 'Direct (B2C)' },
         requirements: { type: String, default: null },
         interested: { type: Boolean, default: false },

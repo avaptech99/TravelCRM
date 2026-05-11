@@ -266,7 +266,11 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         segments.push({
             from: flightFrom || '',
             to: flightTo || '',
-            date: parseDate(travelDate)
+            departureDate: parseDate(travelDate),
+            returnDate: parseDate(returnDate),
+            returnDepartureTime: null,
+            tripType: finalTripType,
+            country: flightTo || null,
         });
     }
 
@@ -275,7 +279,11 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
         segments.push({
             from: leg.from || '',
             to: leg.to || '',
-            date: parseDate(leg.date)
+            departureDate: parseDate(leg.date),
+            returnDate: null,
+            returnDepartureTime: null,
+            tripType: 'multi-city',
+            country: leg.to || null,
         });
     }
 
@@ -302,26 +310,17 @@ export const createExternalLead = asyncHandler(async (req: Request, res: Respons
     const primaryContact = await PrimaryContact.create({
         contactName: finalName,
         contactPhoneNo: contactNumber,
-        contactEmail: contactEmail || null,
         bookingType: 'Direct (B2C)',
         requirements: detailedRequirements.trim() || null,
     });
 
     // 2. Create Booking
     const booking = await Booking.create({
-        destination: flightTo || (segments.length > 0 ? segments[segments.length - 1].to : null),
-        travelDate: parseDate(travelDate) || (segments.length > 0 ? segments[0].date : null),
-        returnDate: parseDate(returnDate),
-        flightFrom: flightFrom || (segments.length > 0 ? segments[0].from : null),
-        flightTo: flightTo || (segments.length > 0 ? segments[0].to : null),
-        tripType: finalTripType,
         segments,
-        travellers: totalTravellers || null,
         primaryContactId: primaryContact._id,
         contact: {
             name: finalName,
             phone: contactNumber,
-            email: contactEmail || null,
             type: 'B2C',
             requirements: detailedRequirements.trim() || null,
             interested: false

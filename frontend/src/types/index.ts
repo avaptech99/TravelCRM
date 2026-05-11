@@ -80,10 +80,16 @@ export interface Booking {
     flightTo?: string;
     tripType?: 'one-way' | 'round-trip' | 'multi-city';
     followUpDate?: string | null;
+    destination?: string;
     segments?: {
         from: string;
         to: string;
-        date: string | null;
+        date?: string | null;
+        departureDate?: string | null;
+        returnDate?: string | null;
+        returnDepartureTime?: string | null;
+        tripType?: string;
+        country?: string | null;
     }[];
     travelDate?: string;
     returnDate?: string;

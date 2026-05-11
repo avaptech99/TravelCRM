@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { Plane, Calendar, CreditCard, Plus, ArrowLeft, ArrowLeftRight, User, Phone, Mail, MapPin, MessageSquare, Clock, Edit2, UserPlus, Building2, UserCircle, List, CheckCircle2, ShieldCheck, Check, Layers, Maximize2, X, ChevronDown } from 'lucide-react';
+import { Plane, Calendar, User, Clock, CheckCircle2, CreditCard, MessageSquare, Plus, X, MoveRight, MoveLeft, ShieldCheck, Check, Layers, Maximize2, ChevronDown, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
@@ -516,76 +516,106 @@ export const BookingDetails: React.FC = () => {
                                 {booking.travelers && booking.travelers.length > 0 ? (
                                     <div className="space-y-5">
                                         {(() => {
-                                            const traveler = booking.travelers[0];
+                                            const traveler = booking.travelers[0] || {};
+                                            const seg0 = (booking.segments && booking.segments.length > 0) ? booking.segments[0] : null;
                                             const primary = {
                                                 ...traveler,
-                                                tripType: traveler.tripType || booking.tripType || 'one-way',
-                                                flightFrom: traveler.flightFrom || booking.flightFrom || '',
-                                                flightTo: traveler.flightTo || booking.flightTo || '',
+                                                tripType: seg0?.tripType || traveler.tripType || booking.tripType || 'one-way',
+                                                flightFrom: seg0?.from || traveler.flightFrom || booking.flightFrom || '',
+                                                flightTo: seg0?.to || traveler.flightTo || booking.flightTo || '',
+                                                country: seg0?.country || traveler.country || booking.destination || '',
+                                                departureDate: seg0?.departureDate || traveler.travelDate || booking.travelDate || null,
+                                                returnDate: seg0?.returnDate || traveler.returnDate || booking.returnDate || null,
                                             };
                                             const hasFlightInfo = primary.flightFrom || primary.flightTo;
                                             const hasTripInfo = primary.tripType || primary.country;
+                                            const showFlightSection = booking.includesFlight || hasFlightInfo || hasTripInfo;
+                                            const showAdditionalSection = booking.includesAdditionalServices || !!booking.additionalServicesDetails;
 
-                                            if (!booking.includesFlight && !booking.includesAdditionalServices) return null;
+                                            if (!showFlightSection && !showAdditionalSection) return null;
+
+                                            const formatDate = (date: any) => {
+                                                if (!date) return 'TBD';
+                                                return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                            };
 
                                             return (
                                                 <div className="space-y-4">
-                                                    {booking.includesFlight && (hasFlightInfo || hasTripInfo) && (
-                                                        <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-                                                            <h3 className="text-sm font-semibold text-secondary mb-3 flex items-center gap-1.5">
-                                                                <Plane size={15} className="text-secondary" /> Flight Details
-                                                            </h3>
-                                                            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                                                                <div className="space-y-2">
-                                                                    {primary.country && (
-                                                                        <div className="flex items-center space-x-2 text-sm text-secondary">
-                                                                            <MapPin size={14} className="text-secondary/60" />
-                                                                            <span className="font-medium">Destination:</span>
-                                                                            <span className="text-secondary/80">{primary.country}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    {primary.tripType && (
-                                                                        <div className="flex items-center space-x-2 text-sm text-secondary">
-                                                                            <List size={14} className="text-secondary/60" />
-                                                                            <span className="font-medium">Trip Type:</span>
-                                                                            <span className="capitalize text-secondary/80">{primary.tripType}</span>
-                                                                        </div>
-                                                                    )}
+                                                    {showFlightSection && (
+                                                        <div className="p-5 rounded-xl bg-slate-50/50 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                                                            {/* Header Row */}
+                                                            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Plane size={16} className="text-blue-600" />
+                                                                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">Flight Details</h3>
                                                                 </div>
-                                                                {hasFlightInfo && (
-                                                                    <div className="lg:w-[320px] space-y-2">
-                                                                        <div className="bg-white/80 p-2.5 rounded-lg border border-secondary/20 shadow-sm">
-                                                                            <div className="flex items-center gap-3 mb-2">
-                                                                                <div className="flex items-center gap-2 flex-1 justify-between">
-                                                                                    <span className="bg-secondary/10 text-secondary font-bold px-2 py-1 rounded-lg border border-secondary/20 text-[10px] min-w-[45px] text-center">{primary.flightFrom || 'TBD'}</span>
-                                                                                    <div className="flex flex-col items-center gap-0.5 relative px-2">
-                                                                                        <div className="flex items-center gap-1.5 justify-center w-full">
-                                                                                            {primary.tripType === 'round-trip' ? <ArrowLeftRight size={16} className="text-secondary/80" /> : <Plane size={14} className="text-secondary/60" />}
-                                                                                        </div>
-                                                                                        <div className="w-full h-px bg-secondary/20"></div>
-                                                                                    </div>
-                                                                                    <span className="bg-secondary/10 text-secondary font-bold px-2 py-1 rounded-lg border border-secondary/20 text-[10px] min-w-[45px] text-center">{primary.flightTo || 'TBD'}</span>
+                                                                <span className="px-2 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-widest">
+                                                                    {primary.tripType}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Segments Mapping */}
+                                                            <div className="space-y-8">
+                                                                {(booking.segments && booking.segments.length > 0 ? booking.segments : [primary]).map((seg: any, idx: number) => (
+                                                                    <div key={idx} className="relative">
+                                                                        {/* Leg Indicator for Multi-City */}
+                                                                        {primary.tripType === 'multi-city' && (
+                                                                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-200 text-slate-600 text-[8px] font-black rounded uppercase tracking-tighter">
+                                                                                Leg {idx + 1}
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        <div className="grid grid-cols-3 items-center gap-4 text-center">
+                                                                            {/* Left: Departure */}
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-xl lg:text-2xl font-black text-blue-600 tracking-tighter leading-none">{(seg.from || seg.flightFrom || 'TBD').toUpperCase()}</span>
+                                                                                <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">DEPARTURE</span>
+                                                                            </div>
+
+                                                                            {/* Middle: Arrows & Dates */}
+                                                                            <div className="flex flex-col items-center gap-2">
+                                                                                <div className="flex flex-col items-center gap-1">
+                                                                                    <MoveRight size={16} className="text-slate-400" />
+                                                                                    <span className="text-[10px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm">
+                                                                                        {formatDate(seg.departureDate || seg.travelDate)}
+                                                                                    </span>
                                                                                 </div>
+                                                                                
+                                                                                {(seg.tripType === 'round-trip' || (idx === 0 && primary.tripType === 'round-trip' && seg.returnDate)) && (
+                                                                                    <div className="flex flex-col items-center gap-1">
+                                                                                        <MoveLeft size={16} className="text-slate-400" />
+                                                                                        <span className="text-[10px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm">
+                                                                                            {formatDate(seg.returnDate)}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Right: Destination */}
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-xl lg:text-2xl font-black text-blue-600 tracking-tighter leading-none">{(seg.to || seg.flightTo || 'TBD').toUpperCase()}</span>
+                                                                                <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">DESTINATION</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                )}
+                                                                ))}
                                                             </div>
                                                         </div>
                                                     )}
 
-                                                    {booking.includesAdditionalServices && booking.additionalServicesDetails && (
-                                                        <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-                                                            <h3 className="text-sm font-semibold text-secondary mb-2 flex items-center gap-1.5">
-                                                                <Layers size={15} className="text-secondary/80" /> Additional Services
+                                                    {showAdditionalSection && (
+                                                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-sm">
+                                                            <h3 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                                                                <Layers size={14} className="text-blue-600/60" /> Additional Services
                                                             </h3>
-                                                            <div className="text-sm text-secondary/90 whitespace-pre-wrap font-medium pl-6">
-                                                                {booking.additionalServicesDetails}
+                                                            <div className="text-xs text-slate-600 whitespace-pre-wrap font-medium pl-5 border-l-2 border-blue-100 ml-1">
+                                                                {booking.additionalServicesDetails || 'No details provided.'}
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             );
+
                                         })()}
                                         <div>
                                             <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">

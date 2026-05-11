@@ -44,7 +44,7 @@ exports.getBookingAnalytics = (0, express_async_handler_1.default)(async (req, r
                     { $group: { _id: '$status', count: { $sum: 1 } } }
                 ],
                 byType: [
-                    { $group: { _id: '$tripType', count: { $sum: 1 } } }
+                    { $group: { _id: { $arrayElemAt: ['$segments.tripType', 0] }, count: { $sum: 1 } } }
                 ],
                 byInterest: [
                     {
@@ -139,7 +139,7 @@ exports.getPaymentAnalytics = (0, express_async_handler_1.default)(async (req, r
                     totalExpected: {
                         $sum: {
                             $convert: {
-                                input: '$amount',
+                                input: '$totalAmount',
                                 to: 'double',
                                 onError: 0,
                                 onNull: 0
@@ -283,7 +283,7 @@ exports.getAgentAnalytics = (0, express_async_handler_1.default)(async (req, res
                 totalRevenue: {
                     $sum: {
                         $convert: {
-                            input: '$amount',
+                            input: '$totalAmount',
                             to: 'double',
                             onError: 0,
                             onNull: 0

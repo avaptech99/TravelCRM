@@ -1,0 +1,21 @@
+TO download data from mongodb
+
+step 1- cd cd C:\Program Files\MongoDB\Tools\100\bin
+
+step 2- mongodump --uri="mongodb+srv://adsavap_db_user:8OfdFmOuwihgEjoB@travelcrm.wxmise3.mongodb.net/travelCRM?retryWrites=true&w=majority&appName=travelCRM" --out="C:\Users\Desktop\travelCRM_database"
+
+To Upload download database 
+
+step 3-mongorestore --uri="mongodb+srv://test_avap:d0m51DVfg69GPpay@travelcrm.wxmise3.mongodb.net/?appName=travelCRM" --dir="C:\Users\Desktop\travelCRM_database\travelCRM" --db="TESTDATA"
+
+step 4- cd \
+
+step 5- mongosh "mongodb+srv://travelcrm.wxmise3.mongodb.net/" --apiVersion 1 --username test_avap
+
+step 6- Enter password: d0m51DVfg69GPpay
+
+step 7-  load("C:CRM 3.0\\travel-crm-backend\\src\\scripts\\masterMigrationV4.js")
+
+step 8- load("C:CRM 3.0\\travel-crm-backend\\src\\scripts\\verifyMigration.js")
+
+Done

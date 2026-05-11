@@ -43,33 +43,25 @@ const bookingSchema = new mongoose_1.Schema({
     contact: {
         name: { type: String },
         phone: { type: String },
-        email: { type: String },
         type: { type: String },
         requirements: { type: String },
         interested: { type: Boolean, default: false },
     },
     uniqueCode: { type: String, unique: true },
-    destination: { type: String, default: null },
-    travelDate: { type: Date, default: null },
-    returnDate: { type: Date, default: null },
-    flightFrom: { type: String, default: null },
-    flightTo: { type: String, default: null },
-    tripType: { type: String, enum: ['one-way', 'round-trip', 'multi-city'], default: 'one-way' },
     segments: [{
-            from: { type: String, default: null },
-            to: { type: String, default: null },
-            date: { type: Date, default: null },
+            from: { type: String, default: '' },
+            to: { type: String, default: '' },
+            departureDate: { type: Date, default: null },
+            returnDate: { type: Date, default: null },
+            returnDepartureTime: { type: String, default: null },
+            tripType: { type: String, enum: ['one-way', 'round-trip', 'multi-city'], default: 'one-way' },
+            country: { type: String, default: null },
         }],
-    amount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
     finalQuotation: { type: String, default: null },
-    travellers: { type: Number, default: null },
     status: { type: String, enum: ['Pending', 'Working', 'Sent', 'Booked', 'Follow Up'], default: 'Pending' },
     followUpDate: { type: Date, default: null },
-    includesFlight: { type: Boolean, default: true },
-    includesAdditionalServices: { type: Boolean, default: false },
     additionalServicesDetails: { type: String, default: null },
-    pricePerTicket: { type: Number, default: 0 },
     outstanding: { type: Number, default: 0 },
     createdByUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedToUserId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -78,7 +70,6 @@ const bookingSchema = new mongoose_1.Schema({
     isVerified: { type: Boolean, default: false },
     verifiedBy: { type: String, default: null },
     verifiedAt: { type: Date, default: null },
-    isConvertedToEDT: { type: Boolean, default: false },
     lastInteractionAt: { type: Date, default: Date.now },
     estimatedCosts: [{
             costType: { type: String },
@@ -99,11 +90,24 @@ const bookingSchema = new mongoose_1.Schema({
         virtuals: true,
         transform: (doc, ret) => {
             ret.id = ret._id;
+            // ── Backward-compatible flattened fields derived from segments[0] ──
+            const seg0 = ret.segments && ret.segments.length > 0 ? ret.segments[0] : null;
+            ret.travelDate = seg0?.departureDate || null;
+            ret.returnDate = seg0?.returnDate || null;
+            ret.flightFrom = seg0?.from || null;
+            ret.flightTo = seg0?.to || null;
+            ret.tripType = seg0?.tripType || 'one-way';
+            ret.destination = seg0?.country || null;
+            // Derived booleans
+            ret.includesFlight = (ret.segments && ret.segments.length > 0);
+            ret.includesAdditionalServices = !!(ret.additionalServicesDetails && ret.additionalServicesDetails.trim());
+            // Legacy amount alias
+            ret.amount = ret.totalAmount;
             // Use embedded contact snapshot for all flattened fields
             if (ret.contact) {
                 ret.contactPerson = ret.contact.name;
                 ret.contactNumber = ret.contact.phone;
-                ret.contactEmail = ret.contact.email;
+                ret.contactEmail = ret.contact.email || null;
                 ret.requirements = ret.contact.requirements;
                 ret.bookingType = ret.contact.type === 'B2B' ? 'B2B' : 'B2C';
                 ret.interested = ret.contact.interested ? 'Yes' : 'No';
@@ -135,17 +139,12 @@ bookingSchema.pre('save', async function () {
         }
     }
 });
-// Indexes — Optimized for Atlas M0 (Free Tier) to balance read speed and write overhead
-bookingSchema.index({ travelDate: 1 });
-bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ uniqueCode: 1 });
-bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for most Agent/Marketer queries
-bookingSchema.index({ status: 1, travelDate: 1 });
-bookingSchema.index({ outstanding: 1, status: 1 }); // High-performance unpaid leads filtering
-bookingSchema.index({ assignedGroup: 1, status: 1 }); // Covering index for group-based dashboard
-bookingSchema.index({ 'contact.phone': 1 }); // Quick search by phone
-bookingSchema.index({ uniqueCode: 1 }, { unique: true }); // Should already be covered by schema but explicit here
-bookingSchema.index({ company: 1, status: 1, createdAt: -1 });
+// Indexes — Optimized for Atlas M0 (Free Tier)
+bookingSchema.index({ uniqueCode: 1 }, { unique: true, sparse: true });
+bookingSchema.index({ status: 1, 'segments.0.departureDate': 1 }); // Calendar + upcoming trips
+bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for Agent/Marketer queries
+bookingSchema.index({ createdAt: -1 }); // Date-sorted list views
+bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 }); // Agent dashboard
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {
     ref: 'User',

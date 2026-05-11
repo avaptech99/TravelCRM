@@ -13,8 +13,7 @@ const connectDB = async () => {
             process.exit(1);
         }
         const conn = await mongoose_1.default.connect(mongoURI, {
-            dbName: process.env.DB_NAME || 'TESTDATA', // Force TESTDATA as the primary database
-            maxPoolSize: 25, // Optimized for 1 clustered worker (50 total if concurrency increased)
+            maxPoolSize: 25,
             minPoolSize: 5,
             waitQueueTimeoutMS: 10000,
             socketTimeoutMS: 45000,

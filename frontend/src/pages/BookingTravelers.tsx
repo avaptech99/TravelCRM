@@ -234,7 +234,7 @@ export const BookingTravelers: React.FC = () => {
         if (booking && !isInitialized.current) {
             if (booking.travelers && booking.travelers.length > 0) {
                 reset({
-                    travelers: booking.travelers.map(t => {
+                    travelers: booking.travelers.map((t, index) => {
                         const rawPhone = t.phoneNumber || '';
                         let cCode = '+91';
                         let pNumber = rawPhone;
@@ -246,19 +246,22 @@ export const BookingTravelers: React.FC = () => {
                             pNumber = rawPhone.slice(matchedCC.code.length);
                         }
 
+                        const seg0 = booking.segments?.[0];
+                        const returnDateVal = t.returnDepartureTime || seg0?.returnDepartureTime || (seg0?.returnDate ? new Date(seg0.returnDate).toISOString().split('T')[0] : booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : '');
+
                         return {
                             name: t.name || '',
                             countryCode: cCode,
                             phoneNumber: pNumber,
                             email: t.email || '',
-                            country: t.country || '',
+                            country: t.country || (index === 0 ? (booking.destination || '') : ''),
                             flightFrom: t.flightFrom || booking.flightFrom || '',
                             flightTo: t.flightTo || booking.flightTo || '',
                             departureTime: t.departureTime || (booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : ''),
                             arrivalTime: t.arrivalTime || '',
                             tripType: (t.tripType || booking.tripType || 'one-way') as 'one-way' | 'round-trip' | 'multi-city',
                             returnDate: t.returnDate || '',
-                            returnDepartureTime: t.returnDepartureTime || (booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : ''),
+                            returnDepartureTime: returnDateVal,
                             returnArrivalTime: t.returnArrivalTime || '',
                             dob: t.dob || '',
                             anniversary: t.anniversary || '',
@@ -278,20 +281,23 @@ export const BookingTravelers: React.FC = () => {
                     pNumber = rawPhone.slice(matchedCC.code.length);
                 }
 
+                const seg0 = booking.segments?.[0];
+                const returnDateVal = seg0?.returnDepartureTime || (seg0?.returnDate ? new Date(seg0.returnDate).toISOString().split('T')[0] : booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : '');
+
                 reset({ 
                     travelers: [{
                         name: booking.contactPerson || '',
                         countryCode: cCode,
                         phoneNumber: pNumber,
                         email: booking.contactEmail || '',
-                        country: booking.destinationCity || '',
+                        country: booking.destination || '',
                         flightFrom: booking.flightFrom || '',
                         flightTo: booking.flightTo || '',
                         departureTime: booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : '',
                         arrivalTime: '',
                         tripType: (booking.tripType || 'one-way') as 'one-way' | 'round-trip' | 'multi-city',
                         returnDate: '',
-                        returnDepartureTime: booking.returnDate ? new Date(booking.returnDate).toISOString().split('T')[0] : '',
+                        returnDepartureTime: returnDateVal,
                         returnArrivalTime: '',
                         dob: '',
                         anniversary: ''
@@ -320,14 +326,18 @@ export const BookingTravelers: React.FC = () => {
             } else {
                setKeepSameContact(false);
             }
-            if (booking.segments && booking.segments.length > 0) {
-                setSegments(booking.segments.map(s => ({
-                    from: s.from || '',
-                    to: s.to || '',
-                    date: s.date ? new Date(s.date).toISOString().split('T')[0] : ''
-                })));
+            if (booking.segments && booking.segments.length > 1) {
+                // Leg 1 is already in the main form fields, so we only load Leg 2 onwards into the segments state
+                setSegments(booking.segments.slice(1).map(s => {
+                    const d = s.departureDate || s.date;
+                    return {
+                        from: s.from || '',
+                        to: s.to || '',
+                        date: d ? new Date(d).toISOString().split('T')[0] : ''
+                    };
+                }));
             } else {
-                setSegments([{ from: '', to: '', date: '' }]);
+                setSegments([]);
             }
 
             if (booking.includesFlight !== undefined) setIncludesFlight(booking.includesFlight);
@@ -433,30 +443,56 @@ export const BookingTravelers: React.FC = () => {
                 promises.push(api.post(`/bookings/${id}/passengers`, travelersWithCombinedPhone));
             }
 
-            // 2. Save Pricing
-            // Since we moved to lump sum, pricePerTicket will be derived or just stored as 0
-            const passengerCount = data.travelers.length || 1;
-            const derivedPricePerTicket = totalPayment / passengerCount;
             const primaryTraveler = data.travelers[0];
 
+            // Build segments array from traveler data
+            const bookingSegments: any[] = [];
+            const tripTypeVal = primaryTraveler?.tripType || 'one-way';
+            
+            if (tripTypeVal === 'multi-city') {
+                // First, add the primary leg (Leg 1) from the main form fields
+                bookingSegments.push({
+                    from: (primaryTraveler?.flightFrom || '').toUpperCase(),
+                    to: (primaryTraveler?.flightTo || '').toUpperCase(),
+                    departureDate: primaryTraveler?.departureTime ? new Date(primaryTraveler.departureTime).toISOString() : null,
+                    returnDate: null,
+                    returnDepartureTime: null,
+                    tripType: 'multi-city',
+                    country: primaryTraveler?.country || null,
+                });
+
+                // Then, add any additional legs (Leg 2, Leg 3, etc.)
+                segments.filter(s => s.from || s.to).forEach((s) => {
+                    bookingSegments.push({
+                        from: (s.from || '').toUpperCase(),
+                        to: (s.to || '').toUpperCase(),
+                        departureDate: s.date ? new Date(s.date).toISOString() : null,
+                        returnDate: null,
+                        returnDepartureTime: null,
+                        tripType: 'multi-city',
+                        country: null,
+                    });
+                });
+            } else {
+                // Single segment for one-way / round-trip
+                bookingSegments.push({
+                    from: (primaryTraveler?.flightFrom || '').toUpperCase(),
+                    to: (primaryTraveler?.flightTo || '').toUpperCase(),
+                    departureDate: primaryTraveler?.departureTime ? new Date(primaryTraveler.departureTime).toISOString() : null,
+                    returnDate: primaryTraveler?.returnDepartureTime ? new Date(primaryTraveler.returnDepartureTime).toISOString() : null,
+                    returnDepartureTime: primaryTraveler?.returnDepartureTime || null,
+                    tripType: tripTypeVal,
+                    country: primaryTraveler?.country || null,
+                });
+            }
+
             promises.push(api.put(`/bookings/${id}`, {
-                pricePerTicket: derivedPricePerTicket,
-                amount: lumpSumAmount || 0,
                 totalAmount: lumpSumAmount || 0,
                 actualAmount: actualLumpSumAmount || 0,
                 estimatedMargin: estimatedMargin || 0,
                 actualMargin: actualMargin || 0,
                 finalQuotation: finalQuotationAmount,
-                destination: primaryTraveler?.country || null,
-                travelDate: primaryTraveler?.departureTime ? new Date(primaryTraveler.departureTime) : null,
-                returnDate: primaryTraveler?.returnDepartureTime ? new Date(primaryTraveler.returnDepartureTime) : null,
-                travellers: passengerCount,
-                flightFrom: primaryTraveler?.flightFrom || null,
-                flightTo: primaryTraveler?.flightTo || null,
-                tripType: primaryTraveler?.tripType || 'one-way',
-                segments: primaryTraveler?.tripType === 'multi-city' ? segments.filter(s => s.from || s.to) : [],
-                includesFlight: includesFlight,
-                includesAdditionalServices: includesAdditionalServices,
+                segments: bookingSegments,
                 additionalServicesDetails: includesAdditionalServices ? additionalServicesDetails : null,
                 company: company || null,
                 estimatedCosts: estimatedCosts.map(c => ({
@@ -902,16 +938,16 @@ export const BookingTravelers: React.FC = () => {
                                                 <label className="block text-[10px] font-bold text-orange-700 uppercase mb-1 flex items-center gap-1.5">
                                                     <Plane size={12} className="text-orange-500 rotate-180" /> Flight From
                                                 </label>
-                                                <div className="w-full px-3 py-1.5 bg-orange-100/50 border border-orange-200 rounded text-sm font-bold text-orange-800 shadow-sm">
-                                                    {watch('travelers.0.flightTo') || '---'}
+                                                <div className="w-full px-3 py-1.5 bg-orange-100/50 border border-orange-200 rounded text-sm font-bold text-orange-800 shadow-sm uppercase">
+                                                    {(watch('travelers.0.flightTo') || '---').toUpperCase()}
                                                 </div>
                                             </div>
                                             <div className="opacity-70">
                                                 <label className="block text-[10px] font-bold text-orange-700 uppercase mb-1 flex items-center gap-1.5">
                                                     <Plane size={12} className="text-orange-500 rotate-180" /> Flight To
                                                 </label>
-                                                <div className="w-full px-3 py-1.5 bg-orange-100/50 border border-orange-200 rounded text-sm font-bold text-orange-800 shadow-sm">
-                                                    {watch('travelers.0.flightFrom') || '---'}
+                                                <div className="w-full px-3 py-1.5 bg-orange-100/50 border border-orange-200 rounded text-sm font-bold text-orange-800 shadow-sm uppercase">
+                                                    {(watch('travelers.0.flightFrom') || '---').toUpperCase()}
                                                 </div>
                                             </div>
                                             <div className="relative group">

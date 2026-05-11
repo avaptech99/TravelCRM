@@ -21,7 +21,6 @@ import {
     updateBookingSchema,
     createPaymentSchema,
 } from '../types';
-import { extractTravelInfo } from '../utils/extractTravelInfo';
 import {
     pushBookingEvent,
     pushToAll,
@@ -36,15 +35,14 @@ const bookingFetchInFlight = new Map<string, Promise<any>>();
 const recalcOutstanding = async (bookingId: string) => {
     const [payments, booking] = await Promise.all([
         Payment.find({ bookingId }).select('amount').lean(),
-        Booking.findById(bookingId).select('totalAmount amount estimatedCosts').lean()
+        Booking.findById(bookingId).select('totalAmount estimatedCosts').lean()
     ]);
     
     const totalPaid = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     
     if (booking) {
-        // The selling price is the basis for outstanding balance.
-        // We prioritize totalAmount/amount if they are set (respecting manual user entry).
-        let sellingPrice = booking.totalAmount || booking.amount || 0;
+        // The selling price is the single source of truth for outstanding balance.
+        let sellingPrice = booking.totalAmount || 0;
         
         // If no total price is set but we have a cost breakdown, use the breakdown sum as a smart fallback
         if (sellingPrice === 0 && booking.estimatedCosts && booking.estimatedCosts.length > 0) {
@@ -53,11 +51,8 @@ const recalcOutstanding = async (bookingId: string) => {
 
         const outstanding = Math.max(sellingPrice - totalPaid, 0);
         
-        // Update the booking with the new outstanding balance. 
-        // We only update amount/totalAmount if they were zero to provide the fallback value.
         const updateData: any = { outstanding };
         if (booking.totalAmount === 0 && sellingPrice > 0) updateData.totalAmount = sellingPrice;
-        if (booking.amount === 0 && sellingPrice > 0) updateData.amount = sellingPrice;
 
         await Booking.updateOne(
             { _id: bookingId }, 
@@ -156,22 +151,28 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const bookings = await Booking.find(query)
-        .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
+        .select('uniqueCode status assignedToUserId contact segments totalAmount createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('assignedToUserId', 'name')
         .lean();
 
-    const mapped = bookings.map(b => ({ 
-        ...b, 
-        id: (b as any)._id.toString(),
-        createdOn: b.createdAt,
-        contactPerson: b.contact?.name,
-        contactNumber: b.contact?.phone,
-        bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
-        destinationCity: b.destination,
-        assignedToUser: b.assignedToUserId,
-    }));
+    const mapped = bookings.map(b => {
+        const seg0 = b.segments && b.segments.length > 0 ? b.segments[0] : null;
+        return { 
+            ...b, 
+            id: (b as any)._id.toString(),
+            createdOn: b.createdAt,
+            contactPerson: b.contact?.name,
+            contactNumber: b.contact?.phone,
+            bookingType: b.contact?.type === 'Agent (B2B)' ? 'B2B' : 'B2C',
+            destinationCity: seg0?.country || null,
+            destination: seg0?.country || null,
+            travelDate: seg0?.departureDate || null,
+            amount: b.totalAmount,
+            assignedToUser: b.assignedToUserId,
+        };
+    });
     cacheSet(cacheKey, mapped, TTL.BOOKING_RECENT);
     res.json(mapped);
 });
@@ -258,7 +259,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
             { 'contact.name': searchRegex },
             { 'contact.phone': searchRegex },
             { uniqueCode: searchRegex },
-            { destination: searchRegex }
+            { 'segments.country': searchRegex }
         ];
         if (query.$or) {
             const existingOr = query.$or;
@@ -296,7 +297,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking.countDocuments(query).maxTimeMS(2000),
         Booking.find(query)
-            .select('uniqueCode status flightFrom flightTo destination travelDate amount totalAmount travellers createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
+            .select('uniqueCode status segments totalAmount createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
             .sort(sortQuery as any)
             .skip(cursor ? 0 : skipNum)
             .limit(limitNum)
@@ -307,18 +308,26 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     ]);
     t.mark('dbQuery');
 
-    const mappedBookings = rawBookings.map(b => ({
-        ...b,
-        id: b._id.toString(),
-        createdOn: b.createdAt,
-        contactPerson: b.contact?.name,
-        contactNumber: b.contact?.phone,
-        bookingType: b.contact?.type,
-        interested: b.contact?.interested ? 'Yes' : 'No',
-        destinationCity: b.destination,
-        assignedToUser: b.assignedToUserId && typeof b.assignedToUserId === 'object' ? b.assignedToUserId : { name: 'Unassigned' },
-        createdByUser: b.createdByUserId && typeof b.createdByUserId === 'object' ? b.createdByUserId : { name: req.user?.name || 'System Admin' },
-    }));
+    const mappedBookings = rawBookings.map(b => {
+        const seg0 = b.segments && b.segments.length > 0 ? b.segments[0] : null;
+        return {
+            ...b,
+            id: b._id.toString(),
+            createdOn: b.createdAt,
+            contactPerson: b.contact?.name,
+            contactNumber: b.contact?.phone,
+            bookingType: b.contact?.type,
+            interested: b.contact?.interested ? 'Yes' : 'No',
+            destinationCity: seg0?.country || null,
+            destination: seg0?.country || null,
+            travelDate: seg0?.departureDate || null,
+            flightFrom: seg0?.from || null,
+            flightTo: seg0?.to || null,
+            amount: b.totalAmount,
+            assignedToUser: b.assignedToUserId && typeof b.assignedToUserId === 'object' ? b.assignedToUserId : { name: 'Unassigned' },
+            createdByUser: b.createdByUserId && typeof b.createdByUserId === 'object' ? b.createdByUserId : { name: req.user?.name || 'System Admin' },
+        };
+    });
 
     const nextCursor = rawBookings.length === limitNum 
         ? rawBookings[rawBookings.length - 1]._id.toString()
@@ -446,7 +455,10 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
 
         t.mark('calculateTotals');
         const totalPaid = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-        const outstanding = (booking.amount || 0) - totalPaid;
+        const outstanding = (booking.totalAmount || 0) - totalPaid;
+
+        // Derive legacy fields from segments for backward compat
+        const seg0 = booking.segments && booking.segments.length > 0 ? booking.segments[0] : null;
 
         // 4. Map for Legacy "Old Style" Compatibility
         const historyData = (legacyComments || []);
@@ -482,13 +494,21 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             outstanding: outstanding || 0,
             contactPerson: booking.contact?.name,
             contactNumber: booking.contact?.phone,
-            contactEmail: booking.contact?.email,
+            contactEmail: (booking.contact as any)?.email || null,
             requirements: booking.contact?.requirements,
             interested: booking.contact?.interested ? 'Yes' : 'No',
             bookingType: booking.contact?.type,
-            destinationCity: booking.destination,
-            travellers: booking.travellers,
-            timeline: processedHistory, // Everything is now in one array from one table
+            // Backward-compatible flattened fields from segments
+            destinationCity: seg0?.country || null,
+            destination: seg0?.country || null,
+            travelDate: seg0?.departureDate || null,
+            flightFrom: seg0?.from || null,
+            flightTo: seg0?.to || null,
+            tripType: seg0?.tripType || 'one-way',
+            amount: booking.totalAmount,
+            includesFlight: (booking.segments && booking.segments.length > 0),
+            includesAdditionalServices: !!(booking.additionalServicesDetails && booking.additionalServicesDetails.trim()),
+            timeline: processedHistory,
             comments: processedHistory,
             activities: [], // Obsolete
             payments: payments,
@@ -592,16 +612,20 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
     // Generate IDs locally to avoid sequential awaits
     const primaryContactId = new mongoose.Types.ObjectId();
 
-    // Extract info if not provided
-    let finalDestination = result.data.destination || null;
-    let finalTravelDate = result.data.travelDate ? new Date(result.data.travelDate) : null;
-    let finalTravellers = result.data.travellers || null;
-
-    if (result.data.requirements) {
-        const parsedData = extractTravelInfo(result.data.requirements);
-        if (!finalDestination && parsedData.destinationCity) finalDestination = parsedData.destinationCity;
-        if (!finalTravelDate && parsedData.travelDate) finalTravelDate = parsedData.travelDate;
-        if (!finalTravellers && parsedData.travellers) finalTravellers = parsedData.travellers;
+    // Build segments from input
+    const inputSegments: any[] = [];
+    if (result.data.segments && result.data.segments.length > 0) {
+        for (const s of result.data.segments) {
+            inputSegments.push({
+                from: s.from || '',
+                to: s.to || '',
+                departureDate: s.departureDate ? new Date(s.departureDate) : null,
+                returnDate: s.returnDate ? new Date(s.returnDate) : null,
+                returnDepartureTime: s.returnDepartureTime || null,
+                tripType: s.tripType || 'one-way',
+                country: s.country || null,
+            });
+        }
     }
 
     // ✅ PRIMARY WRITE - The only await before response
@@ -610,28 +634,19 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
         contact: {
             name: result.data.contactPerson,
             phone: result.data.contactNumber,
-            email: result.data.contactEmail || null,
             type: result.data.bookingType === 'B2B' ? 'B2B' : 'B2C',
             requirements: result.data.requirements || null,
             interested: result.data.interested === 'Yes',
         },
-        destination: finalDestination,
-        travelDate: finalTravelDate,
-        flightFrom: result.data.flightFrom || null,
-        flightTo: result.data.flightTo || null,
-        tripType: result.data.tripType || 'one-way',
-        amount: result.data.amount || 0,
-        travellers: finalTravellers,
+        segments: inputSegments,
+        totalAmount: result.data.totalAmount || 0,
         createdByUserId: req.user?.id,
         assignedToUserId: result.data.assignedToUserId || (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC') ? req.user.id : null),
         participantIds: [
             req.user?.id, 
             result.data.assignedToUserId || (req.user?.role === 'AGENT' && (req.user?.groups || []).includes(result.data.assignedGroup || 'Package / LCC') ? req.user.id : null)
         ].filter((id): id is any => Boolean(id)),
-        includesFlight: result.data.includesFlight ?? true,
-        includesAdditionalServices: result.data.includesAdditionalServices ?? false,
         additionalServicesDetails: result.data.additionalServicesDetails || null,
-        pricePerTicket: result.data.pricePerTicket || 0,
         assignedGroup: result.data.assignedGroup || 'Package / LCC',
     });
 
@@ -649,7 +664,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
                 _id: primaryContactId,
                 contactName: result.data.contactPerson,
                 contactPhoneNo: result.data.contactNumber,
-                contactEmail: result.data.contactEmail || null,
                 bookingType: result.data.bookingType === 'B2B' ? 'Agent (B2B)' : 'Direct (B2C)',
                 requirements: result.data.requirements || null,
                 interested: result.data.interested === 'Yes',
@@ -682,7 +696,7 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
             booking.assignedToUserId ? Notification.create({
                 userId: booking.assignedToUserId,
                 bookingId: booking._id,
-                message: `New lead ${result.data.contactPerson || booking.destination || 'Unassigned'} assigned to you.`,
+                message: `New lead ${result.data.contactPerson || 'Unassigned'} assigned to you.`,
             }) : Promise.resolve()
         ]);
 
@@ -694,7 +708,6 @@ export const createBooking = asyncHandler(async (req: Request, res: Response) =>
             assignedGroup:    booking.assignedGroup || '',
             createdByUserId:  String(booking.createdByUserId || ''),
             contactName:      booking.contact?.name || '',
-            travelDate:       booking.travelDate,
         });
     }));
 });
@@ -729,7 +742,11 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
         updateData.segments = req.body.segments.map((s: any) => ({
             from: s.from || '',
             to: s.to || '',
-            date: s.date ? new Date(s.date) : null
+            departureDate: s.departureDate ? new Date(s.departureDate) : (s.date ? new Date(s.date) : null),
+            returnDate: s.returnDate ? new Date(s.returnDate) : null,
+            returnDepartureTime: s.returnDepartureTime || null,
+            tripType: s.tripType || 'one-way',
+            country: s.country || null,
         }));
     }
 
@@ -864,10 +881,11 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
         if (updatedBooking.createdByUserId && getObjectIdString(updatedBooking.createdByUserId) !== req.user?.id) {
             const creator = await User.findById(updatedBooking.createdByUserId).lean();
             if (creator?.role === 'MARKETER') {
+                const seg0 = (updatedBooking as any).segments?.[0];
                 await Notification.create({
                     userId: updatedBooking.createdByUserId,
                     bookingId: id,
-                    message: `Status of your lead ${updatedBooking.destination} updated to ${status}.`,
+                    message: `Status of your lead ${seg0?.country || updatedBooking.uniqueCode || ''} updated to ${status}.`,
                 });
             }
         }
@@ -983,7 +1001,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             await Notification.create({
                 userId: newAssignedUserId,
                 bookingId: id,
-                message: `Lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'} has been assigned to you.`,
+                message: `Lead ${(booking as any).primaryContact?.contactName || ((booking as any).segments?.[0]?.country) || 'Unassigned'} has been assigned to you.`,
             });
 
             // Also notify the marketer who created the lead
@@ -1010,7 +1028,7 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     if (newAssignedUserId) {
         pushToUser(newAssignedUserId, 'booking_assigned', {
             bookingId: id,
-            message: `A booking has been assigned to you: ${booking.destination || 'Untitled'}`,
+            message: `A booking has been assigned to you: ${(booking as any).segments?.[0]?.country || 'Untitled'}`,
         });
     }
 
@@ -1202,7 +1220,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
             await Notification.create({
                 userId: booking.assignedToUserId,
                 bookingId: id,
-                message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || booking.destination || 'Unassigned'}.`,
+                message: `Marketer ${req.user.name} added a remark on lead ${(booking as any).primaryContact?.contactName || (booking as any).segments?.[0]?.country || 'Unassigned'}.`,
             });
         }
 
@@ -1478,7 +1496,7 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     const endDate = new Date(y, m, 0, 23, 59, 59);
 
     const query: any = {
-        travelDate: { $gte: startDate, $lte: endDate },
+        'segments.0.departureDate': { $gte: startDate, $lte: endDate },
     };
 
     if (req.user?.role === 'AGENT') {
@@ -1486,16 +1504,19 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     }
 
     const bookings = await Booking.find(query)
-        .select('uniqueCode status destination travelDate contact')
+        .select('uniqueCode status segments contact')
         .lean();
 
-    const events = bookings.map(b => ({
-        id: b._id.toString(),
-        title: b.contact?.name || b.uniqueCode || 'Booking',
-        date: b.travelDate,
-        status: b.status,
-        destination: b.destination || '',
-    }));
+    const events = bookings.map(b => {
+        const seg0 = b.segments && b.segments.length > 0 ? b.segments[0] : null;
+        return {
+            id: b._id.toString(),
+            title: b.contact?.name || b.uniqueCode || 'Booking',
+            date: seg0?.departureDate || null,
+            status: b.status,
+            destination: seg0?.country || '',
+        };
+    });
 
     cacheSet(cacheKey, events, TTL.BOOKING_CALENDAR);
     res.json(events);
