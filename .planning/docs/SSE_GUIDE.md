@@ -54,6 +54,20 @@ Located in the sidebar, this shows the system health:
 5. **Update**: `useSSE` calls `queryClient.setQueryData` to update the specific booking in the cache.
 6. **UI Change**: React detects the cache change and re-renders the specific table row instantly, without a page refresh.
 
-## 5. Maintenance & Troubleshooting
+## 5. Event Types Catalog
+
+| Event Name | Scope | Description | Payload Example |
+|---|---|---|---|
+| `connected` | User | Initial connection confirmation | `{ userId, role, timestamp }` |
+| `booking_created` | Target | Notifies relevant roles of a new lead | `{ bookingId, contactName, status }` |
+| `booking_assigned`| User | Notifies an agent they have a new lead | `{ bookingId, assignedToUserId }` |
+| `booking_deleted` | Global | Removes a row from all active dashboards | `{ bookingId }` |
+| `notification_new` | User | Generic alert (e.g., Follow-up due) | `{ title, message, bookingId }` |
+| `analytics_stale` | Global | Forces dashboard stats to refresh | `{ reason: 'payment_added' }` |
+| `shutdown` | Global | Server is restarting; prep for reconnect | `{ message: 'Server reboot' }` |
+
+---
+
+## 6. Maintenance & Troubleshooting
 - **Memory**: Since connections are stored in memory, ensure `WEB_CONCURRENCY` is set to `1` on free-tier servers. If scaling horizontally, a Redis Pub/Sub layer will be needed to sync events across workers.
 - **Timeouts**: If you see "Syncing" frequently, check if the server is restarting or if the 30s heartbeat is being blocked by long-running synchronous tasks.

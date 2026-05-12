@@ -122,14 +122,16 @@ Returns paginated booking list with filters.
 | Param | Type | Description |
 |---|---|---|
 | `page` | Number | Page number (default: 1) |
-| `limit` | Number | Items per page (default: 10) |
+| `limit` | Number | Items per page (max: 50) |
 | `status` | String | Comma-separated: `Pending,Working,Sent,Booked,Interested,Not Interested` |
-| `assignedTo` | String | User ID to filter by assigned agent |
-| `search` | String | Search in contact name, phone, requirements, flight cities |
-| `fromDate` | ISO Date | Filter by creation date (start) |
-| `toDate` | ISO Date | Filter by creation date (end) |
-| `travelDateFilter` | String | `upcoming_7_days`, `upcoming_10_days`, `upcoming_15_days`, `upcoming_30_days` |
+| `assignedTo` | String | User ID (or `unassigned`) |
+| `group` | String | Filter by department (e.g., `Visa`) |
+| `search` | String | Search in contact name, phone, code, country |
+| `cursor` | String | MongoDB ID for infinite scroll |
+| `outstandingOnly`| String | `true` — only bookings with balance > 0 |
 | `myBookings` | String | `true` — show only user's bookings |
+| `sortBy` | String | Field to sort by |
+| `sortOrder` | String | `asc` or `desc` |
 
 **Response:**
 ```json
@@ -517,3 +519,33 @@ X-API-KEY: <value of EXTERNAL_API_KEY env var>
 | `GET /health` | `"OK"` |
 | `GET /api/ping` | `"pong"` |
 | `GET /test-db` | `{ "message": "MongoDB connected successfully", "host": "..." }` |
+
+---
+
+## 📡 SSE Stream — `/api/stream`
+
+### GET `/api/stream`
+**Access:** All authenticated (Token via Query)
+
+Persistent EventSource connection.
+**Query:** `?token=<JWT>`
+
+---
+
+## ⚙️ Settings Routes — `/api/settings`
+
+### GET `/api/settings/dropdowns`
+**Access:** All authenticated
+Returns all manageable dropdown lists (Companies, Cost Types, etc.).
+
+### POST `/api/settings/dropdowns`
+**Access:** ADMIN only
+Updates or adds a new dropdown category.
+
+---
+
+## 🛠️ Maintenance Routes
+
+### POST `/api/bookings/:id/recalc`
+**Access:** ADMIN, ACCOUNT
+Forces a recalculation of the `outstanding` balance and total price fallback.
