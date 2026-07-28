@@ -17,6 +17,15 @@ import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
+// ponytail: inline mask — no helper file needed
+const maskPhone = (num: string) => {
+    if (!num) return '-';
+    const raw = num.startsWith('+') ? num : `+${num}`;
+    const match = raw.match(/^(\+\d{1,4})(\d{3})(\d+)$/);
+    if (!match) return num;
+    return `${match[1]}${match[2]}*****`;
+};
+
 
 
 interface BookingsTableProps {
@@ -28,9 +37,10 @@ interface BookingsTableProps {
     travelDateFilter?: string;
     isInlineView?: boolean;
     outstandingFilter?: boolean;
+    dateProximityFilter?: 'all' | 'red' | 'yellow';
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, dateProximityFilter }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -221,9 +231,10 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         columnHelper.accessor('contactPerson', {
             header: 'Contact Person',
         }),
-        columnHelper.accessor('contactNumber', {
+        ...(!isEDTView ? [columnHelper.accessor('contactNumber', {
             header: 'Contact Number',
-        }),
+            cell: (info) => maskPhone(info.getValue()),
+        })] : []),
         columnHelper.accessor((row) => {
             const flightDestination = row.travelers?.[0]?.flightTo;
             return flightDestination || row.destinationCity || '-';
@@ -248,6 +259,15 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             header: 'Travellers',
             cell: (info) => info.getValue() || '-',
         }),
+        ...(isEDTView ? [columnHelper.display({
+            id: 'outstanding',
+            header: 'Outstanding',
+            cell: (info) => {
+                const amt = info.row.original.outstanding;
+                if (!amt || amt <= 0) return <span className="text-slate-400">—</span>;
+                return <span className="font-medium text-red-600">₹{amt.toLocaleString('en-IN')}</span>;
+            },
+        })] : []),
         columnHelper.display({
             id: 'status',
             header: 'Status',
@@ -291,8 +311,22 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         }),
     ];
 
+    // ponytail: client-side date filter — only active on /booked, no backend needed
+    const filteredData = React.useMemo(() => {
+        const rows: Booking[] = data?.data || [];
+        if (!dateProximityFilter || dateProximityFilter === 'all') return rows;
+        return rows.filter((b) => {
+            const tDate = b.travelers?.[0]?.departureTime || b.travelDate;
+            if (!tDate) return false;
+            const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
+            if (dateProximityFilter === 'red') return days >= 0 && days <= 2;
+            if (dateProximityFilter === 'yellow') return days >= 5 && days <= 7;
+            return true;
+        });
+    }, [data?.data, dateProximityFilter]);
+
     const table = useReactTable({
-        data: data?.data || [],
+        data: filteredData,
         columns,
         pageCount: data?.meta?.totalPages || -1,
         state: {
@@ -362,13 +396,22 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             {table.getRowModel().rows.map((row) => (
                                 <tr 
                                     key={row.id} 
-                                    className={`transition-colors cursor-pointer ${
-                                        row.original.status === 'Follow Up' && row.original.followUpDate && dayjs(row.original.followUpDate).isAfter(dayjs(), 'day')
-                                            ? 'bg-gray-50 opacity-60 hover:opacity-80 hover:bg-gray-100'
-                                            : row.original.outstanding && row.original.outstanding > 0 
-                                                ? 'bg-[#FEF2F2] hover:bg-[#FEE2E2]' 
-                                                : 'bg-white hover:bg-slate-50'
-                                    }`}
+                                    className={`transition-colors cursor-pointer ${(() => {
+                                        if (isEDTView) {
+                                            const tDate = row.original.travelers?.[0]?.departureTime || row.original.travelDate;
+                                            if (tDate) {
+                                                const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
+                                                if (days >= 0 && days <= 2) return 'bg-[#FEF2F2] hover:bg-[#FEE2E2]';
+                                                if (days >= 5 && days <= 7) return 'bg-[#FEFCE8] hover:bg-[#FEF9C3]';
+                                            }
+                                            return 'bg-white hover:bg-slate-50';
+                                        }
+                                        if (row.original.status === 'Follow Up' && row.original.followUpDate && dayjs(row.original.followUpDate).isAfter(dayjs(), 'day'))
+                                            return 'bg-gray-50 opacity-60 hover:opacity-80 hover:bg-gray-100';
+                                        if (row.original.outstanding && row.original.outstanding > 0)
+                                            return 'bg-[#FEF2F2] hover:bg-[#FEE2E2]';
+                                        return 'bg-white hover:bg-slate-50';
+                                    })()}`}
                                     onClick={() => {
                                         if (window.getSelection()?.toString().length) return;
                                         sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
@@ -418,13 +461,21 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                             sessionStorage.setItem('bookingsReturnUrl', location.pathname + location.search);
                                             navigate(`/bookings/${booking.id}`);
                                         }}
-                                        className={`rounded-xl p-4 border flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative ${
-                                            booking.status === 'Follow Up' && (booking as any).followUpDate && dayjs((booking as any).followUpDate).isAfter(dayjs(), 'day')
-                                                ? 'bg-gray-50 border-gray-200 opacity-60'
-                                                : (booking as any).outstanding > 0 
-                                                    ? 'bg-red-50 border-red-200' 
-                                                    : 'bg-white border-slate-200'
-                                        }`}
+                                        className={`rounded-xl p-4 border flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative ${(() => {
+                                            if (isEDTView) {
+                                                const tDate = booking.travelers?.[0]?.departureTime || booking.travelDate;
+                                                if (tDate) {
+                                                    const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
+                                                    if (days >= 0 && days <= 2) return 'bg-red-50 border-red-200';
+                                                    if (days >= 5 && days <= 7) return 'bg-yellow-50 border-yellow-200';
+                                                }
+                                                return 'bg-white border-slate-200';
+                                            }
+                                            if (booking.status === 'Follow Up' && (booking as any).followUpDate && dayjs((booking as any).followUpDate).isAfter(dayjs(), 'day'))
+                                                return 'bg-gray-50 border-gray-200 opacity-60';
+                                            if ((booking as any).outstanding > 0) return 'bg-red-50 border-red-200';
+                                            return 'bg-white border-slate-200';
+                                        })()}`}
                                     >
                                         <div className="flex justify-between items-start">
                                             <div className="flex flex-1 items-center gap-3">

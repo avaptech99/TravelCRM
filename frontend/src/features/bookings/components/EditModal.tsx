@@ -30,6 +30,8 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
     const [followUpDate, setFollowUpDate] = useState<string | null>(null);
+    const [travelDate, setTravelDate] = useState<string>('');
+    const [travellers, setTravellers] = useState<string>('');
 
     // Reset state when booking changes
     React.useEffect(() => {
@@ -39,6 +41,8 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             setInterested(booking.interested || 'No');
             setCommentText('');
             setFollowUpDate(booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null);
+            setTravelDate(booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : '');
+            setTravellers(booking.travellers ? String(booking.travellers) : '');
         }
     }, [booking]);
 
@@ -67,7 +71,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
 
-            // 3. Update Pricing/Other Details (Interested, Follow Up Date)
+            // 3. Update Pricing/Other Details (Interested, Follow Up Date, Travel Date, Travellers)
             const updates: any = {};
             if (interested !== (booking.interested || 'No')) {
                 updates.interested = interested;
@@ -75,6 +79,13 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             const currentBookingFollowUp = booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null;
             if (status === 'Follow Up' && followUpDate !== currentBookingFollowUp) {
                 updates.followUpDate = followUpDate || null;
+            }
+            if (status === 'Booked') {
+                if (!travelDate) throw new Error('Travel Date is required when status is Booked');
+                const parsedTravellers = parseInt(travellers, 10);
+                if (!travellers || isNaN(parsedTravellers) || parsedTravellers < 1) throw new Error('Travellers count is required when status is Booked');
+                updates.travelDate = new Date(travelDate).toISOString();
+                updates.travellers = parsedTravellers;
             }
             if (Object.keys(updates).length > 0) {
                 promises.push(api.put(`/bookings/${booking.id}`, updates));
@@ -135,6 +146,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
         (booking && interested !== (booking.interested || 'No')) ||
         (booking && status === 'Follow Up' && followUpDate !== (booking.followUpDate ? new Date(booking.followUpDate).toISOString().split('T')[0] : null)) ||
+        (booking && status === 'Booked' && (travelDate !== (booking.travelDate ? new Date(booking.travelDate).toISOString().split('T')[0] : '') || travellers !== (booking.travellers ? String(booking.travellers) : ''))) ||
         commentText.trim().length > 0;
 
     if (!booking) return null;
@@ -183,6 +195,31 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                                 onChange={(e) => setFollowUpDate(e.target.value)}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                             />
+                        </div>
+                    )}
+
+                    {status === 'Booked' && !isMarketer && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Travel Date <span className="text-red-500">*</span></label>
+                                <input
+                                    type="date"
+                                    value={travelDate}
+                                    onChange={(e) => setTravelDate(e.target.value)}
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-slate-700">Travellers <span className="text-red-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={travellers}
+                                    onChange={(e) => setTravellers(e.target.value)}
+                                    placeholder="e.g. 2"
+                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                />
+                            </div>
                         </div>
                     )}
 
