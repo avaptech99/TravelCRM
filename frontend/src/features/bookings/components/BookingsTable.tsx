@@ -84,7 +84,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             return;
         }
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter]);
+    }, [statusFilter, searchTerm, agentFilter, isMyBookingsView, isEDTView, travelDateFilter, dateProximityFilter]);
 
     const unassignMutation = useMutation({
         mutationFn: async (bookingId: string) => {
@@ -127,7 +127,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, dateProximityFilter, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -137,6 +137,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (isMyBookingsView) params.append('myBookings', 'true');
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (outstandingFilter) params.append('outstandingOnly', 'true');
+            if (dateProximityFilter && dateProximityFilter !== 'all') params.append('dateProximity', dateProximityFilter);
 
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());
@@ -311,25 +312,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         }),
     ];
 
-    // ponytail: client-side date filter — only active on /booked, no backend needed
-    const filteredData = React.useMemo(() => {
-        const rows: Booking[] = data?.data || [];
-        if (!dateProximityFilter || dateProximityFilter === 'all') return rows;
-        return rows.filter((b) => {
-            const hasOutstanding = Number(b.outstanding || 0) > 0;
-            if (!hasOutstanding) return false; // Red/yellow only applies to bookings with outstanding balance
-            
-            const tDate = b.travelers?.[0]?.departureTime || b.travelDate;
-            if (!tDate) return false;
-            const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
-            if (dateProximityFilter === 'red') return days >= 0 && days <= 2;
-            if (dateProximityFilter === 'yellow') return days >= 5 && days <= 7;
-            return true;
-        });
-    }, [data?.data, dateProximityFilter]);
-
     const table = useReactTable({
-        data: filteredData,
+        data: data?.data || [],
         columns,
         pageCount: data?.meta?.totalPages || -1,
         state: {

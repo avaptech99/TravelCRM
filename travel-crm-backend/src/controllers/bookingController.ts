@@ -143,9 +143,9 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
 // @route   GET /api/bookings
 // @access  Private
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '10', myBookings, outstandingOnly, dateProximity } = req.query;
 
-    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${page}_${limit}`;
+    const cacheKey = `bookings_${req.user?.id || 'all'}_${status || ''}_${assignedTo || ''}_${search || ''}_${fromDate || ''}_${toDate || ''}_${travelDateFilter || ''}_${myBookings || ''}_${outstandingOnly || ''}_${dateProximity || ''}_${page}_${limit}`;
     const cached = appCache.get(cacheKey);
     if (cached) {
         console.log(`[CACHE HIT] ${cacheKey}`);
@@ -308,6 +308,32 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     // Outstanding filter - simple field check
     if (String(outstandingOnly) === 'true') {
         query.outstanding = { $gt: 0 };
+    }
+
+    // Date proximity filter (Red / Yellow) - primarily for EDT view
+    if (dateProximity && dateProximity !== 'all') {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        if (dateProximity === 'red') {
+            const endOfDayPlusTwo = new Date(now);
+            endOfDayPlusTwo.setDate(endOfDayPlusTwo.getDate() + 2);
+            endOfDayPlusTwo.setHours(23, 59, 59, 999);
+
+            query.outstanding = { $gt: 0 };
+            query.travelDate = { $exists: true, $ne: null, $lte: endOfDayPlusTwo };
+        } else if (dateProximity === 'yellow') {
+            const startOfDayPlusFive = new Date(now);
+            startOfDayPlusFive.setDate(startOfDayPlusFive.getDate() + 5);
+            startOfDayPlusFive.setHours(0, 0, 0, 0);
+
+            const endOfDayPlusSeven = new Date(now);
+            endOfDayPlusSeven.setDate(endOfDayPlusSeven.getDate() + 7);
+            endOfDayPlusSeven.setHours(23, 59, 59, 999);
+
+            query.outstanding = { $gt: 0 };
+            query.travelDate = { $exists: true, $ne: null, $gte: startOfDayPlusFive, $lte: endOfDayPlusSeven };
+        }
     }
 
     const skip = (Number(page) - 1) * Number(limit);
