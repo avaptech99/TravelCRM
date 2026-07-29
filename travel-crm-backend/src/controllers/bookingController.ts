@@ -20,6 +20,12 @@ import {
     createPaymentSchema,
 } from '../types';
 import { extractTravelInfo } from '../utils/extractTravelInfo';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // Helper to clear all booking-related caches
 const invalidateBookingCaches = () => {
@@ -202,25 +208,22 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     }
 
     if (travelDateFilter && travelDateFilter !== 'all') {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const futureDate = new Date(now);
+        const todayIST = dayjs().tz('Asia/Kolkata').startOf('day');
+        let futureDateIST = todayIST;
 
         if (travelDateFilter === 'upcoming_7_days') {
-            futureDate.setDate(now.getDate() + 7);
+            futureDateIST = todayIST.add(7, 'day');
         } else if (travelDateFilter === 'upcoming_10_days') {
-            futureDate.setDate(now.getDate() + 10);
+            futureDateIST = todayIST.add(10, 'day');
         } else if (travelDateFilter === 'upcoming_15_days') {
-            futureDate.setDate(now.getDate() + 15);
+            futureDateIST = todayIST.add(15, 'day');
         } else if (travelDateFilter === 'upcoming_30_days') {
-            futureDate.setDate(now.getDate() + 30);
+            futureDateIST = todayIST.add(30, 'day');
         }
-        
-        futureDate.setHours(23, 59, 59, 999);
 
         query.travelDate = {
-            $gte: now,
-            $lte: futureDate
+            $gte: todayIST.toDate(),
+            $lte: futureDateIST.endOf('day').toDate()
         };
     }
 
@@ -312,24 +315,16 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     // Date proximity filter (Red / Yellow) - primarily for EDT view
     if (dateProximity && dateProximity !== 'all') {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        const todayIST = dayjs().tz('Asia/Kolkata').startOf('day');
 
         if (dateProximity === 'red') {
-            const endOfDayPlusTwo = new Date(now);
-            endOfDayPlusTwo.setDate(endOfDayPlusTwo.getDate() + 2);
-            endOfDayPlusTwo.setHours(23, 59, 59, 999);
+            const endOfDayPlusTwo = todayIST.add(2, 'day').endOf('day').toDate();
 
             query.outstanding = { $gt: 0 };
             query.travelDate = { $exists: true, $ne: null, $lte: endOfDayPlusTwo };
         } else if (dateProximity === 'yellow') {
-            const startOfDayPlusFive = new Date(now);
-            startOfDayPlusFive.setDate(startOfDayPlusFive.getDate() + 5);
-            startOfDayPlusFive.setHours(0, 0, 0, 0);
-
-            const endOfDayPlusSeven = new Date(now);
-            endOfDayPlusSeven.setDate(endOfDayPlusSeven.getDate() + 7);
-            endOfDayPlusSeven.setHours(23, 59, 59, 999);
+            const startOfDayPlusFive = todayIST.add(5, 'day').toDate();
+            const endOfDayPlusSeven = todayIST.add(7, 'day').endOf('day').toDate();
 
             query.outstanding = { $gt: 0 };
             query.travelDate = { $exists: true, $ne: null, $gte: startOfDayPlusFive, $lte: endOfDayPlusSeven };
