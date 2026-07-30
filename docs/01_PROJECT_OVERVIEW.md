@@ -3,7 +3,6 @@
 > **Last Updated:** April 2026  
 > **Original Author:** Anmol  
 > **Status:** Production (Live)
-
 ---
 
 ## What Is This Project?
