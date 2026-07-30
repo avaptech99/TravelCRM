@@ -385,11 +385,14 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                     key={row.id} 
                                     className={`transition-colors cursor-pointer ${(() => {
                                         if (isEDTView) {
-                                            const tDate = row.original.travelers?.[0]?.departureTime || row.original.travelDate;
-                                            if (tDate) {
-                                                const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
-                                                if (days >= 0 && days <= 2) return 'bg-[#FEF2F2] hover:bg-[#FEE2E2]';
-                                                if (days >= 5 && days <= 7) return 'bg-[#FEFCE8] hover:bg-[#FEF9C3]';
+                                            const hasOutstanding = Number(row.original.outstanding || 0) > 0;
+                                            if (hasOutstanding) {
+                                                const tDate = row.original.travelers?.[0]?.departureTime || row.original.travelDate;
+                                                if (tDate) {
+                                                    const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
+                                                    if (days >= 0 && days <= 2) return 'bg-[#FEF2F2] hover:bg-[#FEE2E2]';
+                                                    if (days >= 5 && days <= 7) return 'bg-[#FEFCE8] hover:bg-[#FEF9C3]';
+                                                }
                                             }
                                             return 'bg-white hover:bg-slate-50';
                                         }
@@ -450,11 +453,14 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                         }}
                                         className={`rounded-xl p-4 border flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.03)] cursor-pointer active:scale-[0.99] transition-transform relative ${(() => {
                                             if (isEDTView) {
-                                                const tDate = booking.travelers?.[0]?.departureTime || booking.travelDate;
-                                                if (tDate) {
-                                                    const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
-                                                    if (days >= 0 && days <= 2) return 'bg-red-50 border-red-200';
-                                                    if (days >= 5 && days <= 7) return 'bg-yellow-50 border-yellow-200';
+                                                const hasOutstanding = Number((booking as any).outstanding || 0) > 0;
+                                                if (hasOutstanding) {
+                                                    const tDate = booking.travelers?.[0]?.departureTime || booking.travelDate;
+                                                    if (tDate) {
+                                                        const days = dayjs(tDate).startOf('day').diff(dayjs().startOf('day'), 'day');
+                                                        if (days >= 0 && days <= 2) return 'bg-red-50 border-red-200';
+                                                        if (days >= 5 && days <= 7) return 'bg-yellow-50 border-yellow-200';
+                                                    }
                                                 }
                                                 return 'bg-white border-slate-200';
                                             }
