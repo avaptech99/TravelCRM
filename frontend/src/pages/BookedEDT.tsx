@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookingsTable } from '../features/bookings/components/BookingsTable';
 import { CheckCircle, Search } from 'lucide-react';
 
-// ponytail: client-side date filter applied to fetched page data via a wrapper
-type DateFilter = 'all' | 'red' | 'yellow';
+type DateFilter = 'all' | 'red' | 'yellow' | 'outstanding';
 
 export const BookedEDT: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +40,7 @@ export const BookedEDT: React.FC = () => {
                         <option value="all">All bookings</option>
                         <option value="red">🔴 Red (≤2 days to travel)</option>
                         <option value="yellow">🟡 Yellow (5–7 days to travel)</option>
+                        <option value="outstanding">💰 Outstanding</option>
                     </select>
 
                     <div className="relative">

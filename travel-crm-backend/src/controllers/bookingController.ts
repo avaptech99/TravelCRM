@@ -319,15 +319,13 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
         if (dateProximity === 'red') {
             const endOfDayPlusTwo = todayIST.add(2, 'day').endOf('day').toDate();
-
-            query.outstanding = { $gt: 0 };
-            query.travelDate = { $exists: true, $ne: null, $lte: endOfDayPlusTwo };
+            query.travelDate = { $exists: true, $ne: null, $gte: todayIST.toDate(), $lte: endOfDayPlusTwo };
         } else if (dateProximity === 'yellow') {
             const startOfDayPlusFive = todayIST.add(5, 'day').toDate();
             const endOfDayPlusSeven = todayIST.add(7, 'day').endOf('day').toDate();
-
-            query.outstanding = { $gt: 0 };
             query.travelDate = { $exists: true, $ne: null, $gte: startOfDayPlusFive, $lte: endOfDayPlusSeven };
+        } else if (dateProximity === 'outstanding') {
+            query.outstanding = { $gt: 0 };
         }
     }
 
