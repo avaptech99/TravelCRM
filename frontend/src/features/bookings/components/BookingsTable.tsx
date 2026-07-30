@@ -37,7 +37,7 @@ interface BookingsTableProps {
     travelDateFilter?: string;
     isInlineView?: boolean;
     outstandingFilter?: boolean;
-    dateProximityFilter?: 'all' | 'red' | 'yellow';
+    dateProximityFilter?: 'all' | 'red' | 'yellow' | 'outstanding';
 }
 
 export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, dateProximityFilter }) => {
