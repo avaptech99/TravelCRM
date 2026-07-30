@@ -5,6 +5,7 @@ The Travel CRM is a full-stack web application built on a client-server architec
 
 ## Design Patterns
 
+
 ### Backend (Express + Mongoose)
 - **Controller-Route Pattern**: Standard Express routing mapping to controller functions.
 - **Async Error Handling**: Uses `express-async-handler` to simplify try-catch blocks in controllers.
