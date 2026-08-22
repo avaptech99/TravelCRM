@@ -6,7 +6,6 @@ import User from '../models/User';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
-import { getPhoneLeadUserId } from '../utils/phoneLead';
 
 // Request deduplication for sync fetches
 const syncFetchInFlight = new Map<string, Promise<any>>();
@@ -60,8 +59,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         recentQuery.updatedAt = { $gte: since };
 
         // Total Bookings / New Enquiries reflect missed-call leads only
-        const phoneLeadUserId = await getPhoneLeadUserId();
-        if (phoneLeadUserId) statsQuery.createdByUserId = phoneLeadUserId;
+        statsQuery.callDisposition = 'MISSED';
 
         // Run all queries
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([

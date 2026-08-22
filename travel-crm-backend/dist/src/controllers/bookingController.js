@@ -16,7 +16,6 @@ const Timeline_1 = __importDefault(require("../models/Timeline"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = require("../utils/cache");
 const background_1 = require("../utils/background");
-const phoneLead_1 = require("../utils/phoneLead");
 const perfLogger_1 = require("../utils/perfLogger");
 const types_1 = require("../types");
 const sseManager_1 = require("../sse/sseManager");
@@ -237,11 +236,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         query.outstanding = { $gt: 0 };
     if (group)
         query.assignedGroup = group;
-    if (onlyCallLogs === 'true') {
-        const phoneLeadUserId = await (0, phoneLead_1.getPhoneLeadUserId)();
-        if (phoneLeadUserId)
-            query.createdByUserId = phoneLeadUserId;
-    }
+    if (onlyCallLogs === 'true')
+        query.callDisposition = 'MISSED';
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
     const limitNum = Math.min(parseInt(limit, 10), 50); // Hard limit of 50 for stability

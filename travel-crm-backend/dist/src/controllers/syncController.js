@@ -11,7 +11,6 @@ const User_1 = __importDefault(require("../models/User"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
 const perfLogger_1 = require("../utils/perfLogger");
-const phoneLead_1 = require("../utils/phoneLead");
 // Request deduplication for sync fetches
 const syncFetchInFlight = new Map();
 // @desc    Get combined dashboard data (stats + recent bookings + notifications)
@@ -58,9 +57,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };
         // Total Bookings / New Enquiries reflect missed-call leads only
-        const phoneLeadUserId = await (0, phoneLead_1.getPhoneLeadUserId)();
-        if (phoneLeadUserId)
-            statsQuery.createdByUserId = phoneLeadUserId;
+        statsQuery.callDisposition = 'MISSED';
         // Run all queries
         const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking_1.default.aggregate([
