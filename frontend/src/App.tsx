@@ -54,7 +54,6 @@ function App() {
                   <Route path="/bookings" element={<Bookings />} />
                   <Route path="/mybooking" element={<Bookings />} />
                   <Route path="/unassignedbooking" element={<Bookings />} />
-                  <Route path="/missedcalls" element={<Bookings />} />
                   <Route path="/calendar" element={<CalendarView />} />
                   <Route path="/bookings/:id" element={<BookingDetails />} />
 

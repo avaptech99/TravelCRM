@@ -130,7 +130,8 @@ const processCallIntoCRM = async (
             name: (contact as any).contactName,
             phone: (contact as any).contactPhoneNo,
             type: (contact as any).bookingType,
-            interested: (contact as any).requirements,
+            requirements: commentText,
+            interested: false,
         },
         createdByUserId: phoneLeadUser._id,
         status: 'Pending',
@@ -138,6 +139,15 @@ const processCallIntoCRM = async (
         callDisposition: disposition === 'OUTBOUND' ? 'OUTBOUND' : (disposition === 'ANSWERED' && billsec > 0 ? 'ANSWERED' : 'MISSED'),
         pbxCallId: pbxCallId,
         lastInteractionAt: callTime || new Date()
+    });
+
+    // Anything the GDMS payload carries beyond name/phone (call time, duration, disposition)
+    // has no dedicated booking field, so it's recorded as a comment on the new lead.
+    await Comment.create({
+        bookingId: booking._id,
+        userId: phoneLeadUser._id,
+        text: commentText,
+        createdAt: callTime || new Date(),
     });
 
     CacheInvalidation.onBookingWrite(booking._id.toString());

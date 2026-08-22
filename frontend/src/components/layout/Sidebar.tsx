@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as SettingsIcon, UserSquare, BarChart3, Calendar, PhoneMissed } from 'lucide-react';
+import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as SettingsIcon, UserSquare, BarChart3, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import logo from '../../assets/logo.png';
@@ -22,7 +22,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ sseMode }) => {
         { label: 'All Leads', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT', 'VISA', 'TICKETING'] },
         { label: 'My Leads', path: '/mybooking', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING'] },
         { label: 'Unassigned', path: '/unassignedbooking', icon: <Users size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'Missed Calls', path: '/missedcalls', icon: <PhoneMissed size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT', 'OPERATION', 'ACCOUNT'] },
         { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },

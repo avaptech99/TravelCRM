@@ -10,6 +10,7 @@ interface SyncData {
         working: number;
         sent: number;
         agents: number;
+        missedCalls: number;
     };
     recentBookings: any[];
     notifications: any[];

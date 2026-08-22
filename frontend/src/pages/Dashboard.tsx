@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
+import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2, PhoneMissed } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -85,6 +85,7 @@ export const Dashboard: React.FC = () => {
         { title: 'Total Bookings', value: stats?.total || 0, icon: <FileText className="text-blue-600" size={22} />, bg: 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200' },
         { title: 'Confirmed (EDT)', value: stats?.booked || 0, icon: <CheckCircle className="text-emerald-600" size={22} />, bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200' },
         { title: 'New Enquiries', value: stats?.pending || 0, icon: <Clock className="text-amber-600" size={22} />, bg: 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200' },
+        { title: 'Total Missed Calls', value: stats?.missedCalls || 0, icon: <PhoneMissed className="text-red-600" size={22} />, bg: 'bg-gradient-to-br from-red-50 to-red-100 border-red-200' },
     ];
 
     if (user?.role === 'ADMIN') {

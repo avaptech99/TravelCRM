@@ -8,6 +8,7 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Notification_1 = __importDefault(require("../models/Notification"));
 const User_1 = __importDefault(require("../models/User"));
+const MissedCall_1 = __importDefault(require("../models/MissedCall"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
 const perfLogger_1 = require("../utils/perfLogger");
@@ -57,7 +58,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };
         // Run all queries
-        const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
+        const [statsResult, recentBookings, notifications, agentsCount, missedCallsCount] = await Promise.all([
             Booking_1.default.aggregate([
                 { $match: statsQuery },
                 {
@@ -81,7 +82,8 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean(),
-            userRole === 'ADMIN' ? User_1.default.countDocuments({ role: 'AGENT' }) : Promise.resolve(0)
+            userRole === 'ADMIN' ? User_1.default.countDocuments({ role: 'AGENT' }) : Promise.resolve(0),
+            MissedCall_1.default.countDocuments({ disposition: { $ne: 'ANSWERED' } })
         ]);
         t.mark('dbQuery');
         const stats = statsResult.length > 0 ? {
@@ -115,6 +117,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
             stats: {
                 ...stats,
                 agents: agentsCount,
+                missedCalls: missedCallsCount,
             },
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
