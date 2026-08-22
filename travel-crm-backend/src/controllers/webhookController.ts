@@ -126,6 +126,12 @@ const processCallIntoCRM = async (
 
     const booking: any = await (Booking as any).create({
         primaryContactId: (contact as any)._id,
+        contact: {
+            name: (contact as any).contactName,
+            phone: (contact as any).contactPhoneNo,
+            type: (contact as any).bookingType,
+            interested: (contact as any).requirements,
+        },
         createdByUserId: phoneLeadUser._id,
         status: 'Pending',
         segments: [],
