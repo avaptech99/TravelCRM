@@ -154,6 +154,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         gcTime: 1000 * 60 * 10,   // Keep in memory for 10 minutes
     });
 
+
+
     const columnHelper = createColumnHelper<Booking>();
 
     // 3-click cycle handler for master checkbox:
