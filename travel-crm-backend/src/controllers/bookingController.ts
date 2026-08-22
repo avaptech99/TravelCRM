@@ -278,10 +278,8 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     const limitNum = Math.min(parseInt(limit as string, 10), 50); // Hard limit of 50 for stability
     
-    // ponytail: Default sort by last interaction/comment date so entries with missed calls jump to top
-    const sortQuery: any = sortBy 
-        ? { [sortBy as string]: sortOrder === 'asc' ? 1 : -1, _id: -1 } 
-        : { lastInteractionAt: -1, _id: -1 };
+    // Default sort: Newest first
+    const sortQuery = { _id: -1 };
 
     // If cursor is provided, use it. If not, this is the first page.
     if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {
@@ -315,8 +313,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         return {
             ...b,
             id: b._id.toString(),
-            createdOn: b.lastInteractionAt || b.createdAt,
-            lastInteractionAt: b.lastInteractionAt || b.createdAt,
+            createdOn: b.createdAt,
             contactPerson: b.contact?.name,
             contactNumber: b.contact?.phone,
             bookingType: b.contact?.type,
@@ -1216,8 +1213,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 
     // ✅ BACKGROUND SIDE EFFECTS
     setImmediate(() => runBG(`addComment_sideEffects_${id}`, async () => {
-        // ponytail: use $max to ensure lastInteractionAt only moves forward
-        await Booking.findByIdAndUpdate(id, { $max: { lastInteractionAt: new Date() } });
+        await Booking.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
 
         if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
             // Notify the assigned agent when marketer comments

@@ -18,8 +18,6 @@
 - **Framework**: Express.js
 - **Language**: TypeScript
 - **Database**: MongoDB (Mongoose)
-- **Caching**: Centralized `node-cache` engine with automatic warmup routines
-- **Performance Telemetry**: Custom execution duration timer (`perfLogger`)
 - **Real-time**: Server-Sent Events (SSE), Socket.io (stubbed)
 - **Validation**: Zod
 - **Authentication**: JWT, Bcrypt

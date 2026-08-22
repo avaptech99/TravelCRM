@@ -154,8 +154,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
         gcTime: 1000 * 60 * 10,   // Keep in memory for 10 minutes
     });
 
-
-
     const columnHelper = createColumnHelper<Booking>();
 
     // 3-click cycle handler for master checkbox:
@@ -218,10 +216,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 </div>
             ),
         }),
-        // ponytail: Display effective latest activity date/time from last interaction/comment
-        columnHelper.accessor((row: any) => row.lastInteractionAt || row.createdOn || row.createdAt, {
-            id: 'createdAt',
-            header: 'Date & Time',
+        columnHelper.accessor('createdAt', {
+            header: 'Created On',
             cell: (info) => {
                 const date = info.getValue();
                 if (!date) return '-';

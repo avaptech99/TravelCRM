@@ -6,6 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const webhookController_1 = require("../controllers/webhookController");
 const router = express_1.default.Router();
-// ponytail: GDMS PBX webhook (protected by HTTP Basic Auth inside controller)
+// GDMS PBX webhook (protected by HTTP Basic Auth inside the controller)
 router.post('/missed-call', webhookController_1.receiveMissedCall);
 exports.default = router;

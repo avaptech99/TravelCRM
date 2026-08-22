@@ -8,25 +8,7 @@
     "build": "tsc",
     "start": "node dist/src/server.js",
     "seed": "npx ts-node src/seed.ts",
-    "migrate": "ts-node src/scripts/migrateData.ts",
-    "test": "jest --runInBand --forceExit",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": [
-      "<rootDir>/src/tests/setup.ts"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.test.ts"
-    ],
-    "coverageDirectory": "coverage",
-    "collectCoverageFrom": [
-      "src/controllers/**/*.ts",
-      "src/middleware/**/*.ts"
-    ]
+    "migrate": "ts-node src/scripts/migrateData.ts"
   },
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -56,13 +38,5 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.2",
     "zod": "^3.24.1"
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/supertest": "^7.2.0",
-    "jest": "^30.4.2",
-    "mongodb-memory-server": "^11.1.0",
-    "supertest": "^7.2.2",
-    "ts-jest": "^29.4.10"
   }
 }

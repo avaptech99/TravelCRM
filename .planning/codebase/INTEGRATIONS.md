@@ -11,15 +11,9 @@
 ### MongoDB
 - **Description**: Primary data store.
 - **Connection**: Managed via Mongoose in `config/db.ts`.
-- **Patterns**: Schema-based models for Bookings, Users, Notifications, Settings, etc.
+- **Patterns**: Schema-based models for Bookings, Users, Notifications, etc.
 
 ## Internal Integrations
-
-### Admin-Managed Metadata Dropdowns
-- **Description**: Central settings dashboard that dynamically configures dropdown options used across the application.
-- **Dynamic Entities**: Companies, Cost Types, Cost Sources, and Groups.
-- **Endpoints**: `GET /api/settings/dropdowns`, `PUT /api/settings/dropdowns/:key`.
-- **UI Components**: Integrating dynamically in `NewBookingModal`, `EditModal`, and `/settings`.
 
 ### Server-Sent Events (SSE)
 - **Description**: Real-time event streaming for dashboard updates and notifications.

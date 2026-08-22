@@ -21,7 +21,6 @@ const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
 const syncRoutes_1 = __importDefault(require("./routes/syncRoutes"));
 const externalRoutes_1 = __importDefault(require("./routes/externalRoutes"));
 const settingsRoutes_1 = __importDefault(require("./routes/settingsRoutes"));
-const webhookRoutes_1 = __importDefault(require("./routes/webhookRoutes"));
 const db_1 = __importDefault(require("./config/db"));
 const followUpCron_1 = require("./utils/followUpCron");
 const sseRoutes_1 = __importDefault(require("./routes/sseRoutes"));
@@ -72,7 +71,6 @@ app.use('/api/analytics', analyticsRoutes_1.default);
 app.use('/api/sync', syncRoutes_1.default);
 app.use('/api/external', externalRoutes_1.default);
 app.use('/api/settings', settingsRoutes_1.default);
-app.use('/api/webhook', webhookRoutes_1.default);
 // Ping route for keeping server warm
 app.get('/api/ping', (req, res) => {
     res.status(200).send('pong');

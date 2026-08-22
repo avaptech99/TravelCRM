@@ -29,16 +29,7 @@ const seedDB = async () => {
             passwordHash: agentPasswordHash,
             role: 'AGENT',
         };
-        // Marketer Account Data
-        const marketerPasswordHash = await bcrypt_1.default.hash('marketer123', 10);
-        const marketerUser = {
-            name: 'Demo Marketer',
-            email: 'marketer@travel.com',
-            passwordHash: marketerPasswordHash,
-            role: 'MARKETER',
-            groups: ['Marketing'],
-        };
-        await User_1.default.insertMany([adminUser, agentUser, marketerUser]);
+        await User_1.default.insertMany([adminUser, agentUser]);
         console.log('Database successfully seeded with Demo Admin & Agent accounts!');
         process.exit(0);
     }

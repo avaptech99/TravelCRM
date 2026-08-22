@@ -3,14 +3,8 @@
     "version": "1.0.0",
     "description": "Travel CRM full-stack application",
     "scripts": {
-        "test": "npm run test --workspace=travel-crm-backend && npm run test --workspace=frontend",
-        "test:e2e": "playwright test",
-        "test:smoke": "bash scripts/test-api-smoke.sh",
-        "test:all": "bash scripts/test-all.sh",
         "dev:backend": "cd travel-crm-backend && npm run dev",
         "dev:frontend": "cd frontend && npm run dev",
-        "dev:e2e-backend": "cd travel-crm-backend && npx ts-node src/e2e-runner.ts",
-        "dev:e2e": "concurrently \"npm run dev:e2e-backend\" \"npm run dev:frontend\"",
         "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
         "build": "cd travel-crm-backend && npm install && npm run build",
         "start": "cd travel-crm-backend && npm run start",
@@ -19,7 +13,6 @@
         "seed": "cd travel-crm-backend && npm run seed"
     },
     "devDependencies": {
-        "@playwright/test": "^1.60.0",
         "concurrently": "^8.2.2"
     }
 }
