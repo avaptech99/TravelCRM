@@ -4,18 +4,10 @@ import { LayoutDashboard, Users, User, FileText, CheckCircle, Settings as Settin
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import logo from '../../assets/logo.png';
-import type { SSEMode } from '../../hooks/useSSE';
 
-interface SidebarProps {
-    sseMode?: SSEMode;
-}
-
-export const Sidebar: React.FC<SidebarProps> = ({ sseMode }) => {
+export const Sidebar: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
-
-
-
 
     const navItems = [
         { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
@@ -73,25 +65,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ sseMode }) => {
                         </Link>
                     );
                 })}
-
             </nav>
 
-
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-                {/* SSE Status - Very small above user card */}
-                {sseMode && (
-                    <div className="flex items-center gap-1 mb-2 px-1 opacity-60">
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                            sseMode === 'connected' ? 'bg-emerald-500 animate-pulse' : 
-                            sseMode === 'polling' ? 'bg-amber-500' : 
-                            sseMode === 'connecting' ? 'bg-slate-400' : 'bg-rose-500'
-                        }`} />
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">
-                            {sseMode === 'connected' ? 'Live System' : sseMode === 'polling' ? 'Syncing' : sseMode}
-                        </span>
-                    </div>
-                )}
-
                 <div className="flex items-center space-x-3">
                     <div className="bg-white p-2 rounded-full border border-slate-200 shadow-sm">
                         <User size={20} className="text-primary" />

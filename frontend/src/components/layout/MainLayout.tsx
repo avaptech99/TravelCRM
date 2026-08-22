@@ -8,13 +8,13 @@ import { useAuth } from '../../context/AuthContext';
 
 export const MainLayout: React.FC = () => {
     const { token } = useAuth();
-    const { mode } = useSSE(token);
+    useSSE(token);
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50 relative">
             {/* Desktop Sidebar (hidden on mobile) */}
             <div className="hidden md:block">
-                <Sidebar sseMode={mode} />
+                <Sidebar />
             </div>
             
             <div className="flex-1 flex flex-col min-w-0 relative">
