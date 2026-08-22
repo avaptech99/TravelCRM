@@ -40,6 +40,8 @@ export interface IBooking extends Document {
     verifiedBy: string | null;
     verifiedAt: Date | null;
     lastInteractionAt: Date;
+    callDisposition: 'MISSED' | 'ANSWERED' | 'OUTBOUND' | null;
+    pbxCallId: string | null;
     participantIds: mongoose.Types.ObjectId[];
     contact: {
         name: string;
@@ -86,6 +88,8 @@ const bookingSchema = new Schema<IBooking>(
         verifiedBy: { type: String, default: null },
         verifiedAt: { type: Date, default: null },
         lastInteractionAt: { type: Date, default: Date.now },
+        callDisposition: { type: String, enum: ['MISSED', 'ANSWERED', 'OUTBOUND'], default: null },
+        pbxCallId: { type: String, default: null, index: true, sparse: true },
         estimatedCosts: [{
             costType: { type: String },
             price: { type: Number },
@@ -171,6 +175,7 @@ bookingSchema.index({ status: 1, 'segments.0.departureDate': 1 }); // Calendar +
 bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for Agent/Marketer queries
 bookingSchema.index({ createdAt: -1 }); // Date-sorted list views
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 }); // Agent dashboard
+bookingSchema.index({ callDisposition: 1, lastInteractionAt: -1 }); // Missed calls view
 
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

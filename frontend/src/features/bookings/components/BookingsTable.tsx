@@ -29,9 +29,10 @@ interface BookingsTableProps {
     isInlineView?: boolean;
     outstandingFilter?: boolean;
     groupFilter?: string;
+    callDispositionFilter?: string;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, groupFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, groupFilter, callDispositionFilter }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -132,7 +133,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, groupFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, groupFilter, callDispositionFilter, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -143,6 +144,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (isEDTView !== undefined) params.append('isConvertedToEDT', isEDTView.toString());
             if (outstandingFilter) params.append('outstandingOnly', 'true');
             if (groupFilter) params.append('group', groupFilter);
+            if (callDispositionFilter) params.append('callDisposition', callDispositionFilter);
 
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());

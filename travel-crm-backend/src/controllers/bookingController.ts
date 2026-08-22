@@ -185,7 +185,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, callDisposition } = req.query;
 
 
     const cacheKey = CK.bookingList(req.query);
@@ -272,14 +272,15 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
+    if (callDisposition) query.callDisposition = callDisposition;
 
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
 
     const limitNum = Math.min(parseInt(limit as string, 10), 50); // Hard limit of 50 for stability
     
-    // Default sort: Newest first
-    const sortQuery = { _id: -1 };
+    // Default sort: most recent activity first (bumped by new comments, e.g. missed-call webhook)
+    const sortQuery = { lastInteractionAt: -1, _id: -1 };
 
     // If cursor is provided, use it. If not, this is the first page.
     if (cursor && mongoose.Types.ObjectId.isValid(cursor as string)) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { BookingsTable } from '../features/bookings/components/BookingsTable';
-import { Plus, Search, Filter, Users, UserSquare } from 'lucide-react';
+import { Plus, Search, Filter, Users, UserSquare, PhoneMissed } from 'lucide-react';
 import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
 import { useAuth } from '../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -28,6 +28,7 @@ export const Bookings: React.FC = () => {
 
     const isMyLeadsPath = location.pathname === '/mybooking';
     const isUnassignedPath = location.pathname === '/unassignedbooking';
+    const isMissedCallsPath = location.pathname === '/missedcalls';
 
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     
@@ -194,6 +195,16 @@ export const Bookings: React.FC = () => {
                                 <p className="text-slate-500 text-sm">Manage and track your assigned travel leads.</p>
                             </div>
                         </>
+                    ) : isMissedCallsPath ? (
+                        <>
+                            <div className="bg-red-100 p-3 rounded-full text-red-600">
+                                <PhoneMissed size={28} />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-900">Missed Calls</h1>
+                                <p className="text-slate-500 text-sm">Leads generated from missed calls, newest first.</p>
+                            </div>
+                        </>
                     ) : isUnassignedPath || searchParams.get('agent') === 'unassigned' ? (
                         <>
                             <div className="bg-orange-100 p-3 rounded-full text-orange-600">
@@ -225,9 +236,13 @@ export const Bookings: React.FC = () => {
                         />
                     </div>
                     <button
-                        onClick={() => setShowFilters(!showFilters)}
+                        onClick={() => !isMissedCallsPath && setShowFilters(!showFilters)}
+                        disabled={isMissedCallsPath}
+                        title={isMissedCallsPath ? 'Filters are disabled on the Missed Calls view' : undefined}
                         className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                            showFilters || activeFilterCount > 0
+                            isMissedCallsPath
+                                ? 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
+                                : showFilters || activeFilterCount > 0
                                 ? 'bg-primary/10 border-primary/30 text-primary'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
@@ -252,7 +267,7 @@ export const Bookings: React.FC = () => {
             </div>
 
             {/* Filter Panel */}
-            {showFilters && (
+            {showFilters && !isMissedCallsPath && (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 mx-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
                         <div className="flex items-center gap-2">
@@ -457,6 +472,7 @@ export const Bookings: React.FC = () => {
                 isMyBookingsView={isMyLeadsPath || searchParams.get('myBookings') === 'true'}
                 outstandingFilter={isOutstandingOnly}
                 groupFilter={selectedDepartment || undefined}
+                callDispositionFilter={isMissedCallsPath ? 'MISSED' : undefined}
             />
 
             <NewBookingModal
