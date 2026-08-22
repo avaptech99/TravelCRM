@@ -11,8 +11,13 @@
  * Or omit the argument to fall back to MONGODB_URI from .env.
  */
 
+const dns = require('dns');
 const mongoose = require('mongoose');
 require('dotenv').config();
+
+// mongodb+srv:// needs DNS SRV record lookups, which some Windows/ISP/VPN
+// resolvers can't do (ECONNREFUSED on querySrv). Use a public resolver instead.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const uri = process.argv[2] || process.env.MONGODB_URI;
 
