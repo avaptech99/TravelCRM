@@ -81,6 +81,7 @@ export interface Booking {
     tripType?: 'one-way' | 'round-trip' | 'multi-city';
     followUpDate?: string | null;
     destination?: string;
+    callDisposition?: 'MISSED' | 'ANSWERED' | 'OUTBOUND' | null;
     segments?: {
         from: string;
         to: string;

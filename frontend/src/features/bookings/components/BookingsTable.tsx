@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, PhoneMissed } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -215,6 +215,9 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                             onChange={info.row.getToggleSelectedHandler()}
                             onClick={(e) => e.stopPropagation()}
                         />
+                    )}
+                    {info.row.original.callDisposition === 'MISSED' && (
+                        <PhoneMissed size={13} className="text-red-500 shrink-0" />
                     )}
                     <span>{info.getValue() || '-'}</span>
                 </div>
@@ -487,6 +490,9 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                {booking.callDisposition === 'MISSED' && (
+                                                    <PhoneMissed size={12} className="text-red-500 shrink-0" />
+                                                )}
                                                 <span className="text-[10px] font-bold text-slate-400 tracking-wider">#{booking.uniqueCode || '-'}</span>
                                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     isBooked ? 'bg-green-50 text-green-700 border border-green-200' :

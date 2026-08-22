@@ -256,7 +256,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     const [total, rawBookings] = await Promise.all([
         cursor ? Promise.resolve(0) : Booking_1.default.countDocuments(query).maxTimeMS(2000),
         Booking_1.default.find(query)
-            .select('uniqueCode status segments totalAmount createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt')
+            .select('uniqueCode status segments totalAmount createdByUserId assignedToUserId contact outstanding createdAt lastInteractionAt callDisposition')
             .sort(sortQuery)
             .skip(cursor ? 0 : skipNum)
             .limit(limitNum)
