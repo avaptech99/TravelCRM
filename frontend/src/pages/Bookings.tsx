@@ -183,7 +183,7 @@ export const Bookings: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-2">
+            <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 md:gap-0 px-2">
                 <div className="flex items-center gap-4">
                     {isMyLeadsPath || searchParams.get('myBookings') === 'true' ? (
                         <>

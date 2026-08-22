@@ -141,7 +141,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                         {...register('bookingType')}
                                         className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
                                     />
-                                    <span className="ml-2 text-sm font-medium text-slate-700">B2B</span>
+                                    <span className="ml-2 text-sm font-medium text-slate-700">Agent (B2B)</span>
                                 </label>
                                 <label className="inline-flex items-center cursor-pointer">
                                     <input
@@ -150,7 +150,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                                         {...register('bookingType')}
                                         className="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary"
                                     />
-                                    <span className="ml-2 text-sm font-medium text-slate-700">B2C</span>
+                                    <span className="ml-2 text-sm font-medium text-slate-700">Direct (B2C)</span>
                                 </label>
                             </div>
                             {errors.bookingType && (
@@ -256,6 +256,9 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({ isOpen, onClos
                         </div>
                         {errors.contactNumber && (
                             <p className="text-red-500 text-xs mt-1">{errors.contactNumber.message}</p>
+                        )}
+                        {errors.countryCode && (
+                            <p className="text-red-500 text-xs mt-1">{errors.countryCode.message}</p>
                         )}
                     </div>
 

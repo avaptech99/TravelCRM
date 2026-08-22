@@ -595,9 +595,9 @@ export const BookingTravelers: React.FC = () => {
                             <div className="relative min-w-[240px]">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <button 
+                                        <button
                                             type="button"
-                                            className="w-full px-4 py-3 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-lg font-medium text-slate-800 transition-all shadow-inner cursor-pointer flex items-center justify-between group hover:border-primary hover:bg-primary/5"
+                                            className="w-full px-4 py-4 bg-slate-50 border-2 border-primary/20 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-2xl font-medium text-slate-800 transition-all shadow-inner cursor-pointer flex items-center justify-between group hover:border-primary hover:bg-primary/5"
                                         >
                                             <span>
                                                 {finalQuotationAmount 

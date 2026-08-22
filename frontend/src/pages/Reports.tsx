@@ -57,7 +57,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, loading 
         {loading ? (
             <div className="h-10 w-32 bg-slate-100 animate-pulse rounded-lg"></div>
         ) : (
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight overflow-hidden text-ellipsis whitespace-nowrap" title={value.toString()}>{value}</div>
+            <div className="text-3xl font-bold text-slate-900 tracking-tight">{value}</div>
         )}
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-2">{title}</div>
     </div>

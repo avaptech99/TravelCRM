@@ -163,50 +163,36 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex flex-col gap-5 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                    {/* Status & Interested row */}
+                <div className="grid gap-6 py-4">
+                    {/* Status */}
                     {!isMarketer && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-slate-700">Status</label>
-                                <select
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value)}
-                                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Working">Working</option>
-                                    <option value="Sent">Sent To Customer</option>
-                                    <option value="Booked">Converted to EDT/Booked</option>
-                                </select>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-slate-700">Interested</label>
-                                <div className="flex h-[42px] p-1 bg-slate-100 rounded-lg">
-                                    <button
-                                        type="button"
-                                        onClick={() => setInterested('Yes')}
-                                        className={`flex-1 text-xs font-bold rounded-md transition-all ${
-                                            interested === 'Yes' 
-                                                ? 'bg-white text-primary shadow-sm' 
-                                                : 'text-slate-500 hover:text-slate-700'
-                                        }`}
-                                    >
-                                        Yes
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setInterested('No')}
-                                        className={`flex-1 text-xs font-bold rounded-md transition-all ${
-                                            interested === 'No' 
-                                                ? 'bg-white text-primary shadow-sm' 
-                                                : 'text-slate-500 hover:text-slate-700'
-                                        }`}
-                                    >
-                                        No
-                                    </button>
-                                </div>
-                            </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-700">Status</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                            >
+                                <option value="Pending">Pending</option>
+                                <option value="Working">Working</option>
+                                <option value="Sent">Sent To Customer</option>
+                                <option value="Booked">Converted to EDT/Booked</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Interested */}
+                    {!isMarketer && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-700">Interested</label>
+                            <select
+                                value={interested}
+                                onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
+                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                            >
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
                         </div>
                     )}
 

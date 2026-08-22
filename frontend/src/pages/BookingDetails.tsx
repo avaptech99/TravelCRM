@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { Plane, Calendar, User, Clock, CheckCircle2, CreditCard, MessageSquare, Plus, X, MoveRight, MoveLeft, ShieldCheck, Check, Layers, Maximize2, ChevronDown, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
+import { Plane, Calendar, User, Clock, CheckCircle2, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Layers, Maximize2, ChevronDown, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
 import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
@@ -542,60 +542,45 @@ export const BookingDetails: React.FC = () => {
                                             return (
                                                 <div className="space-y-4">
                                                     {showFlightSection && (
-                                                        <div className="p-5 rounded-xl bg-slate-50/50 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                                                        <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
                                                             {/* Header Row */}
-                                                            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Plane size={16} className="text-blue-600" />
-                                                                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">Flight Details</h3>
-                                                                </div>
-                                                                <span className="px-2 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-widest">
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <h3 className="text-sm font-semibold text-secondary flex items-center gap-1.5">
+                                                                    <Plane size={15} className="text-secondary" /> Flight Details
+                                                                </h3>
+                                                                <span className="text-[10px] bg-secondary/10 text-secondary/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider capitalize">
                                                                     {primary.tripType}
                                                                 </span>
                                                             </div>
 
                                                             {/* Segments Mapping */}
-                                                            <div className="space-y-8">
+                                                            <div className="space-y-3">
                                                                 {(booking.segments && booking.segments.length > 0 ? booking.segments : [primary]).map((seg: any, idx: number) => (
-                                                                    <div key={idx} className="relative">
+                                                                    <div key={idx} className="bg-white/80 p-3 rounded-md border border-secondary/20 shadow-sm transition-all hover:shadow-md relative">
                                                                         {/* Leg Indicator for Multi-City */}
                                                                         {primary.tripType === 'multi-city' && (
-                                                                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-200 text-slate-600 text-[8px] font-black rounded uppercase tracking-tighter">
+                                                                            <span className="absolute right-3 top-3 text-[9px] bg-secondary/10 text-secondary/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                                                                 Leg {idx + 1}
-                                                                            </div>
+                                                                            </span>
                                                                         )}
-                                                                        
-                                                                        <div className="grid grid-cols-3 items-center gap-4 text-center">
-                                                                            {/* Left: Departure */}
-                                                                            <div className="flex flex-col items-center">
-                                                                                <span className="text-xl lg:text-2xl font-black text-blue-600 tracking-tighter leading-none">{(seg.from || seg.flightFrom || 'TBD').toUpperCase()}</span>
-                                                                                <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">DEPARTURE</span>
-                                                                            </div>
 
-                                                                            {/* Middle: Arrows & Dates */}
-                                                                            <div className="flex flex-col items-center gap-2">
-                                                                                <div className="flex flex-col items-center gap-1">
-                                                                                    <MoveRight size={16} className="text-slate-400" />
-                                                                                    <span className="text-[10px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm">
-                                                                                        {formatDate(seg.departureDate || seg.travelDate)}
-                                                                                    </span>
+                                                                        <div className="flex items-center gap-3 mb-2">
+                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{(seg.from || seg.flightFrom || 'TBD').toUpperCase()}</span>
+                                                                            <span className="text-secondary/40 text-lg">→</span>
+                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{(seg.to || seg.flightTo || 'TBD').toUpperCase()}</span>
+                                                                        </div>
+
+                                                                        <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
+                                                                            <div>
+                                                                                <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
+                                                                                {formatDate(seg.departureDate || seg.travelDate)}
+                                                                            </div>
+                                                                            {(seg.tripType === 'round-trip' || (idx === 0 && primary.tripType === 'round-trip' && seg.returnDate)) && (
+                                                                                <div>
+                                                                                    <span className="font-medium text-secondary/70">🛬 Returns:</span>{' '}
+                                                                                    {formatDate(seg.returnDate)}
                                                                                 </div>
-                                                                                
-                                                                                {(seg.tripType === 'round-trip' || (idx === 0 && primary.tripType === 'round-trip' && seg.returnDate)) && (
-                                                                                    <div className="flex flex-col items-center gap-1">
-                                                                                        <MoveLeft size={16} className="text-slate-400" />
-                                                                                        <span className="text-[10px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm">
-                                                                                            {formatDate(seg.returnDate)}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-
-                                                                            {/* Right: Destination */}
-                                                                            <div className="flex flex-col items-center">
-                                                                                <span className="text-xl lg:text-2xl font-black text-blue-600 tracking-tighter leading-none">{(seg.to || seg.flightTo || 'TBD').toUpperCase()}</span>
-                                                                                <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">DESTINATION</span>
-                                                                            </div>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -604,11 +589,11 @@ export const BookingDetails: React.FC = () => {
                                                     )}
 
                                                     {showAdditionalSection && (
-                                                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-sm">
-                                                            <h3 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-                                                                <Layers size={14} className="text-blue-600/60" /> Additional Services
+                                                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                                            <h3 className="text-sm font-semibold text-primary mb-2 flex items-center gap-1.5">
+                                                                <Layers size={15} className="text-primary" /> Additional Services
                                                             </h3>
-                                                            <div className="text-xs text-slate-600 whitespace-pre-wrap font-medium pl-5 border-l-2 border-blue-100 ml-1">
+                                                            <div className="prose prose-sm text-slate-700 whitespace-pre-wrap">
                                                                 {booking.additionalServicesDetails || 'No details provided.'}
                                                             </div>
                                                         </div>
@@ -664,7 +649,18 @@ export const BookingDetails: React.FC = () => {
                                             <div key={payment.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800 text-lg">{payment.amount.toFixed(2)}</span><span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-medium rounded">{payment.paymentMethod}</span></div>
-                                                    <div className="text-sm text-slate-500 flex items-center gap-2 mt-1"><Calendar size={13} /> {dayjs(payment.date).format('MMM DD, YYYY')}</div>
+                                                    <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                                                        <Calendar size={13} /> {dayjs(payment.date).format('MMM DD, YYYY')}
+                                                        {payment.transactionId && (
+                                                            <>
+                                                                <span className="text-slate-300">•</span>
+                                                                <span className="font-mono text-xs">TXN: {payment.transactionId}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {payment.remarks && (
+                                                        <p className="mt-2 text-sm text-slate-600 italic">"{payment.remarks}"</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -871,13 +867,14 @@ export const BookingDetails: React.FC = () => {
                                         return (
                                             <div key={`comment-${item.id || item._id}`} className="relative pl-4 border-l-2 border-secondary/20">
                                                 <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
-                                                <div className="flex justify-end mb-1">
-                                                    <span className="text-[9px] text-slate-400 flex items-center shrink-0">
-                                                        <Clock size={9} className="mr-1" />
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-xs font-semibold text-slate-900">{item.createdBy?.name || 'User'}</span>
+                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
+                                                        <Clock size={10} className="mr-1" />
                                                         {dayjs(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-slate-700 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap font-medium border border-slate-100">
+                                                <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap">
                                                     {item.text}
                                                 </p>
                                             </div>
@@ -887,12 +884,12 @@ export const BookingDetails: React.FC = () => {
                                             <div key={`activity-${item.id || item._id}`} className="relative pl-4 border-l-2 border-slate-200">
                                                 <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300"></div>
                                                 <div className="flex justify-end mb-1">
-                                                    <span className="text-[9px] text-slate-400 flex items-center shrink-0">
-                                                        <Clock size={9} className="mr-1" />
+                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
+                                                        <Clock size={10} className="mr-1" />
                                                         {dayjs(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
-                                                <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap font-medium">
+                                                <div className="text-xs text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap">
                                                     {item.details}
                                                 </div>
                                             </div>
