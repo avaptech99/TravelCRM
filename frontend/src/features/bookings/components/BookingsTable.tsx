@@ -30,9 +30,10 @@ interface BookingsTableProps {
     outstandingFilter?: boolean;
     groupFilter?: string;
     callDispositionFilter?: string;
+    excludeCallLogs?: boolean;
 }
 
-export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, groupFilter, callDispositionFilter }) => {
+export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agentFilter, searchTerm, isMyBookingsView, isEDTView, travelDateFilter, isInlineView, outstandingFilter, groupFilter, callDispositionFilter, excludeCallLogs }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -133,7 +134,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
     });
 
     const { data, isLoading } = useQuery({
-        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, groupFilter, callDispositionFilter, pagination.pageIndex, pagination.pageSize],
+        queryKey: ['bookings', user?.id, statusFilter, searchTerm, agentFilter, travelDateFilter, isMyBookingsView, isEDTView, outstandingFilter, groupFilter, callDispositionFilter, excludeCallLogs, pagination.pageIndex, pagination.pageSize],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -145,6 +146,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             if (outstandingFilter) params.append('outstandingOnly', 'true');
             if (groupFilter) params.append('group', groupFilter);
             if (callDispositionFilter) params.append('callDisposition', callDispositionFilter);
+            if (excludeCallLogs) params.append('excludeCallLogs', 'true');
 
             params.append('page', (pagination.pageIndex + 1).toString());
             params.append('limit', pagination.pageSize.toString());

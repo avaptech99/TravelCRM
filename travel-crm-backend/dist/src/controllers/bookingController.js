@@ -156,7 +156,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, callDisposition } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, callDisposition, excludeCallLogs } = req.query;
     const cacheKey = cache_1.CK.bookingList(req.query);
     const t = (0, perfLogger_1.createTimer)('getBookings');
     t.mark('checkCache');
@@ -238,6 +238,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         query.assignedGroup = group;
     if (callDisposition)
         query.callDisposition = callDisposition;
+    else if (excludeCallLogs === 'true')
+        query.callDisposition = null;
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
     const limitNum = Math.min(parseInt(limit, 10), 50); // Hard limit of 50 for stability

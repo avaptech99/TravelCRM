@@ -29,6 +29,8 @@ export const Bookings: React.FC = () => {
     const isMyLeadsPath = location.pathname === '/mybooking';
     const isUnassignedPath = location.pathname === '/unassignedbooking';
     const isMissedCallsPath = location.pathname === '/missedcalls';
+    const isAllBookingsPath = location.pathname === '/bookings';
+    const isFilterLocked = isMissedCallsPath || isAllBookingsPath;
 
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     
@@ -236,11 +238,11 @@ export const Bookings: React.FC = () => {
                         />
                     </div>
                     <button
-                        onClick={() => !isMissedCallsPath && setShowFilters(!showFilters)}
-                        disabled={isMissedCallsPath}
-                        title={isMissedCallsPath ? 'Filters are disabled on the Missed Calls view' : undefined}
+                        onClick={() => !isFilterLocked && setShowFilters(!showFilters)}
+                        disabled={isFilterLocked}
+                        title={isFilterLocked ? `Filters are disabled on the ${isMissedCallsPath ? 'Missed Calls' : 'All Bookings'} view` : undefined}
                         className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                            isMissedCallsPath
+                            isFilterLocked
                                 ? 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
                                 : showFilters || activeFilterCount > 0
                                 ? 'bg-primary/10 border-primary/30 text-primary'
@@ -267,7 +269,7 @@ export const Bookings: React.FC = () => {
             </div>
 
             {/* Filter Panel */}
-            {showFilters && !isMissedCallsPath && (
+            {showFilters && !isFilterLocked && (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 mx-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
                         <div className="flex items-center gap-2">
@@ -473,6 +475,7 @@ export const Bookings: React.FC = () => {
                 outstandingFilter={isOutstandingOnly}
                 groupFilter={selectedDepartment || undefined}
                 callDispositionFilter={isMissedCallsPath ? 'MISSED' : undefined}
+                excludeCallLogs={isAllBookingsPath}
             />
 
             <NewBookingModal
