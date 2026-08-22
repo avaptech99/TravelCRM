@@ -1,4 +1,4 @@
-import { Edit, Users, Eye, UserMinus, Trash2 } from 'lucide-react';
+import { Edit, Users, Eye, UserMinus, UserPlus, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Booking } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
@@ -6,6 +6,7 @@ import { useAuth } from '../../../context/AuthContext';
 interface ActionDropdownProps {
     booking: Booking;
     onEditClick: (booking: Booking) => void;
+    onAssignClick?: (booking: Booking) => void;
     onUnassignClick?: (booking: Booking) => void;
     onDeleteClick?: (booking: Booking) => void;
 }
@@ -13,6 +14,7 @@ interface ActionDropdownProps {
 export const ActionDropdown: React.FC<ActionDropdownProps> = ({
     booking,
     onEditClick,
+    onAssignClick,
     onUnassignClick,
     onDeleteClick,
 }) => {
@@ -57,6 +59,16 @@ export const ActionDropdown: React.FC<ActionDropdownProps> = ({
                             title="Update Travelers"
                         >
                             <Users size={16} />
+                        </button>
+                    )}
+
+                    {onAssignClick && user?.role !== 'MARKETER' && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onAssignClick(booking); }}
+                            className="p-2 text-primary hover:text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors border border-transparent hover:border-primary/20"
+                            title="Assign Agent"
+                        >
+                            <UserPlus size={16} />
                         </button>
                     )}
 

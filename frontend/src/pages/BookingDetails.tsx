@@ -3,8 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { Plane, Calendar, User, Clock, CheckCircle2, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Layers, Maximize2, ChevronDown, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
-import { AddPaymentModal } from '../features/bookings/components/AddPaymentModal';
+import { User, Clock, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Layers, Maximize2, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -23,9 +22,7 @@ export const BookingDetails: React.FC = () => {
     });
 
     const [isEditingReqs, setIsEditingReqs] = useState(false);
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isCostsExpanded, setIsCostsExpanded] = useState(true);
     const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
     const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
@@ -39,18 +36,12 @@ export const BookingDetails: React.FC = () => {
     const assignedId = booking?.assignedToUserId?._id || booking?.assignedToUserId;
     const isAssignedToMe = !!assignedId && String(assignedId) === user?.id;
     const isReadOnly = isAgent && !isAssignedToMe;
-    const isAgentOfBooking = isAssignedToMe;
-    
+
     // Marketers can only edit requirements if it's unassigned AND they created it (or admin/agent).
     // Now we refine this to follow the user's requirement: edit only if unassigned.
     const canEditReqs = !isReadOnly && (!isMarketer || (isMarketer && !assignedId));
 
-    const isFinanceOps = user?.role === 'ADMIN' || 
-                         user?.role === 'ACCOUNT' || 
-                         user?.role === 'OPERATION' || 
-                         (user?.groups || []).some(g => ['account', 'operation'].includes(g.toLowerCase().trim()));
-
-    const canVerify = user?.role === 'ADMIN' || 
+    const canVerify = user?.role === 'ADMIN' ||
                       user?.role === 'ACCOUNT' || 
                       (user?.groups || []).some(g => g.toLowerCase().trim() === 'account');
 
@@ -202,30 +193,6 @@ export const BookingDetails: React.FC = () => {
             toast.error(err.response?.data?.message || 'Failed to verify booking');
         }
     });
-
-    const updateCostsMutation = useMutation({
-        mutationFn: async (data: { estimatedCosts?: any[], actualCosts?: any[], company?: string }) => {
-            await api.put(`/bookings/${id}`, data);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['booking', id] });
-            toast.success('Costs updated successfully');
-        },
-        onError: (err: any) => {
-            toast.error(err.response?.data?.message || 'Failed to update costs');
-        }
-    });
-
-    const { data: dropdownSettings } = useQuery({
-        queryKey: ['dropdown-settings'],
-        queryFn: async () => {
-            const { data } = await api.get('/settings/dropdowns');
-            return data as Record<string, string[]>;
-        }
-    });
-
-
-
 
     if (isLoading) {
         return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
@@ -425,266 +392,94 @@ export const BookingDetails: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Define Sections and Render in Department-Specific Order */}
-                    {(() => {
-                        const financialsSection = (booking.status === 'Booked' || isFinanceOps) && (
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <div 
-                                    className="bg-slate-50/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
-                                    onClick={() => setIsCostsExpanded(!isCostsExpanded)}
+                    {/* Comments / Activity — large view */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col min-h-[500px]">
+                        <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center justify-between shrink-0">
+                            <div className="flex items-center">
+                                <MessageSquare size={16} className="mr-2" />
+                                Comments & Remarks
+                            </div>
+                            <button
+                                onClick={() => setIsCommentsModalOpen(true)}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                                title="Expand Comments"
+                            >
+                                <Maximize2 size={16} />
+                            </button>
+                        </h2>
+
+                        <div className="mb-4 shrink-0">
+                            <textarea
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                placeholder="Add a new comment or remark..."
+                                className="w-full min-h-[80px] p-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-slate-50 transition-all resize-y"
+                            />
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    onClick={() => addCommentMutation.mutate(commentText)}
+                                    disabled={!commentText.trim() || addCommentMutation.isPending}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-secondary/80 hover:bg-secondary rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
                                 >
-                                    <div className="flex items-center gap-2">
-                                        <CreditCard size={18} className="text-primary" />
-                                        <h2 className="text-lg font-semibold text-slate-800">Booking Costs</h2>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {!isCostsExpanded && (
-                                            <div className="flex gap-2">
-                                                <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100 uppercase tracking-wider">
-                                                    Est: {(() => {
-                                                        const sum = (booking.estimatedCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
-                                                        const total = booking.totalAmount || booking.amount || sum || 0;
-                                                        return total.toLocaleString();
-                                                    })()}
-                                                </span>
-                                                <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100 uppercase tracking-wider">
-                                                    Act: {(() => {
-                                                        const sum = (booking.actualCosts || []).reduce((sum: number, c: any) => sum + (Number(c.price) || 0), 0);
-                                                        const total = booking.actualAmount || sum || 0;
-                                                        return total.toLocaleString();
-                                                    })()}
-                                                </span>
-                                            </div>
-                                        )}
-                                        <ChevronDown 
-                                            size={20} 
-                                            className={`text-slate-400 transition-transform duration-300 ${isCostsExpanded ? 'rotate-180' : ''}`} 
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className={`transition-all duration-300 ease-in-out ${isCostsExpanded ? 'max-h-[2000px] opacity-100 p-6' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        <CostSection 
-                                            title="Estimated Costs" 
-                                            icon={<Clock size={18} />}
-                                            color="blue"
-                                            costs={booking.estimatedCosts || []}
-                                            fallbackTotal={booking.totalAmount || booking.amount}
-                                            dropdownSettings={dropdownSettings}
-                                            onSave={(newCosts) => updateCostsMutation.mutate({ estimatedCosts: newCosts })}
-                                            isEditable={false}
-                                            isLoading={updateCostsMutation.isPending}
-                                            margin={booking.estimatedMargin}
-                                        />
-                                        <div className="flex-1">
-                                            <CostSection 
-                                                title="Actual Costs" 
-                                                icon={<CheckCircle2 size={18} />}
-                                                color="emerald"
-                                                costs={booking.actualCosts || []}
-                                                fallbackTotal={booking.actualAmount}
-                                                dropdownSettings={dropdownSettings}
-                                                onSave={(newCosts) => updateCostsMutation.mutate({ actualCosts: newCosts })}
-                                                isEditable={false}
-                                                isLoading={updateCostsMutation.isPending}
-                                                margin={booking.actualMargin}
-                                                restrictedMessage={!isFinanceOps ? "Only Operation or Account team can edit Actual Costs" : undefined}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-
-                        const travelersSection = (
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-lg font-semibold text-slate-900">
-                                        Travelers ({booking.travelers?.length || 0})
-                                    </h2>
-                                    {!isReadOnly && !isMarketer && (
-                                        <button
-                                            onClick={() => navigate(`/bookings/${id}/travelers`, { state: { returnUrl: `/bookings/${id}` } })}
-                                            className="text-sm flex items-center gap-1.5 text-white bg-brand-gradient hover:opacity-90 font-bold px-4 py-2 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                                        >
-                                            <User size={14} /> Update Travelers
-                                        </button>
+                                    {addCommentMutation.isPending ? (
+                                        'Posting...'
+                                    ) : (
+                                        <>
+                                            <Plus size={14} /> Post Comment
+                                        </>
                                     )}
-                                </div>
+                                </button>
+                            </div>
+                        </div>
 
-                                {booking.travelers && booking.travelers.length > 0 ? (
-                                    <div className="space-y-5">
-                                        {(() => {
-                                            const traveler = booking.travelers[0] || {};
-                                            const seg0 = (booking.segments && booking.segments.length > 0) ? booking.segments[0] : null;
-                                            const primary = {
-                                                ...traveler,
-                                                tripType: seg0?.tripType || traveler.tripType || booking.tripType || 'one-way',
-                                                flightFrom: seg0?.from || traveler.flightFrom || booking.flightFrom || '',
-                                                flightTo: seg0?.to || traveler.flightTo || booking.flightTo || '',
-                                                country: seg0?.country || traveler.country || booking.destination || '',
-                                                departureDate: seg0?.departureDate || traveler.travelDate || booking.travelDate || null,
-                                                returnDate: seg0?.returnDate || traveler.returnDate || booking.returnDate || null,
-                                            };
-                                            const hasFlightInfo = primary.flightFrom || primary.flightTo;
-                                            const hasTripInfo = primary.tripType || primary.country;
-                                            const showFlightSection = booking.includesFlight || hasFlightInfo || hasTripInfo;
-                                            const showAdditionalSection = booking.includesAdditionalServices || !!booking.additionalServicesDetails;
+                        <div className="space-y-4 overflow-y-auto pr-2 flex-1 min-h-[200px]">
+                            {(() => {
+                                const combined = [
+                                    ...(booking.comments || []).map((c: any) => ({ ...c, type: 'comment' })),
+                                    ...(booking.activities || []).map((a: any) => ({ ...a, type: 'activity' }))
+                                ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-                                            if (!showFlightSection && !showAdditionalSection) return null;
+                                if (combined.length === 0) {
+                                    return <p className="text-sm text-slate-400 italic">No history yet.</p>;
+                                }
 
-                                            const formatDate = (date: any) => {
-                                                if (!date) return 'TBD';
-                                                return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                                            };
-
-                                            return (
-                                                <div className="space-y-4">
-                                                    {showFlightSection && (
-                                                        <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-                                                            {/* Header Row */}
-                                                            <div className="flex items-center justify-between mb-3">
-                                                                <h3 className="text-sm font-semibold text-secondary flex items-center gap-1.5">
-                                                                    <Plane size={15} className="text-secondary" /> Flight Details
-                                                                </h3>
-                                                                <span className="text-[10px] bg-secondary/10 text-secondary/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider capitalize">
-                                                                    {primary.tripType}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Segments Mapping */}
-                                                            <div className="space-y-3">
-                                                                {(booking.segments && booking.segments.length > 0 ? booking.segments : [primary]).map((seg: any, idx: number) => (
-                                                                    <div key={idx} className="bg-white/80 p-3 rounded-md border border-secondary/20 shadow-sm transition-all hover:shadow-md relative">
-                                                                        {/* Leg Indicator for Multi-City */}
-                                                                        {primary.tripType === 'multi-city' && (
-                                                                            <span className="absolute right-3 top-3 text-[9px] bg-secondary/10 text-secondary/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                                                                Leg {idx + 1}
-                                                                            </span>
-                                                                        )}
-
-                                                                        <div className="flex items-center gap-3 mb-2">
-                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{(seg.from || seg.flightFrom || 'TBD').toUpperCase()}</span>
-                                                                            <span className="text-secondary/40 text-lg">→</span>
-                                                                            <span className="bg-secondary/20 text-secondary font-bold px-2.5 py-1 rounded text-xs border border-secondary/30">{(seg.to || seg.flightTo || 'TBD').toUpperCase()}</span>
-                                                                        </div>
-
-                                                                        <div className="grid grid-cols-2 gap-2 text-xs text-secondary">
-                                                                            <div>
-                                                                                <span className="font-medium text-secondary/70">🛫 Departs:</span>{' '}
-                                                                                {formatDate(seg.departureDate || seg.travelDate)}
-                                                                            </div>
-                                                                            {(seg.tripType === 'round-trip' || (idx === 0 && primary.tripType === 'round-trip' && seg.returnDate)) && (
-                                                                                <div>
-                                                                                    <span className="font-medium text-secondary/70">🛬 Returns:</span>{' '}
-                                                                                    {formatDate(seg.returnDate)}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {showAdditionalSection && (
-                                                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                                                            <h3 className="text-sm font-semibold text-primary mb-2 flex items-center gap-1.5">
-                                                                <Layers size={15} className="text-primary" /> Additional Services
-                                                            </h3>
-                                                            <div className="prose prose-sm text-slate-700 whitespace-pre-wrap">
-                                                                {booking.additionalServicesDetails || 'No details provided.'}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                return combined.map((item: any) => {
+                                    if (item.type === 'comment') {
+                                        return (
+                                            <div key={`comment-${item.id || item._id}`} className="relative pl-4 border-l-2 border-secondary/20">
+                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-xs font-semibold text-slate-900">{item.createdBy?.name || 'User'}</span>
+                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
+                                                        <Clock size={10} className="mr-1" />
+                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                    </span>
                                                 </div>
-                                            );
-
-                                        })()}
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                                                <User size={15} className="text-slate-400" /> Passengers
-                                            </h3>
-                                            <div className="grid gap-3 sm:grid-cols-2">
-                                                {booking.travelers.map((traveler: any, idx: number) => (
-                                                    <div key={traveler.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                                                        <div className="flex items-center space-x-2 text-secondary font-medium mb-2">
-                                                            <User size={16} /> <span>{traveler.name}</span>
-                                                        </div>
-                                                        <div className="space-y-1.5 text-sm text-slate-600">
-                                                            {traveler.phoneNumber && <div className="flex items-center space-x-2"><Phone size={13} className="text-slate-400" /><span>{traveler.phoneNumber}</span></div>}
-                                                            {traveler.dob && <div className="flex items-center space-x-2"><Calendar size={13} className="text-slate-400" /><span>DOB: {dayjs(traveler.dob).format('MMM DD, YYYY')}</span></div>}
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap">
+                                                    {item.text}
+                                                </p>
                                             </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-slate-200 border-dashed">No travelers added yet.</div>
-                                )}
-                            </div>
-                        );
-
-                        const paymentsSection = (
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center justify-between">
-                                    <span className="flex items-center gap-1.5">
-                                        <CreditCard size={18} className="text-emerald-600" /> Payments ({booking.payments?.length || 0})
-                                        {(() => {
-                                            const totalAmount = booking.totalAmount || booking.amount || 0;
-                                            const totalPaid = booking.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-                                            const outstanding = totalAmount - totalPaid;
-                                            return <span className="ml-4 px-2.5 py-1 bg-red-50 text-red-600 text-sm font-medium rounded-md border border-red-100">Outstanding: {outstanding.toLocaleString()}</span>;
-                                        })()}
-                                    </span>
-                                    {!isReadOnly && !isMarketer && (isFinanceOps || isAgentOfBooking) && (
-                                        <button onClick={() => setIsPaymentModalOpen(true)} className="text-sm flex items-center gap-1 text-emerald-700 bg-emerald-50 font-medium px-3 py-1.5 rounded-md border border-emerald-200"><Plus size={14} /> Add Payment</button>
-                                    )}
-                                </h2>
-                                {booking.payments && booking.payments.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {booking.payments.map((payment: any, idx: number) => (
-                                            <div key={payment.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800 text-lg">{payment.amount.toFixed(2)}</span><span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-medium rounded">{payment.paymentMethod}</span></div>
-                                                    <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
-                                                        <Calendar size={13} /> {dayjs(payment.date).format('MMM DD, YYYY')}
-                                                        {payment.transactionId && (
-                                                            <>
-                                                                <span className="text-slate-300">•</span>
-                                                                <span className="font-mono text-xs">TXN: {payment.transactionId}</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    {payment.remarks && (
-                                                        <p className="mt-2 text-sm text-slate-600 italic">"{payment.remarks}"</p>
-                                                    )}
+                                        );
+                                    } else {
+                                        return (
+                                            <div key={`activity-${item.id || item._id}`} className="relative pl-4 border-l-2 border-slate-200">
+                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300"></div>
+                                                <div className="flex justify-end mb-1">
+                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
+                                                        <Clock size={10} className="mr-1" />
+                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap">
+                                                    {item.details}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-slate-200 border-dashed">No payments recorded yet.</div>
-                                )}
-                            </div>
-                        );
-
-                        return isFinanceOps ? (
-                            <div className="space-y-6">
-                                {financialsSection}
-                                {paymentsSection}
-                                {travelersSection}
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                {travelersSection}
-                                {paymentsSection}
-                                {financialsSection}
-                            </div>
-                        );
-                    })()}
+                                        );
+                                    }
+                                });
+                            })()}
+                        </div>
+                    </div>
 
                 </div>
 
@@ -811,104 +606,9 @@ export const BookingDetails: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Comments / Activity */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col max-h-[600px]">
-                        <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center justify-between shrink-0">
-                            <div className="flex items-center">
-                                <MessageSquare size={16} className="mr-2" />
-                                Comments & Remarks
-                            </div>
-                            <button 
-                                onClick={() => setIsCommentsModalOpen(true)}
-                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
-                                title="Expand Comments"
-                            >
-                                <Maximize2 size={16} />
-                            </button>
-                        </h2>
-
-                        <div className="mb-4 shrink-0">
-                            <textarea
-                                value={commentText}
-                                onChange={(e) => setCommentText(e.target.value)}
-                                placeholder="Add a new comment or remark..."
-                                className="w-full min-h-[80px] p-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-slate-50 transition-all resize-y"
-                            />
-                            <div className="flex justify-end mt-2">
-                                <button
-                                    onClick={() => addCommentMutation.mutate(commentText)}
-                                    disabled={!commentText.trim() || addCommentMutation.isPending}
-                                    className="px-3 py-1.5 text-xs font-bold text-white bg-secondary/80 hover:bg-secondary rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                                >
-                                    {addCommentMutation.isPending ? (
-                                        'Posting...'
-                                    ) : (
-                                        <>
-                                            <Plus size={14} /> Post Comment
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 overflow-y-auto pr-2 flex-1 min-h-[200px]">
-                            {(() => {
-                                const combined = [
-                                    ...(booking.comments || []).map((c: any) => ({ ...c, type: 'comment' })),
-                                    ...(booking.activities || []).map((a: any) => ({ ...a, type: 'activity' }))
-                                ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-                                if (combined.length === 0) {
-                                    return <p className="text-sm text-slate-400 italic">No history yet.</p>;
-                                }
-
-                                return combined.map((item: any) => {
-                                    if (item.type === 'comment') {
-                                        return (
-                                            <div key={`comment-${item.id || item._id}`} className="relative pl-4 border-l-2 border-secondary/20">
-                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-secondary/40"></div>
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className="text-xs font-semibold text-slate-900">{item.createdBy?.name || 'User'}</span>
-                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
-                                                        <Clock size={10} className="mr-1" />
-                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap">
-                                                    {item.text}
-                                                </p>
-                                            </div>
-                                        );
-                                    } else {
-                                        return (
-                                            <div key={`activity-${item.id || item._id}`} className="relative pl-4 border-l-2 border-slate-200">
-                                                <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300"></div>
-                                                <div className="flex justify-end mb-1">
-                                                    <span className="text-[10px] text-slate-400 flex items-center shrink-0">
-                                                        <Clock size={10} className="mr-1" />
-                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
-                                                    </span>
-                                                </div>
-                                                <div className="text-xs text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap">
-                                                    {item.details}
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                });
-                            })()}
-                        </div>
-                    </div>
                 </div>
             </div>
 
-            {booking && (
-                <AddPaymentModal
-                    booking={booking}
-                    isOpen={isPaymentModalOpen}
-                    onClose={() => setIsPaymentModalOpen(false)}
-                />
-            )}
             {booking && (
                 <EditModal
                     booking={booking}
@@ -1025,174 +725,3 @@ export const BookingDetails: React.FC = () => {
         </div>
     );
 };
-
-interface CostSectionProps {
-    title: string;
-    icon: React.ReactNode;
-    color: 'blue' | 'emerald';
-    costs: any[];
-    dropdownSettings?: Record<string, string[]>;
-    onSave: (costs: any[]) => void;
-    isEditable: boolean;
-    isLoading: boolean;
-    restrictedMessage?: string;
-    fallbackTotal?: number;
-    margin?: number;
-}
-
-const CostSection: React.FC<CostSectionProps> = ({ title, icon, color, costs, dropdownSettings, onSave, isEditable, isLoading, restrictedMessage, fallbackTotal, margin }) => {
-    const [localCosts, setLocalCosts] = React.useState(costs);
-
-
-    React.useEffect(() => {
-        setLocalCosts(costs);
-    }, [costs]);
-
-    const toggleCostType = (type: string) => {
-        const isActive = localCosts.some(c => c.costType === type);
-        if (isActive) {
-            setLocalCosts(localCosts.filter(c => c.costType !== type));
-        } else {
-            setLocalCosts([...localCosts, { costType: type, price: 0, source: dropdownSettings?.costSources?.[0] || 'Direct Vendor' }]);
-        }
-    };
-
-    const handleChange = (idx: number, field: string, value: any) => {
-        const newCosts = [...localCosts];
-        newCosts[idx] = { ...newCosts[idx], [field]: value };
-        setLocalCosts(newCosts);
-    };
-
-    const sumTotal = localCosts.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
-    const displayTotal = fallbackTotal || sumTotal || 0;
-
-    return (
-        <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full`}>
-            <div className={`p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0`}>
-                <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-lg bg-${color}-100 text-${color}-600`}>
-                        {icon}
-                    </div>
-                    <h2 className="font-bold text-slate-800 text-sm">{title}</h2>
-                </div>
-                <span className={`px-2 py-1 bg-${color}-50 text-${color}-700 text-xs font-black rounded-lg border border-${color}-100`}>
-                    Total: {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-            </div>
-
-            <div className="p-4 flex-1 flex flex-col min-h-0">
-                {isEditable ? (
-                    <div className="flex flex-col h-full space-y-4">
-                        <div className="shrink-0">
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Cost Types</label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {(dropdownSettings?.costTypes || []).map(type => {
-                                    const isActive = localCosts.some(c => c.costType === type);
-                                    return (
-                                        <button
-                                            key={type}
-                                            onClick={() => toggleCostType(type)}
-                                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
-                                                isActive
-                                                ? `bg-${color}-600 border-${color}-600 text-white shadow-sm`
-                                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            {type}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[100px]">
-                            {localCosts.length > 0 ? (
-                                localCosts.map((cost, idx) => (
-                                    <div key={idx} className={`p-3 rounded-xl border border-${color}-100 bg-${color}-50/30 space-y-2`}>
-                                        <div className="flex items-center justify-between">
-                                            <span className={`text-[10px] font-black text-${color}-600 uppercase`}>{cost.costType}</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="space-y-1">
-                                                <label className="text-[8px] font-bold text-slate-400 uppercase ml-1">Price</label>
-                                                <input 
-                                                    type="number"
-                                                    className="w-full p-2 text-sm font-bold border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white shadow-sm"
-                                                    value={cost.price || ''}
-                                                    onChange={(e) => handleChange(idx, 'price', parseFloat(e.target.value) || 0)}
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[8px] font-bold text-slate-400 uppercase ml-1">Source</label>
-                                                <select 
-                                                    className="w-full p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white shadow-sm"
-                                                    value={cost.source}
-                                                    onChange={(e) => handleChange(idx, 'source', e.target.value)}
-                                                >
-                                                    {dropdownSettings?.costSources?.map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="h-full flex items-center justify-center">
-                                    <p className="text-xs text-slate-400 italic">Select cost types above to start tracking</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <button 
-                            onClick={() => onSave(localCosts)}
-                            disabled={isLoading || JSON.stringify(localCosts) === JSON.stringify(costs)}
-                            className={`w-full py-2.5 rounded-xl text-white font-black text-xs bg-${color}-600 hover:bg-${color}-700 shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none shrink-0`}
-                        >
-                            {isLoading ? 'Saving...' : 'Update Records'}
-                        </button>
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {restrictedMessage && (
-                            <p className="text-[10px] text-slate-400 italic mb-2 flex items-center gap-1">
-                                <Clock size={10} /> {restrictedMessage}
-                            </p>
-                        )}
-                        {localCosts.length > 0 ? (
-                            localCosts.map((cost, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full bg-${color}-400`}></div>
-                                        <div>
-                                            <span className="text-xs font-bold text-slate-700">{cost.costType}</span>
-                                            <p className="text-[10px] text-slate-400 font-medium">Source: {cost.source}</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-sm font-black text-slate-900">
-                                        {Number(cost.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-6 text-slate-400 text-xs italic flex-1 flex items-center justify-center">
-                                No {title.toLowerCase()} recorded.
-                            </div>
-                        )}
-                        
-                        {margin !== undefined && (
-                            <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    {title.includes('Est') ? 'Est. Margin' : 'Act. Margin'}
-                                </span>
-                                <div className={`px-2.5 py-1 rounded-md ${margin >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'} border text-xs font-black shadow-sm`}>
-                                    {margin.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-

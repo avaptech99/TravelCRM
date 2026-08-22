@@ -826,6 +826,10 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
+        // Assigning directly to an agent (no separate department picker anymore) --
+        // keep assignedGroup in sync with the agent's own department for filtering/permissions.
+        const newAgentForGroup = newAssignedUserId ? await User_1.default.findById(newAssignedUserId).lean() : null;
+        const derivedGroup = newAgentForGroup?.groups?.[0];
         // Sync participantIds array
         const updatedParticipants = [
             booking.createdByUserId,
@@ -834,7 +838,8 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
         await Booking_1.default.updateOne({ _id: id }, {
             $set: {
                 assignedToUserId: newAssignedUserId,
-                participantIds: updatedParticipants
+                participantIds: updatedParticipants,
+                ...(derivedGroup ? { assignedGroup: derivedGroup } : {}),
             }
         });
         let previousAgentName = 'Unassigned';
@@ -844,15 +849,8 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 previousAgentName = prevAgent.name;
             }
         }
-        let newAgentName = 'Unassigned';
-        let newAgentGroup = 'Admin';
-        if (newAssignedUserId) {
-            const newAgent = await User_1.default.findById(newAssignedUserId).lean();
-            if (newAgent) {
-                newAgentName = newAgent.name;
-                newAgentGroup = newAgent.groups?.[0] || 'Admin';
-            }
-        }
+        const newAgentName = newAgentForGroup?.name || 'Unassigned';
+        const newAgentGroup = derivedGroup || 'Admin';
         const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}(${newAgentGroup})`;
         await Comment_1.default.create({
             bookingId: id,

@@ -55,6 +55,7 @@ export interface Payment {
 export interface Booking {
     id: string;
     createdAt: string;
+    lastInteractionAt?: string;
     contactPerson: string;
     contactNumber: string;
     contactEmail?: string;

@@ -223,7 +223,8 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 </div>
             ),
         }),
-        columnHelper.accessor('createdAt', {
+        columnHelper.accessor((row) => row.lastInteractionAt || row.createdAt, {
+            id: 'createdAt',
             header: 'Created On',
             cell: (info) => {
                 const date = info.getValue();
@@ -332,6 +333,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 <ActionDropdown
                     booking={info.row.original}
                     onEditClick={(b: Booking) => setActiveEditBooking(b)}
+                    onAssignClick={
+                        user?.role === 'ADMIN' || user?.permissions?.canAssignLeads
+                            ? (b: Booking) => setActiveAssignBooking(b)
+                            : undefined
+                    }
                     onUnassignClick={
                         isInlineView && user?.role === 'ADMIN' && info.row.original.assignedToUser
                             ? (b: Booking) => unassignMutation.mutate(b.id)
@@ -540,6 +546,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 <ActionDropdown
                                                     booking={booking}
                                                     onEditClick={(b: Booking) => setActiveEditBooking(b)}
+                                                    onAssignClick={
+                                                        user?.role === 'ADMIN' || user?.permissions?.canAssignLeads
+                                                            ? (b: Booking) => setActiveAssignBooking(b)
+                                                            : undefined
+                                                    }
                                                     onUnassignClick={
                                                         isInlineView && user?.role === 'ADMIN' && booking.assignedToUser
                                                             ? (b: Booking) => unassignMutation.mutate(b.id)

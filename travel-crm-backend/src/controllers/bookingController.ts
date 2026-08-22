@@ -955,6 +955,11 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
     const newAssignedUserId = assignedToUserId || null;
 
     if (previousAssignedUserId !== newAssignedUserId) {
+        // Assigning directly to an agent (no separate department picker anymore) --
+        // keep assignedGroup in sync with the agent's own department for filtering/permissions.
+        const newAgentForGroup = newAssignedUserId ? await User.findById(newAssignedUserId).lean() : null;
+        const derivedGroup = newAgentForGroup?.groups?.[0];
+
         // Sync participantIds array
         const updatedParticipants = [
             booking.createdByUserId,
@@ -962,12 +967,13 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
         ].filter((id): id is any => Boolean(id));
 
         await Booking.updateOne(
-            { _id: id }, 
-            { 
-                $set: { 
+            { _id: id },
+            {
+                $set: {
                     assignedToUserId: newAssignedUserId,
-                    participantIds: updatedParticipants
-                } 
+                    participantIds: updatedParticipants,
+                    ...(derivedGroup ? { assignedGroup: derivedGroup } : {}),
+                }
             }
         );
 
@@ -979,15 +985,8 @@ export const assignBooking = asyncHandler(async (req: Request, res: Response) =>
             }
         }
 
-        let newAgentName = 'Unassigned';
-        let newAgentGroup = 'Admin';
-        if (newAssignedUserId) {
-            const newAgent = await User.findById(newAssignedUserId).lean();
-            if (newAgent) {
-                newAgentName = newAgent.name;
-                newAgentGroup = newAgent.groups?.[0] || 'Admin';
-            }
-        }
+        const newAgentName = newAgentForGroup?.name || 'Unassigned';
+        const newAgentGroup = derivedGroup || 'Admin';
 
         const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}(${newAgentGroup})`;
 

@@ -13,7 +13,6 @@ import api from '../../../api/client';
 import type { Booking } from '../../../types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { useQuery } from '@tanstack/react-query';
 
 interface EditModalProps {
     booking: Booking | null;
@@ -27,7 +26,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const navigate = useNavigate();
 
     const [status, setStatus] = useState<string>('');
-    const [assignedGroup, setAssignedGroup] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
     const [interested, setInterested] = useState<'Yes' | 'No'>('No');
     const [commentText, setCommentText] = useState<string>('');
@@ -35,19 +33,10 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     const { user } = useAuth();
     const isMarketer = user?.role === 'MARKETER';
 
-    const { data: dropdownSettings } = useQuery({
-        queryKey: ['dropdown-settings'],
-        queryFn: async () => {
-            const { data } = await api.get('/settings/dropdowns');
-            return data as Record<string, string[]>;
-        },
-    });
-
     // Reset state when booking changes
     React.useEffect(() => {
         if (booking) {
             setStatus(booking.status);
-            setAssignedGroup(booking.assignedGroup || '');
             setAssignedToUserId(booking.assignedToUserId || '');
             setInterested(booking.interested || 'No');
             setCommentText('');
@@ -74,16 +63,15 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 promises.push(api.patch(`/bookings/${booking.id}/status`, { status }));
             }
 
-            // 3. Update Pricing/Other Details (Do this BEFORE assign so backend auto-unassign on group change doesn't overwrite a new agent selection)
+            // 3. Update Other Details
             const putPayload: any = {};
             if (interested !== (booking.interested || 'No')) putPayload.interested = interested;
-            if (assignedGroup !== (booking.assignedGroup || '')) putPayload.assignedGroup = assignedGroup;
 
             if (Object.keys(putPayload).length > 0) {
                 await api.put(`/bookings/${booking.id}`, putPayload);
             }
 
-            // 2. Update Assignee (After PUT, so any group change has already unassigned the old user, and we can now assign the new one)
+            // 2. Update Assignee (backend derives assignedGroup from the chosen agent)
             if (canChangeAgent && assignedToUserId !== (booking.assignedToUserId || '')) {
                 promises.push(api.patch(`/bookings/${booking.id}/assign`, { assignedToUserId: assignedToUserId || null }));
             }
@@ -142,7 +130,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
     });
 
     const isDirty = (booking && status !== booking.status) ||
-        (booking && assignedGroup !== (booking.assignedGroup || '')) ||
         (canChangeAgent && booking && assignedToUserId !== (booking.assignedToUserId || '')) ||
         (booking && interested !== (booking.interested || 'No')) ||
         commentText.trim().length > 0;
@@ -196,36 +183,10 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                         </div>
                     )}
 
-                    {/* Assigned Group */}
-                    {!isMarketer && (
+                    {/* Assign To */}
+                    {!isMarketer && canChangeAgent && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Assigned Group</label>
-                            <select
-                                value={assignedGroup}
-                                onChange={(e) => {
-                                    setAssignedGroup(e.target.value);
-                                    setAssignedToUserId('');
-                                }}
-                                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                            >
-                                <option value="">-- None --</option>
-                                {dropdownSettings?.groups?.filter((g: string) => {
-                                    const groupName = g.toLowerCase().trim();
-                                    if (groupName === 'account' || groupName === 'operation') {
-                                        return status === 'Booked';
-                                    }
-                                    return true;
-                                }).map((g: string) => (
-                                    <option key={g} value={g}>{g}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Conditional Agent Assignment */}
-                    {!isMarketer && canChangeAgent && assignedGroup && (
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Assign to Agent</label>
+                            <label className="text-sm font-medium text-slate-700">Assign To</label>
                             <select
                                 value={assignedToUserId}
                                 onChange={(e) => setAssignedToUserId(e.target.value)}
@@ -233,12 +194,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                             >
                                 <option value="" className="italic">-- Unassigned --</option>
                                 {agents
-                                    .filter(a => {
-                                        const matchesName = a.name !== 'Website Lead';
-                                        if (!assignedGroup) return matchesName;
-                                        const matchesGroup = a.groups?.some(g => g.toLowerCase().trim() === assignedGroup.toLowerCase().trim());
-                                        return matchesName && matchesGroup;
-                                    })
+                                    .filter(a => a.name !== 'Website Lead')
                                     .map(agent => (
                                         <option key={agent.id} value={agent.id}>{agent.name}</option>
                                     ))}
