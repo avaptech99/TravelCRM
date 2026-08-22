@@ -72,8 +72,8 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
                 }
             ]),
             Booking_1.default.find(recentQuery)
-                .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
-                .sort({ updatedAt: -1 }) // Sort by modified date for "sync"
+                .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt lastInteractionAt travellers')
+                .sort({ lastInteractionAt: -1, updatedAt: -1 }) // ponytail: Sort by last interaction date
                 .limit(5)
                 .populate('assignedToUserId', 'name')
                 .lean(),

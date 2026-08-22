@@ -144,6 +144,7 @@ bookingSchema.index({ uniqueCode: 1 }, { unique: true, sparse: true });
 bookingSchema.index({ status: 1, 'segments.0.departureDate': 1 }); // Calendar + upcoming trips
 bookingSchema.index({ participantIds: 1, status: 1, createdAt: -1 }); // Covering index for Agent/Marketer queries
 bookingSchema.index({ createdAt: -1 }); // Date-sorted list views
+bookingSchema.index({ lastInteractionAt: -1 }); // ponytail: Activity-sorted list views
 bookingSchema.index({ assignedToUserId: 1, status: 1, lastInteractionAt: -1 }); // Agent dashboard
 // Virtual properties
 bookingSchema.virtual('assignedToUser', {

@@ -18,6 +18,7 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import syncRoutes from './routes/syncRoutes';
 import externalRoutes from './routes/externalRoutes';
 import settingsRoutes from './routes/settingsRoutes';
+import webhookRoutes from './routes/webhookRoutes';
 import connectDB from './config/db';
 import { startFollowUpCron } from './utils/followUpCron';
 // Socket.io is available in ./socket.ts for future real-time upgrades
@@ -84,6 +85,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/external', externalRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/webhook', webhookRoutes);
 
 // Ping route for keeping server warm
 app.get('/api/ping', (req: Request, res: Response) => {

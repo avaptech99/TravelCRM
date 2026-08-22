@@ -239,8 +239,10 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
     const limitNum = Math.min(parseInt(limit, 10), 50); // Hard limit of 50 for stability
-    // Default sort: Newest first
-    const sortQuery = { _id: -1 };
+    // ponytail: Default sort by last interaction/comment date so entries with missed calls jump to top
+    const sortQuery = sortBy
+        ? { [sortBy]: sortOrder === 'asc' ? 1 : -1, _id: -1 }
+        : { lastInteractionAt: -1, _id: -1 };
     // If cursor is provided, use it. If not, this is the first page.
     if (cursor && mongoose_1.default.Types.ObjectId.isValid(cursor)) {
         query._id = { $lt: new mongoose_1.default.Types.ObjectId(cursor) };
@@ -269,7 +271,8 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         return {
             ...b,
             id: b._id.toString(),
-            createdOn: b.createdAt,
+            createdOn: b.lastInteractionAt || b.createdAt,
+            lastInteractionAt: b.lastInteractionAt || b.createdAt,
             contactPerson: b.contact?.name,
             contactNumber: b.contact?.phone,
             bookingType: b.contact?.type,
@@ -1036,7 +1039,8 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
     res.status(201).json(comment);
     // ✅ BACKGROUND SIDE EFFECTS
     setImmediate(() => (0, background_1.runBG)(`addComment_sideEffects_${id}`, async () => {
-        await Booking_1.default.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
+        // ponytail: use $max to ensure lastInteractionAt only moves forward
+        await Booking_1.default.findByIdAndUpdate(id, { $max: { lastInteractionAt: new Date() } });
         if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
             // Notify the assigned agent when marketer comments
             await Notification_1.default.create({

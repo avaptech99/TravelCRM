@@ -23,6 +23,8 @@
 - **Models**: Mongoose schemas with TypeScript interfaces.
 - **Responses**: Standardized JSON responses (e.g., `{ success: true, data: ... }`).
 - **Error Handling**: Use the centralized error handler middleware; avoid sending raw errors to the client in production.
+- **Cache Invalidation**: Any controller mutating Booking/Settings collections MUST call the appropriate invalidation rules (`invalidateBookingCaches()` or `CacheInvalidation.onSettingsWrite()`) to avoid serving stale read queries.
+- **Performance Profiling**: Wrap database-intensive operations in `createTimer` telemetry to maintain system monitoring visibility.
 
 ## Workflow
 - **State Management**: Prefer local state or context for UI state; React Query for server state.
