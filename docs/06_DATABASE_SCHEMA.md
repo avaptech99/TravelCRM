@@ -78,11 +78,10 @@
   name: "System Admin",           // Required
   email: "admin@travel.com",     // Required, unique
   passwordHash: "$2b$08$...",    // bcrypt hash
-  role: "ADMIN",                  // "ADMIN" | "AGENT" | "MARKETER" | "VISA" | "TICKETING" | "ACCOUNT" | "OPERATION"
-  groups: ["Package / LCC"],      // Array of department strings
+  role: "ADMIN",                  // "ADMIN" | "AGENT" | "MARKETER"
   isOnline: true,                 // Boolean
-  lastSeen: ISODate,
-  createdAt: ISODate
+  lastSeen: ISODate("2026-03-15T10:00:00Z"),
+  createdAt: ISODate("2026-03-01T10:00:00Z")
 }
 ```
 
@@ -108,36 +107,23 @@
   _id: ObjectId,
   primaryContactId: ObjectId,     // → primarycontacts._id (Required)
   uniqueCode: "TW0042",          // Auto-generated, unique
-  contact: {                      // Embedded snapshot of contact details
-    name: "John Smith",
-    phone: "+919876543210",
-    type: "B2C",                  // "B2B" | "B2C"
-    requirements: "Need 2 tickets...",
-    interested: true
-  },
-  segments: [                     // Normalized array for all trip types
-    { 
-      from: "DEL", 
-      to: "DXB", 
-      departureDate: ISODate, 
-      returnDate: ISODate,
-      tripType: "round-trip",
-      country: "UAE" 
-    }
+  destination: "Dubai",           // May be AI-extracted
+  travelDate: ISODate,            // May be AI-extracted
+  returnDate: ISODate,            // For round trips
+  flightFrom: "Delhi",
+  flightTo: "Dubai",
+  tripType: "one-way",            // "one-way" | "round-trip" | "multi-city"
+  segments: [                     // For multi-city trips
+    { from: "Delhi", to: "Dubai", date: ISODate },
+    { from: "Dubai", to: "Singapore", date: ISODate }
   ],
-  totalAmount: 55000,             // Selling Price
-  outstanding: 5000,              // Calculated balance
-  status: "Pending",              // "Pending" | "Working" | "Sent" | "Booked" | "Follow Up"
-  assignedGroup: "Package / LCC", // Department routing
-  assignedToUserId: ObjectId,     // Nullable reference to User
-  createdByUserId: ObjectId,      // Reference to User
-  estimatedCosts: [               // Cost breakdown for margin tracking
-    { costType: "Flight", price: 40000, source: "Air India" }
-  ],
-  actualCosts: [],                // Post-booking costs
-  estimatedMargin: 15000,         // (totalAmount - estimatedCosts sum)
-  isVerified: false,              // Admin audit status
-  lastInteractionAt: ISODate,     // Engagement tracking
+  amount: 50000,                  // Quoted amount
+  totalAmount: 55000,             // Grand total
+  finalQuotation: "Q-2026-042",   // Quotation reference string
+  travellers: 2,                  // AI-extracted or manual
+  status: "Pending",              // "Pending" → "Working" → "Sent" → "Booked"
+  createdByUserId: ObjectId,      // → users._id (Required)
+  assignedToUserId: ObjectId,     // → users._id (Nullable)
   createdAt: ISODate,
   updatedAt: ISODate
 }
