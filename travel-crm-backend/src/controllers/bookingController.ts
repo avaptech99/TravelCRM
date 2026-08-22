@@ -11,6 +11,7 @@ import Timeline from '../models/Timeline';
 import mongoose from 'mongoose';
 import { CK, TTL, CacheInvalidation, cacheGet, cacheSet } from '../utils/cache';
 import { runBG } from '../utils/background';
+import { getPhoneLeadUserId } from '../utils/phoneLead';
 import { createTimer } from '../utils/perfLogger';
 import {
     createBookingSchema,
@@ -184,7 +185,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         res.status(401);
         throw new Error('Not authorized');
     }
-    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder } = req.query;
+    const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, onlyCallLogs } = req.query;
 
 
     const cacheKey = CK.bookingList(req.query);
@@ -271,6 +272,10 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
+    if (onlyCallLogs === 'true') {
+        const phoneLeadUserId = await getPhoneLeadUserId();
+        if (phoneLeadUserId) query.createdByUserId = phoneLeadUserId;
+    }
 
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');

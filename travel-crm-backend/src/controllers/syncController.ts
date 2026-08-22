@@ -3,10 +3,10 @@ import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import Notification from '../models/Notification';
 import User from '../models/User';
-import MissedCall from '../models/MissedCall';
 import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
+import { getPhoneLeadUserId } from '../utils/phoneLead';
 
 // Request deduplication for sync fetches
 const syncFetchInFlight = new Map<string, Promise<any>>();
@@ -59,8 +59,12 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };
 
+        // Total Bookings / New Enquiries reflect missed-call leads only
+        const phoneLeadUserId = await getPhoneLeadUserId();
+        if (phoneLeadUserId) statsQuery.createdByUserId = phoneLeadUserId;
+
         // Run all queries
-        const [statsResult, recentBookings, notifications, agentsCount, missedCallsCount] = await Promise.all([
+        const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking.aggregate([
                 { $match: statsQuery },
                 {
@@ -84,8 +88,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean(),
-            userRole === 'ADMIN' ? User.countDocuments({ role: 'AGENT' }) : Promise.resolve(0),
-            MissedCall.countDocuments({ disposition: { $ne: 'ANSWERED' } })
+            userRole === 'ADMIN' ? User.countDocuments({ role: 'AGENT' }) : Promise.resolve(0)
         ]);
         t.mark('dbQuery');
 
@@ -124,7 +127,6 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
             stats: {
                 ...stats,
                 agents: agentsCount,
-                missedCalls: missedCallsCount,
             },
             recentBookings: mappedBookings,
             notifications: mappedNotifications,
