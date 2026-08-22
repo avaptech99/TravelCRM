@@ -70,7 +70,7 @@ export const handlers = [
         return new HttpResponse(null, { status: 404 });
     }),
 
-    http.post('*/api/bookings', async ({ request }) => {
+    http.post('*/api/bookings', async () => {
         return HttpResponse.json({
             ...MOCK_BOOKING,
             id: 'newbooking',

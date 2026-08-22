@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 
 // Inline mock/re-creation of StatusBadge to satisfy test spec without altering production source code

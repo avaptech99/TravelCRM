@@ -20,7 +20,7 @@ describe('useSSE Hook', () => {
             removeEventListener: vi.fn(),
             close: vi.fn(),
         };
-        global.EventSource = vi.fn().mockImplementation(function() {
+        (globalThis as any).EventSource = vi.fn().mockImplementation(function() {
             return mockEventSource;
         }) as any;
     });
@@ -29,7 +29,7 @@ describe('useSSE Hook', () => {
         localStorage.setItem('token', 'test-token');
         renderHook(() => useSSE('test-token'), { wrapper });
 
-        expect(global.EventSource).toHaveBeenCalledWith(expect.stringContaining('/api/stream?token=test-token'));
+        expect((globalThis as any).EventSource).toHaveBeenCalledWith(expect.stringContaining('/api/stream?token=test-token'));
     });
 
     it('booking_created event triggers React Query invalidation for ["bookings"]', () => {
