@@ -30,6 +30,16 @@ import {
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map<string, Promise<any>>();
 
+// Cached id of the system "Phone Lead" account used to create call-log stub bookings
+let phoneLeadUserId: mongoose.Types.ObjectId | null | undefined;
+const getPhoneLeadUserId = async (): Promise<mongoose.Types.ObjectId | null> => {
+    if (phoneLeadUserId === undefined) {
+        const phoneLeadUser = await User.findOne({ email: 'phone-lead@system.internal' }).select('_id').lean();
+        phoneLeadUserId = phoneLeadUser ? (phoneLeadUser._id as mongoose.Types.ObjectId) : null;
+    }
+    return phoneLeadUserId;
+};
+
 
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId: string) => {
@@ -273,7 +283,14 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     if (outstandingOnly === 'true') query.outstanding = { $gt: 0 };
     if (group) query.assignedGroup = group;
     if (callDisposition) query.callDisposition = callDisposition;
-    else if (excludeCallLogs === 'true') query.callDisposition = null;
+    else if (excludeCallLogs === 'true') {
+        // Exclude phone-webhook call-log stubs. callDisposition alone misses legacy
+        // stubs created before that field existed, so also exclude by their creator
+        // (the fixed system "Phone Lead" account every call-log booking uses).
+        const phoneLeadUserId = await getPhoneLeadUserId();
+        query.callDisposition = null;
+        if (phoneLeadUserId) query.createdByUserId = { $ne: phoneLeadUserId };
+    }
 
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');

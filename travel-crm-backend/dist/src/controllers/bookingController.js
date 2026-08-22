@@ -21,6 +21,15 @@ const types_1 = require("../types");
 const sseManager_1 = require("../sse/sseManager");
 // Request deduplication for booking fetches
 const bookingFetchInFlight = new Map();
+// Cached id of the system "Phone Lead" account used to create call-log stub bookings
+let phoneLeadUserId;
+const getPhoneLeadUserId = async () => {
+    if (phoneLeadUserId === undefined) {
+        const phoneLeadUser = await User_1.default.findOne({ email: 'phone-lead@system.internal' }).select('_id').lean();
+        phoneLeadUserId = phoneLeadUser ? phoneLeadUser._id : null;
+    }
+    return phoneLeadUserId;
+};
 // Helper to recalculate and save outstanding balance on a booking
 const recalcOutstanding = async (bookingId) => {
     const [payments, booking] = await Promise.all([
@@ -238,8 +247,15 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         query.assignedGroup = group;
     if (callDisposition)
         query.callDisposition = callDisposition;
-    else if (excludeCallLogs === 'true')
+    else if (excludeCallLogs === 'true') {
+        // Exclude phone-webhook call-log stubs. callDisposition alone misses legacy
+        // stubs created before that field existed, so also exclude by their creator
+        // (the fixed system "Phone Lead" account every call-log booking uses).
+        const phoneLeadUserId = await getPhoneLeadUserId();
         query.callDisposition = null;
+        if (phoneLeadUserId)
+            query.createdByUserId = { $ne: phoneLeadUserId };
+    }
     // 3. Pagination Logic (Optimized for Atlas M0)
     t.mark('parseFilters');
     const limitNum = Math.min(parseInt(limit, 10), 50); // Hard limit of 50 for stability
