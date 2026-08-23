@@ -49,6 +49,9 @@ const processCallIntoCRM = async (
         finalName = callerName;
     }
 
+    // Only a missed call should bump lastInteractionAt / move the lead to the top
+    const isMissedCall = disposition !== 'OUTBOUND' && !(disposition === 'ANSWERED' && billsec > 0);
+
     let callType = 'Missed Call';
     if (disposition === 'OUTBOUND') {
         callType = 'Outbound Call';
@@ -80,11 +83,13 @@ const processCallIntoCRM = async (
                 });
             }
 
-            // ponytail: bump lastInteractionAt only if incoming callTime is newer than existing lastInteractionAt
-            const incomingTime = callTime || new Date();
-            if (!latestBooking.lastInteractionAt || new Date(incomingTime).getTime() > new Date(latestBooking.lastInteractionAt).getTime()) {
-                latestBooking.lastInteractionAt = incomingTime;
-                await latestBooking.save();
+            // Only a missed call moves the lead to the top; answered/outbound calls just log a comment
+            if (isMissedCall) {
+                const incomingTime = callTime || new Date();
+                if (!latestBooking.lastInteractionAt || new Date(incomingTime).getTime() > new Date(latestBooking.lastInteractionAt).getTime()) {
+                    latestBooking.lastInteractionAt = incomingTime;
+                    await latestBooking.save();
+                }
             }
 
             CacheInvalidation.onBookingWrite(latestBooking._id.toString());
@@ -105,7 +110,7 @@ const processCallIntoCRM = async (
             await contact.save();
         }
         const incomingTime = callTime || new Date();
-        if (!existingBooking.lastInteractionAt || new Date(incomingTime).getTime() > new Date(existingBooking.lastInteractionAt).getTime()) {
+        if (isMissedCall && (!existingBooking.lastInteractionAt || new Date(incomingTime).getTime() > new Date(existingBooking.lastInteractionAt).getTime())) {
             existingBooking.lastInteractionAt = incomingTime;
             await existingBooking.save();
         } else if (updated) {
