@@ -362,6 +362,11 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
             // If the shared promise failed, fall through to try a fresh one
         }
     }
+    // Captured before the read starts -- if a write invalidates this booking
+    // while the read below is still in flight (real network latency, not
+    // instant), the version will have moved by the time we're ready to
+    // cache, and we must not cache a snapshot that's already stale.
+    const versionAtFetchStart = (0, cache_1.getBookingWriteVersion)(id);
     const fetchPromise = (async () => {
         // Parallelize sub-collection fetches to avoid N+1 sequential delay
         const [booking, legacyComments, payments, passengers] = await Promise.all([
@@ -458,7 +463,11 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
             res.status(403);
             throw new Error('Not authorized to view this booking');
         }
-        (0, cache_1.cacheSet)(cacheKey, result, cache_1.TTL.BOOKING_DETAIL);
+        // Only cache if nothing wrote to this booking while we were reading --
+        // otherwise we'd be caching a snapshot that's already stale.
+        if ((0, cache_1.getBookingWriteVersion)(id) === versionAtFetchStart) {
+            (0, cache_1.cacheSet)(cacheKey, result, cache_1.TTL.BOOKING_DETAIL);
+        }
         res.setHeader('X-Cache-Status', 'MISS');
         t.end({ source: 'db', bookingId: id });
         res.json(result);

@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CacheInvalidation = exports.CK = exports.TTL = void 0;
+exports.bumpBookingWriteVersion = bumpBookingWriteVersion;
+exports.getBookingWriteVersion = getBookingWriteVersion;
 exports.cacheGet = cacheGet;
 exports.cacheSet = cacheSet;
 exports.cacheDel = cacheDel;
@@ -57,6 +59,22 @@ exports.CK = {
     analytics: (type, params) => `analytics_${type}_${stableHash(params)}`,
     sync: (userId) => `sync_${userId}`,
 };
+// ─── Per-booking write versioning ──────────────────────────────────────────────
+// Closes a race: a GET that started before a write can still be mid-flight
+// (real Atlas/Render network latency, not instant) when that write's
+// invalidation runs. If the GET then finishes and blindly caches its
+// pre-write snapshot, it silently re-poisons the cache for the full TTL --
+// invisible to the client until the next lucky cache miss. A reader captures
+// the version before it starts; if the version moved by the time it's ready
+// to cache, a write happened mid-flight, so it skips caching (correctness
+// over hit rate -- the next request just does a fresh, safe read).
+const bookingWriteVersion = new Map();
+function bumpBookingWriteVersion(bookingId) {
+    bookingWriteVersion.set(bookingId, (bookingWriteVersion.get(bookingId) || 0) + 1);
+}
+function getBookingWriteVersion(bookingId) {
+    return bookingWriteVersion.get(bookingId) || 0;
+}
 // ─── Typed cache wrappers ─────────────────────────────────────────────────────
 function cacheGet(key) {
     const val = appCache.get(key);
@@ -78,6 +96,7 @@ function cacheInvalidatePrefix(prefix) {
 exports.CacheInvalidation = {
     // ANY booking write: create, update, delete, status, assign, verify
     onBookingWrite(bookingId, userId) {
+        bumpBookingWriteVersion(bookingId);
         appCache.del(exports.CK.bookingDetail(bookingId));
         cacheInvalidatePrefix('bookings_');
         cacheInvalidatePrefix('stats_');
@@ -88,6 +107,7 @@ exports.CacheInvalidation = {
     },
     // payment add or delete
     onPaymentWrite(bookingId) {
+        bumpBookingWriteVersion(bookingId);
         appCache.del(exports.CK.bookingDetail(bookingId));
         cacheInvalidatePrefix('analytics_');
         cacheInvalidatePrefix('stats_');
@@ -109,6 +129,7 @@ exports.CacheInvalidation = {
     },
     // comment, passenger, attachment — detail only
     onBookingDetailWrite(bookingId) {
+        bumpBookingWriteVersion(bookingId);
         appCache.del(exports.CK.bookingDetail(bookingId));
     },
     // bulk operations — nuclear option

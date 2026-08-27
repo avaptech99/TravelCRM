@@ -9,7 +9,7 @@ import Payment from '../models/Payment';
 import Notification from '../models/Notification';
 import Timeline from '../models/Timeline';
 import mongoose from 'mongoose';
-import { CK, TTL, CacheInvalidation, cacheGet, cacheSet } from '../utils/cache';
+import { CK, TTL, CacheInvalidation, cacheGet, cacheSet, getBookingWriteVersion } from '../utils/cache';
 import { runBG } from '../utils/background';
 import { createTimer } from '../utils/perfLogger';
 import {
@@ -422,6 +422,12 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
         }
     }
 
+    // Captured before the read starts -- if a write invalidates this booking
+    // while the read below is still in flight (real network latency, not
+    // instant), the version will have moved by the time we're ready to
+    // cache, and we must not cache a snapshot that's already stale.
+    const versionAtFetchStart = getBookingWriteVersion(id);
+
     const fetchPromise = (async () => {
         // Parallelize sub-collection fetches to avoid N+1 sequential delay
         const [booking, legacyComments, payments, passengers] = await Promise.all([
@@ -531,7 +537,11 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
             throw new Error('Not authorized to view this booking');
         }
 
-        cacheSet(cacheKey, result, TTL.BOOKING_DETAIL);
+        // Only cache if nothing wrote to this booking while we were reading --
+        // otherwise we'd be caching a snapshot that's already stale.
+        if (getBookingWriteVersion(id) === versionAtFetchStart) {
+            cacheSet(cacheKey, result, TTL.BOOKING_DETAIL);
+        }
         res.setHeader('X-Cache-Status', 'MISS');
         t.end({ source: 'db', bookingId: id });
         res.json(result);

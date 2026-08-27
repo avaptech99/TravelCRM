@@ -60,6 +60,25 @@ export const CK = {
   sync:            (userId: string)                => `sync_${userId}`,
 } as const;
 
+// ─── Per-booking write versioning ──────────────────────────────────────────────
+// Closes a race: a GET that started before a write can still be mid-flight
+// (real Atlas/Render network latency, not instant) when that write's
+// invalidation runs. If the GET then finishes and blindly caches its
+// pre-write snapshot, it silently re-poisons the cache for the full TTL --
+// invisible to the client until the next lucky cache miss. A reader captures
+// the version before it starts; if the version moved by the time it's ready
+// to cache, a write happened mid-flight, so it skips caching (correctness
+// over hit rate -- the next request just does a fresh, safe read).
+const bookingWriteVersion = new Map<string, number>();
+
+export function bumpBookingWriteVersion(bookingId: string): void {
+  bookingWriteVersion.set(bookingId, (bookingWriteVersion.get(bookingId) || 0) + 1);
+}
+
+export function getBookingWriteVersion(bookingId: string): number {
+  return bookingWriteVersion.get(bookingId) || 0;
+}
+
 // ─── Typed cache wrappers ─────────────────────────────────────────────────────
 export function cacheGet<T>(key: string): T | null {
   const val = appCache.get<T>(key);
@@ -86,6 +105,7 @@ export const CacheInvalidation = {
 
   // ANY booking write: create, update, delete, status, assign, verify
   onBookingWrite(bookingId: string, userId?: string): void {
+    bumpBookingWriteVersion(bookingId);
     appCache.del(CK.bookingDetail(bookingId));
     cacheInvalidatePrefix('bookings_');
     cacheInvalidatePrefix('stats_');
@@ -96,6 +116,7 @@ export const CacheInvalidation = {
 
   // payment add or delete
   onPaymentWrite(bookingId: string): void {
+    bumpBookingWriteVersion(bookingId);
     appCache.del(CK.bookingDetail(bookingId));
     cacheInvalidatePrefix('analytics_');
     cacheInvalidatePrefix('stats_');
@@ -121,6 +142,7 @@ export const CacheInvalidation = {
 
   // comment, passenger, attachment — detail only
   onBookingDetailWrite(bookingId: string): void {
+    bumpBookingWriteVersion(bookingId);
     appCache.del(CK.bookingDetail(bookingId));
   },
 
