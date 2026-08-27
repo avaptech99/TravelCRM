@@ -10,9 +10,11 @@
         "start": "cd travel-crm-backend && npm run start",
         "prisma:generate": "cd travel-crm-backend && npx prisma generate",
         "prisma:migrate": "cd travel-crm-backend && npx prisma migrate dev",
-        "seed": "cd travel-crm-backend && npm run seed"
+        "seed": "cd travel-crm-backend && npm run seed",
+        "e2e": "playwright test"
     },
     "devDependencies": {
+        "@playwright/test": "^1.48.0",
         "concurrently": "^8.2.2"
     }
 }
