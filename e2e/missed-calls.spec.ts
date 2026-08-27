@@ -10,12 +10,10 @@ async function findLeadRow(page: Page, code: string) {
     return row;
 }
 
-// selectOption({ label }) needs an exact string match, but AssignAgentModal
-// renders "name (email)" -- match by prefix and select the option's value instead.
-async function selectAgentByName(select: ReturnType<Page['getByRole']>, name: string) {
-    const value = await select.locator('option', { hasText: new RegExp(`^${name}\\s*(\\(|$)`) }).first().getAttribute('value');
-    if (!value) throw new Error(`No agent option found starting with "${name}"`);
-    await select.selectOption(value);
+// AssignAgentModal renders options as "name (email)" -- selectOption({ label })
+// needs an exact string match, so build the exact expected label.
+async function selectAgentByEmail(select: ReturnType<Page['getByRole']>, name: string, email: string) {
+    await select.selectOption({ label: `${name} (${email})` });
 }
 
 /**
@@ -87,7 +85,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
             (async () => {
-                await selectAgentByName(page.getByRole('combobox'), process.env.E2E_AGENT_A_NAME!);
+                await selectAgentByEmail(page.getByRole('combobox'), process.env.E2E_AGENT_A_NAME!, AGENT_A_EMAIL!);
                 await page.getByRole('button', { name: /^assign$/i }).click();
             })(),
         ]);
