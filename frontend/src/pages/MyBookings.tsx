@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookingsTable } from '../features/bookings/components/BookingsTable';
-import { Plus, Search, Filter } from 'lucide-react';
-import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
+import { Search, Filter } from 'lucide-react';
 
 const STATUS_OPTIONS = ['Pending', 'Working', 'Booked', 'Interested', 'Not Interested', 'Follow Up'];
 
@@ -15,7 +14,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const MyBookings: React.FC = () => {
-    const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -74,13 +72,6 @@ export const MyBookings: React.FC = () => {
                             </span>
                         )}
                     </button>
-                    <button
-                        onClick={() => setIsNewBookingModalOpen(true)}
-                        className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        <Plus size={18} />
-                        <span>New Booking</span>
-                    </button>
                 </div>
             </div>
 
@@ -125,11 +116,6 @@ export const MyBookings: React.FC = () => {
                 searchTerm={debouncedSearch}
                 statusFilter={selectedStatuses.length > 0 ? selectedStatuses.join(',') : undefined}
                 isMyBookingsView={true}
-            />
-
-            <NewBookingModal
-                isOpen={isNewBookingModalOpen}
-                onClose={() => setIsNewBookingModalOpen(false)}
             />
         </div>
     );

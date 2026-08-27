@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, FileText, CheckCircle, Clock, Plus, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
-import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
+import { Users, FileText, CheckCircle, Clock, RefreshCw, WifiOff, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useGlobalSync } from '../hooks/useGlobalSync';
@@ -38,7 +37,6 @@ const Loader: React.FC<{ fullPage?: boolean }> = ({ fullPage = false }) => {
 
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
-    const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -130,13 +128,6 @@ export const Dashboard: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight whitespace-nowrap">Overview</h1>
                     <p className="text-slate-500 text-sm mt-2">Welcome, <span className="font-semibold text-slate-700">{user?.name}</span>. Here's a summary of your Bookings.</p>
                 </div>
-                <button
-                    onClick={() => setIsNewBookingModalOpen(true)}
-                    className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold mt-1 md:mt-0 transform hover:scale-[1.02] active:scale-[0.98] w-full md:w-auto justify-center md:justify-start"
-                >
-                    <Plus size={18} />
-                    <span>New Booking</span>
-                </button>
             </div>
 
             {/* Metric Cards */}
@@ -333,12 +324,6 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-
-            <NewBookingModal
-                isOpen={isNewBookingModalOpen}
-                onClose={() => setIsNewBookingModalOpen(false)}
-            />
         </div>
     );
 };

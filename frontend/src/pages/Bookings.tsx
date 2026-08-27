@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { BookingsTable } from '../features/bookings/components/BookingsTable';
-import { Plus, Search, Filter, Users, UserSquare } from 'lucide-react';
-import { NewBookingModal } from '../features/bookings/components/NewBookingModal';
+import { Search, Filter, Users, UserSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
@@ -30,8 +29,6 @@ export const Bookings: React.FC = () => {
     const isUnassignedPath = location.pathname === '/unassignedbooking';
     const isAllLeadsPath = location.pathname === '/bookings';
 
-    const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
-    
     // Initialize state from URL params
     const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
     const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
@@ -245,14 +242,6 @@ export const Bookings: React.FC = () => {
                             </span>
                         )}
                     </button>
-
-                    <button
-                        onClick={() => setIsNewBookingModalOpen(true)}
-                        className="flex items-center space-x-2 bg-brand-gradient hover:opacity-90 text-white px-4 py-2 rounded-md shadow-md transition-all font-bold transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        <Plus size={18} />
-                        <span>New Booking</span>
-                    </button>
                 </div>
             </div>
 
@@ -463,11 +452,6 @@ export const Bookings: React.FC = () => {
                 outstandingFilter={isOutstandingOnly}
                 groupFilter={selectedDepartment || undefined}
                 onlyCallLogs={isAllLeadsPath}
-            />
-
-            <NewBookingModal
-                isOpen={isNewBookingModalOpen}
-                onClose={() => setIsNewBookingModalOpen(false)}
             />
         </div>
     );
