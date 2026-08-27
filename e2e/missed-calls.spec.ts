@@ -121,7 +121,16 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await page.goto(leadUrl);
         const commentText = `e2e comment ${Date.now()}`;
         await page.getByPlaceholder('Add a new comment or remark...').fill(commentText);
-        await page.getByRole('button', { name: /post comment/i }).click();
+
+        // The UI renders the comment optimistically (before the request even
+        // reaches the server), so asserting visibility here proves nothing about
+        // persistence -- reloading right after would race the real POST. Wait
+        // for the actual network response instead.
+        const [postRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\/[a-f0-9]{24}\/comments$/.test(r.url()) && r.request().method() === 'POST'),
+            page.getByRole('button', { name: /post comment/i }).click(),
+        ]);
+        expect(postRes.ok()).toBeTruthy();
         await expect(page.getByText(commentText)).toBeVisible();
 
         await page.reload();
