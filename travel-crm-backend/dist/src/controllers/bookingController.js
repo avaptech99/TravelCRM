@@ -177,15 +177,11 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
             query.status = 'Booked';
         }
         else if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            // Missed-call leads are a shared triage queue, not department-routed --
-            // don't gate them behind participantIds/assignedGroup like real bookings,
-            // or an agent with no department (or nothing assigned yet) sees nothing.
-            if (onlyCallLogs !== 'true') {
-                query.$or = [
-                    { participantIds: new mongoose_1.default.Types.ObjectId(req.user.id) },
-                    { assignedGroup: { $in: userGroups } }
-                ];
-            }
+            // No department/group gate on visibility -- All Leads, Unassigned, and
+            // Booked/EDT are shared views, not routed by assignedGroup. An agent
+            // with no department (or nothing assigned) must still see them.
+            // "My Leads" (myBookings=true, below) is the only agent-scoped view,
+            // and it scopes by participantIds/assignedToUserId, not group.
         }
         else if (req.user?.role === 'MARKETER') {
             query.participantIds = new mongoose_1.default.Types.ObjectId(req.user.id);
@@ -327,13 +323,10 @@ exports.getBookingById = (0, express_async_handler_1.default)(async (req, res) =
         if (req.user?.role === 'ADMIN')
             return true;
         const creatorId = b.createdByUserId?._id?.toString() || b.createdByUserId?.toString();
-        const assignedId = b.assignedToUserId?._id?.toString() || b.assignedToUserId?.toString();
-        const bookingGroup = b.assignedGroup || 'Package / LCC';
-        const userGroups = req.user?.groups || [];
+        // Same open visibility as the list views (All Leads etc.) -- not
+        // group-gated, so an agent who can see a lead in a list can also open it.
         if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            return creatorId === String(req.user?.id) ||
-                assignedId === String(req.user?.id) ||
-                userGroups.includes(bookingGroup);
+            return true;
         }
         if (req.user?.role === 'MARKETER') {
             return creatorId === String(req.user?.id);

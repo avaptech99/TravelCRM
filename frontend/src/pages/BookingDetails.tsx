@@ -258,7 +258,7 @@ export const BookingDetails: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center pl-8 sm:pl-0 w-full sm:w-auto">
-                    {isReadOnly && user?.role === 'AGENT' && (user?.groups || []).some(g => g.toLowerCase().trim() === (booking?.assignedGroup || 'Package / LCC').toLowerCase().trim()) && (
+                    {isReadOnly && user?.role === 'AGENT' && (
                         <button
                             onClick={() => assignToMeMutation.mutate()}
                             disabled={assignToMeMutation.isPending}

@@ -45,7 +45,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
         const recentQuery = {};
         // Optimized visibility query using participantIds covering index
         const userIdObj = new mongoose_1.default.Types.ObjectId(userId);
-        if (userRole === 'AGENT' || userRole === 'MARKETER' || userRole === 'VISA' || userRole === 'TICKETING') {
+        if (userRole === 'MARKETER') {
             statsQuery.participantIds = userIdObj;
             recentQuery.participantIds = userId;
         }

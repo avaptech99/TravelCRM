@@ -297,9 +297,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             id: 'assignedTo',
             header: 'Assigned To',
             cell: (info) => {
-                const bookingGroup = (info.row.original.assignedGroup || 'Package / LCC').toLowerCase().trim();
-                const canClaim = user?.role === 'ADMIN' || (user?.groups || []).some(g => g.toLowerCase().trim() === bookingGroup);
-                
                 return (
                     <div className="flex items-center">
                         {info.row.original.assignedToUser?.name ? (
@@ -309,7 +306,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
                                     {info.row.original.assignedGroup || 'Unassigned'}
                                 </span>
-                                {canClaim && user?.role === 'AGENT' && (
+                                {user?.role === 'AGENT' && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
