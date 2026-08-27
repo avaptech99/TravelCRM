@@ -45,7 +45,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
     const canChangeAgent = user?.role === 'ADMIN' || user?.permissions?.canAssignLeads; 
 
-    const [agents, setAgents] = useState<{ id: string, name: string, groups: string[] }[]>([]);
+    const [agents, setAgents] = useState<{ id?: string, _id?: string, name: string, groups: string[] }[]>([]);
 
     React.useEffect(() => {
         if (isOpen && canChangeAgent) {
@@ -196,7 +196,7 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                                 {agents
                                     .filter(a => a.name !== 'Website Lead')
                                     .map(agent => (
-                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                        <option key={agent.id || agent._id} value={agent.id || agent._id}>{agent.name}</option>
                                     ))}
                             </select>
                         </div>

@@ -92,7 +92,7 @@ export const AssignAgentModal: React.FC<AssignAgentModalProps> = ({ booking, isO
                             >
                                 <option value="" disabled>Select an agent...</option>
                                 {agents?.filter((a: any) => a.name !== 'Website Lead').map((agent: any) => (
-                                    <option key={agent.id} value={agent.id}>
+                                    <option key={agent.id || agent._id} value={agent.id || agent._id}>
                                         {agent.name} ({agent.email})
                                     </option>
                                 ))}
