@@ -320,13 +320,13 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
     // the machine running the test -- so the expected string is computed with
     // an explicit IANA timezone (Intl), never the runner's own TZ.
     //
-    // Created On must show createdAt, never lastInteractionAt -- the column
-    // used to fall back to lastInteractionAt first, so any ordinary edit
-    // (which bumps lastInteractionAt) made "Created On" appear to change even
-    // though the record's real createdAt never moved. Fixed in
-    // BookingsTable.tsx; this test's expected value is now createdAt only,
-    // matching the corrected accessor.
-    test('Created On column displays America/Toronto date and time, from createdAt', async ({ page }) => {
+    // Created On shows the latest missed-call time (lastInteractionAt,
+    // falling back to createdAt for a lead with none), not the record's
+    // original creation time -- it's meant to move to the top and update
+    // display every time a new missed call comes in for the lead. Every
+    // non-missed-call write path (edit, status, assign, ordinary comments)
+    // is scoped to never touch lastInteractionAt -- see bookingController.ts.
+    test('Created On column displays America/Toronto date and time, from the latest missed-call time', async ({ page }) => {
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
         const [bookingsRes] = await Promise.all([
             page.waitForResponse((r) => /\/bookings\?/.test(r.url()) && r.request().method() === 'GET'),
@@ -335,7 +335,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const row = await findLeadRow(page, LEAD_CODE!);
         const body = await bookingsRes.json();
         const record = (body.data as any[]).find((b) => b.uniqueCode === LEAD_CODE);
-        const isoTimestamp: string = record.createdAt;
+        const isoTimestamp: string = record.lastInteractionAt || record.createdAt;
         expect(isoTimestamp).toBeTruthy();
 
         const expectedDate = new Intl.DateTimeFormat('en-US', {
@@ -355,14 +355,17 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         expect(displayedMinutes?.replace(/\s/g, '').toUpperCase()).toBe(expectedTime.replace(/\s/g, '').toUpperCase());
     });
 
-    // Regression for the exact bug reported: Created On must be immutable --
-    // editing status/interested, reassigning, or commenting must never change
-    // createdAt (updatedAt/lastInteractionAt moving is fine and expected).
-    test('Created On does not change after editing, reassigning, or commenting', async ({ page }) => {
+    // createdAt (the record's real creation time) must never change, and --
+    // per the "Created On tracks the latest missed call" spec above --
+    // lastInteractionAt (what Created On actually displays) must not move
+    // either for an ordinary edit or an ordinary comment. Only a genuine
+    // missed call (covered by the GDMS test below) is allowed to move it.
+    test('Created On does not change after editing, reassigning, or commenting (only a missed call moves it)', async ({ page }) => {
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
         const before = await getBookingDetailJson(page, leadUrl);
         const originalCreatedAt = before.createdAt;
+        const originalLastInteractionAt = before.lastInteractionAt;
         expect(originalCreatedAt).toBeTruthy();
         await waitForManualStep(page);
 
@@ -380,8 +383,9 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
         const afterEdit = await getBookingDetailJson(page, leadUrl, true);
         expect(afterEdit.createdAt).toBe(originalCreatedAt);
+        expect(afterEdit.lastInteractionAt).toBe(originalLastInteractionAt);
 
-        // A second, independent write: add a comment (bumps lastInteractionAt too)
+        // A second, independent write: add an ordinary comment
         const commentText = `e2e createdAt-invariance ${Date.now()}`;
         await page.getByPlaceholder('Add a new comment or remark...').fill(commentText);
         await Promise.all([
@@ -392,8 +396,9 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
         const afterComment = await getBookingDetailJson(page, leadUrl, true);
         expect(afterComment.createdAt).toBe(originalCreatedAt);
-        // updatedAt/lastInteractionAt are allowed (expected) to have moved
-        expect(new Date(afterComment.lastInteractionAt).getTime()).toBeGreaterThanOrEqual(new Date(before.lastInteractionAt).getTime());
+        // An ordinary comment must not move lastInteractionAt -- only a
+        // genuine missed call does (Created On must not drift on chatter).
+        expect(afterComment.lastInteractionAt).toBe(originalLastInteractionAt);
     });
 
     // Repeat missed call must reset status back to Pending, but a duplicate of
@@ -444,6 +449,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             });
 
             const createdAtBeforeCalls: string = detail.createdAt;
+            const lastInteractionAtBeforeCalls: string = detail.lastInteractionAt;
 
             // 2. Same CDR sent twice (retry) -- must be a no-op the second time.
             const dupUniqueId = `e2e-dedup-${Date.now()}`;
@@ -470,9 +476,12 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
             const afterCallJson = await getBookingDetailJson(page, bookingUrl, true);
             expect(afterCallJson.status).toBe('Pending');
-            // The new interaction may legitimately move lastInteractionAt, but
             // createdAt (when the lead itself was first created) must not move.
             expect(afterCallJson.createdAt).toBe(createdAtBeforeCalls);
+            // A genuine new missed call IS the one thing that's supposed to move
+            // lastInteractionAt -- this is what makes Created On update / the row
+            // climb to the top when a new call comes in.
+            expect(new Date(afterCallJson.lastInteractionAt).getTime()).toBeGreaterThan(new Date(lastInteractionAtBeforeCalls).getTime());
 
             // 4. Assignment must be untouched by the reset.
             await expect(page.locator('text=Assignment').locator('..').getByText(process.env.E2E_AGENT_B_NAME || process.env.E2E_AGENT_A_NAME!)).toBeVisible();

@@ -224,7 +224,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 </div>
             ),
         }),
-        columnHelper.accessor((row) => row.createdAt, {
+        // lastInteractionAt is bumped only by GDMS missed-call processing
+        // (never by ordinary edits/comments/assignment -- see bookingController.ts),
+        // so this column shows the latest missed-call time and moves the row
+        // to the top exactly when a new missed call comes in, per spec.
+        columnHelper.accessor((row) => row.lastInteractionAt || row.createdAt, {
             id: 'createdAt',
             header: 'Created On',
             cell: (info) => {

@@ -731,8 +731,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     // Prepare update object -- built from the validated/whitelisted result.data,
     // not raw req.body, so a client can't slip an unknown field (e.g. createdAt)
-    // straight into $set.
-    const updateData: any = { ...result.data, lastInteractionAt: new Date() };
+    // straight into $set. lastInteractionAt is owned exclusively by GDMS
+    // missed-call processing (Created On column / sort order); an ordinary
+    // field edit must not touch it.
+    const updateData: any = { ...result.data };
     
     // Handle embedded contact snapshot sync
     if (req.body.contactPerson || req.body.contactNumber || req.body.requirements || req.body.interested !== undefined) {
@@ -841,10 +843,12 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
     const { status } = result.data;
 
     const t = createTimer(`updateStatus_${id}`);
-    // PRIMARY write only
+    // PRIMARY write only -- lastInteractionAt is owned by GDMS missed-call
+    // processing exclusively (drives the Created On column / sort order); an
+    // ordinary status change must not touch it.
     const updatedBooking = await Booking.findByIdAndUpdate(
         id,
-        { status, lastInteractionAt: new Date() },
+        { status },
         { returnDocument: 'after' }
     ).lean();
 
@@ -1068,10 +1072,11 @@ export const bulkAssign = asyncHandler(async (req: Request, res: Response) => {
     const updateResult = await Booking.updateMany(
         { _id: { $in: bookingIds } },
         [
-            { 
-                $set: { 
-                    assignedToUserId: newAgentId, 
-                    lastInteractionAt: new Date(),
+            {
+                $set: {
+                    assignedToUserId: newAgentId,
+                    // lastInteractionAt is owned exclusively by GDMS missed-call
+                    // processing -- bulk reassignment must not touch it.
                     // Re-calculate participantIds: [createdByUserId, newAgentId] without nulls
                     participantIds: {
                         $filter: {
@@ -1205,7 +1210,10 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 
     // ✅ BACKGROUND SIDE EFFECTS
     setImmediate(() => runBG(`addComment_sideEffects_${id}`, async () => {
-        await Booking.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
+        // lastInteractionAt is owned exclusively by GDMS missed-call processing
+        // (drives the Created On column / sort order); an ordinary comment
+        // (agent remark, "Agent changed: ..." system note, etc.) must not
+        // touch it -- only a genuine missed call does.
 
         if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
             // Notify the assigned agent when marketer comments

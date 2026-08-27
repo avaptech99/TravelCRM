@@ -633,8 +633,10 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
     const t = (0, perfLogger_1.createTimer)(`updateBooking_${id}`);
     // Prepare update object -- built from the validated/whitelisted result.data,
     // not raw req.body, so a client can't slip an unknown field (e.g. createdAt)
-    // straight into $set.
-    const updateData = { ...result.data, lastInteractionAt: new Date() };
+    // straight into $set. lastInteractionAt is owned exclusively by GDMS
+    // missed-call processing (Created On column / sort order); an ordinary
+    // field edit must not touch it.
+    const updateData = { ...result.data };
     // Handle embedded contact snapshot sync
     if (req.body.contactPerson || req.body.contactNumber || req.body.requirements || req.body.interested !== undefined) {
         // We'll update the contact object partially in the background or use $set with dot notation
@@ -732,8 +734,10 @@ exports.updateBookingStatus = (0, express_async_handler_1.default)(async (req, r
     }
     const { status } = result.data;
     const t = (0, perfLogger_1.createTimer)(`updateStatus_${id}`);
-    // PRIMARY write only
-    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { status, lastInteractionAt: new Date() }, { returnDocument: 'after' }).lean();
+    // PRIMARY write only -- lastInteractionAt is owned by GDMS missed-call
+    // processing exclusively (drives the Created On column / sort order); an
+    // ordinary status change must not touch it.
+    const updatedBooking = await Booking_1.default.findByIdAndUpdate(id, { status }, { returnDocument: 'after' }).lean();
     t.mark('findAndUpdate');
     if (!updatedBooking) {
         t.end({ error: 'Not found', bookingId: id });
@@ -917,7 +921,8 @@ exports.bulkAssign = (0, express_async_handler_1.default)(async (req, res) => {
         {
             $set: {
                 assignedToUserId: newAgentId,
-                lastInteractionAt: new Date(),
+                // lastInteractionAt is owned exclusively by GDMS missed-call
+                // processing -- bulk reassignment must not touch it.
                 // Re-calculate participantIds: [createdByUserId, newAgentId] without nulls
                 participantIds: {
                     $filter: {
@@ -1028,7 +1033,10 @@ exports.addComment = (0, express_async_handler_1.default)(async (req, res) => {
     res.status(201).json(comment);
     // ✅ BACKGROUND SIDE EFFECTS
     setImmediate(() => (0, background_1.runBG)(`addComment_sideEffects_${id}`, async () => {
-        await Booking_1.default.findByIdAndUpdate(id, { lastInteractionAt: new Date() });
+        // lastInteractionAt is owned exclusively by GDMS missed-call processing
+        // (drives the Created On column / sort order); an ordinary comment
+        // (agent remark, "Agent changed: ..." system note, etc.) must not
+        // touch it -- only a genuine missed call does.
         if (req.user?.role === 'MARKETER' && booking.assignedToUserId) {
             // Notify the assigned agent when marketer comments
             await Notification_1.default.create({
