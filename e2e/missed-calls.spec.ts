@@ -180,4 +180,40 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await expect(page.getByRole('heading', { name: 'All Bookings' })).toBeVisible();
         await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
     });
+
+    // Group/department visibility: an agent must see the same views as admin,
+    // not narrowed by assignedGroup/department membership.
+    test('Agent A visibility is not group-restricted (Overview, Unassigned, Booked/EDT, and All Leads count matches Admin)', async ({ page }) => {
+        // Capture Admin's All Leads total via the real API response.
+        await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+        const [adminBookingsRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'All Leads' }).click(),
+        ]);
+        const adminTotal = (await adminBookingsRes.json()).meta?.total;
+        await logout(page);
+
+        await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
+
+        // Overview: must render without error/crash (no group-based zeroing).
+        await expect(page.getByRole('heading', { name: 'Dashboard' }).or(page.getByText('Overview'))).toBeVisible();
+        await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
+
+        // All Leads: agent's total must equal admin's -- group membership must
+        // not reduce the shared missed-call queue.
+        const [agentBookingsRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'All Leads' }).click(),
+        ]);
+        const agentTotal = (await agentBookingsRes.json()).meta?.total;
+        expect(agentTotal).toBe(adminTotal);
+
+        // Unassigned
+        await page.getByRole('link', { name: 'Unassigned' }).click();
+        await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
+
+        // Booked / EDT
+        await page.getByRole('link', { name: 'Booked / EDT' }).click();
+        await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
+    });
 });
