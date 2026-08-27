@@ -10,10 +10,17 @@ async function findLeadRow(page: Page, code: string) {
     return row;
 }
 
-// AssignAgentModal renders options as "name (email)" -- selectOption({ label })
-// needs an exact string match, so build the exact expected label.
-async function selectAgentByEmail(select: ReturnType<Page['getByRole']>, name: string, email: string) {
-    await select.selectOption({ label: `${name} (${email})` });
+// selectOption({label:...}) submitted the literal label text instead of the
+// option's value on a real run (backend got "Cast to ObjectId failed for
+// value \"agent (agent@travel.com)\""), for reasons unclear -- read the real
+// value directly out of the DOM instead of trusting Playwright's label match.
+async function selectByOptionText(select: ReturnType<Page['getByLabel']>, text: string) {
+    const value = await select.evaluate((el: HTMLSelectElement, wanted: string) => {
+        const opt = Array.from(el.options).find((o) => o.textContent?.trim() === wanted);
+        return opt?.value;
+    }, text);
+    if (!value) throw new Error(`No <option> found with text "${text}"`);
+    await select.selectOption(value);
 }
 
 /**
@@ -85,7 +92,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
             (async () => {
-                await selectAgentByEmail(page.getByRole('combobox'), process.env.E2E_AGENT_A_NAME!, AGENT_A_EMAIL!);
+                await selectByOptionText(page.getByRole('combobox'), `${process.env.E2E_AGENT_A_NAME!} (${AGENT_A_EMAIL!})`);
                 await page.getByRole('button', { name: /^assign$/i }).click();
             })(),
         ]);
@@ -149,7 +156,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
             (async () => {
                 // EditModal's "Assign To" options are the plain agent name (no email), unlike AssignAgentModal
-                await page.getByLabel('Assign To').selectOption({ label: process.env.E2E_AGENT_B_NAME! });
+                await selectByOptionText(page.getByLabel('Assign To'), process.env.E2E_AGENT_B_NAME!);
                 await page.getByRole('button', { name: /save changes/i }).click();
             })(),
         ]);
