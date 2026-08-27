@@ -224,7 +224,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 </div>
             ),
         }),
-        columnHelper.accessor((row) => row.lastInteractionAt || row.createdAt, {
+        columnHelper.accessor((row) => row.createdAt, {
             id: 'createdAt',
             header: 'Created On',
             cell: (info) => {

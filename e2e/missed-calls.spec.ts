@@ -23,6 +23,29 @@ async function selectByOptionText(select: ReturnType<Page['getByLabel']>, text: 
     await select.selectOption(value);
 }
 
+// A deliberate ~5s pause between meaningful business actions (not after every
+// locator/assertion) so this suite's pacing looks more like the manual
+// clicking-and-waiting that's already been verified to work against the real
+// deployment, rather than firing every request back-to-back. Proper
+// Playwright waits (waitForResponse / expect(...).toBeVisible()) always run
+// first -- this never substitutes for them, it just adds breathing room
+// after they've already resolved.
+async function waitForManualStep(page: Page, ms = 5000) {
+    await page.waitForTimeout(ms);
+}
+
+// Fetches the booking detail JSON the way the app itself does -- by waiting
+// for the real GET /api/bookings/:id response triggered by a goto/reload,
+// not a separate authenticated request (this app has no cookie session, so
+// a bare page.request.get would be unauthenticated).
+async function getBookingDetailJson(page: Page, url: string, alreadyThere = false) {
+    const [res] = await Promise.all([
+        page.waitForResponse((r) => /\/api\/bookings\/[a-f0-9]{24}$/.test(r.url()) && r.request().method() === 'GET'),
+        alreadyThere ? page.reload() : page.goto(url),
+    ]);
+    return res.json();
+}
+
 /**
  * Real E2E against the live main-2 deployment (frontend+backend+DB are the
  * same production system -- there is no separate staging environment).
@@ -73,6 +96,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await row.click();
         await expect(page).toHaveURL(/\/bookings\/[a-f0-9]{24}/);
         leadUrl = page.url();
+        await waitForManualStep(page);
 
         // Missed-call identity: PhoneMissed comment text should be present in history,
         // and this must not present as a normal multi-segment booking workflow (no
@@ -88,6 +112,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
         await row.getByTitle('Assign Agent').click();
         await expect(page.getByRole('heading', { name: 'Assign Agent' })).toBeVisible();
+        await waitForManualStep(page);
 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
@@ -99,6 +124,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         expect(assignResponse.ok()).toBeTruthy();
         const body = await assignResponse.json();
         expect(body.assignedToUserId).toBeTruthy(); // assignedToUserId changed
+        await waitForManualStep(page);
 
         await expect(row.getByText('Unassigned')).not.toBeVisible();
     });
@@ -108,9 +134,11 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
         await page.getByRole('link', { name: 'My Leads' }).click();
         await findLeadRow(page, LEAD_CODE!);
+        await waitForManualStep(page);
 
         await page.goto(leadUrl); // Flow 13: direct-URL refresh
         await page.reload();
+        await waitForManualStep(page);
         await expect(page.getByText('Assignment')).toBeVisible();
         await expect(page.locator('text=Assignment').locator('..').getByText('Unassigned')).not.toBeVisible();
     });
@@ -132,25 +160,48 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         ]);
         expect(postRes.ok()).toBeTruthy();
         await expect(page.getByText(commentText)).toBeVisible();
+        await waitForManualStep(page);
 
         await page.reload();
+        await waitForManualStep(page);
         await expect(page.getByText(commentText)).toBeVisible();
     });
 
-    // FLOW 5/6 -- edit form: status + interested, values persist
+    // FLOW 5/6 -- edit form: status + interested, values persist.
+    //
+    // getByLabel('Status') used to time out: EditModal's <label> elements had
+    // no htmlFor, and the <select>s had no id, so there was no programmatic
+    // association for Playwright (or a screen reader) to resolve -- a real
+    // accessibility gap, not a brittle-locator problem. Fixed at the source
+    // (EditModal.tsx now pairs htmlFor/id on Status, Interested, Assign To,
+    // and the comment textarea) rather than working around it here.
     test('Edit Booking changes Status/Interested and they persist', async ({ page }) => {
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
         await page.goto(leadUrl);
+        await waitForManualStep(page);
+
         await page.getByTitle('Edit Lead Details').click();
         await expect(page.getByRole('heading', { name: 'Edit Booking' })).toBeVisible();
+        await waitForManualStep(page);
 
         await page.getByLabel('Status').selectOption('Working');
         await page.getByLabel('Interested').selectOption('Yes');
-        await page.getByRole('button', { name: /save changes/i }).click();
+
+        const [statusRes] = await Promise.all([
+            page.waitForResponse((r) => /\/status$/.test(r.url()) && r.request().method() === 'PATCH'),
+            page.getByRole('button', { name: /save changes/i }).click(),
+        ]);
+        expect(statusRes.ok()).toBeTruthy();
         await expect(page.getByRole('heading', { name: 'Edit Booking' })).not.toBeVisible();
+        await waitForManualStep(page);
 
         await page.reload();
+        await waitForManualStep(page);
         await expect(page.getByText('Working')).toBeVisible();
+        // BookingDetails' own Interested control (separate from EditModal's) --
+        // assert on its value, not visible text, since "Interested" is also an
+        // option label when the value is 'No'.
+        await expect(page.locator('select').filter({ has: page.locator('option[value="Yes"]') })).toHaveValue('Yes');
     });
 
     // FLOW 11 -- reassign, verify old assignee loses it, new one gets it, assignedGroup untouched
@@ -159,7 +210,10 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
         await page.goto(leadUrl);
+        await waitForManualStep(page);
         await page.getByTitle('Edit Lead Details').click();
+        await expect(page.getByRole('heading', { name: 'Edit Booking' })).toBeVisible();
+        await waitForManualStep(page);
 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
@@ -173,6 +227,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         // Critical assertion from the assignment requirement: assignedGroup must be
         // whatever it already was, not derived/overwritten by this assign call.
         expect(Object.keys(body)).not.toContain('assignedGroupChanged');
+        await waitForManualStep(page);
 
         await logout(page);
         await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
@@ -252,7 +307,14 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
     // Created On must always read as America/Toronto local time, regardless of
     // the machine running the test -- so the expected string is computed with
     // an explicit IANA timezone (Intl), never the runner's own TZ.
-    test('Created On column displays America/Toronto date and time', async ({ page }) => {
+    //
+    // Created On must show createdAt, never lastInteractionAt -- the column
+    // used to fall back to lastInteractionAt first, so any ordinary edit
+    // (which bumps lastInteractionAt) made "Created On" appear to change even
+    // though the record's real createdAt never moved. Fixed in
+    // BookingsTable.tsx; this test's expected value is now createdAt only,
+    // matching the corrected accessor.
+    test('Created On column displays America/Toronto date and time, from createdAt', async ({ page }) => {
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
         const [bookingsRes] = await Promise.all([
             page.waitForResponse((r) => /\/bookings\?/.test(r.url()) && r.request().method() === 'GET'),
@@ -261,7 +323,8 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const row = await findLeadRow(page, LEAD_CODE!);
         const body = await bookingsRes.json();
         const record = (body.data as any[]).find((b) => b.uniqueCode === LEAD_CODE);
-        const isoTimestamp: string = record.lastInteractionAt || record.createdAt;
+        const isoTimestamp: string = record.createdAt;
+        expect(isoTimestamp).toBeTruthy();
 
         const expectedDate = new Intl.DateTimeFormat('en-US', {
             timeZone: 'America/Toronto', day: '2-digit', month: 'short', year: 'numeric',
@@ -278,6 +341,47 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const rowText = (await row.textContent()) || '';
         const displayedMinutes = rowText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)?.[0];
         expect(displayedMinutes?.replace(/\s/g, '').toUpperCase()).toBe(expectedTime.replace(/\s/g, '').toUpperCase());
+    });
+
+    // Regression for the exact bug reported: Created On must be immutable --
+    // editing status/interested, reassigning, or commenting must never change
+    // createdAt (updatedAt/lastInteractionAt moving is fine and expected).
+    test('Created On does not change after editing, reassigning, or commenting', async ({ page }) => {
+        await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+
+        const before = await getBookingDetailJson(page, leadUrl);
+        const originalCreatedAt = before.createdAt;
+        expect(originalCreatedAt).toBeTruthy();
+        await waitForManualStep(page);
+
+        // Edit: Status -> Working, Interested -> Yes
+        await page.getByTitle('Edit Lead Details').click();
+        await expect(page.getByRole('heading', { name: 'Edit Booking' })).toBeVisible();
+        await page.getByLabel('Status').selectOption(before.status === 'Working' ? 'Pending' : 'Working');
+        await page.getByLabel('Interested').selectOption('Yes');
+        await Promise.all([
+            page.waitForResponse((r) => /\/status$/.test(r.url()) && r.request().method() === 'PATCH'),
+            page.getByRole('button', { name: /save changes/i }).click(),
+        ]);
+        await expect(page.getByRole('heading', { name: 'Edit Booking' })).not.toBeVisible();
+        await waitForManualStep(page);
+
+        const afterEdit = await getBookingDetailJson(page, leadUrl, true);
+        expect(afterEdit.createdAt).toBe(originalCreatedAt);
+
+        // A second, independent write: add a comment (bumps lastInteractionAt too)
+        const commentText = `e2e createdAt-invariance ${Date.now()}`;
+        await page.getByPlaceholder('Add a new comment or remark...').fill(commentText);
+        await Promise.all([
+            page.waitForResponse((r) => /\/bookings\/[a-f0-9]{24}\/comments$/.test(r.url()) && r.request().method() === 'POST'),
+            page.getByRole('button', { name: /post comment/i }).click(),
+        ]);
+        await waitForManualStep(page);
+
+        const afterComment = await getBookingDetailJson(page, leadUrl, true);
+        expect(afterComment.createdAt).toBe(originalCreatedAt);
+        // updatedAt/lastInteractionAt are allowed (expected) to have moved
+        expect(new Date(afterComment.lastInteractionAt).getTime()).toBeGreaterThanOrEqual(new Date(before.lastInteractionAt).getTime());
     });
 
     // Repeat missed call must reset status back to Pending, but a duplicate of
@@ -304,11 +408,18 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             const detail = await detailRes.json();
             const phone: string = detail.contact?.phone || detail.contactNumber;
             expect(phone).toBeTruthy();
+            await waitForManualStep(page);
 
             await page.getByTitle('Edit Lead Details').click();
+            await expect(page.getByRole('heading', { name: 'Edit Booking' })).toBeVisible();
             await page.getByLabel('Status').selectOption('Working');
-            await page.getByRole('button', { name: /save changes/i }).click();
+            await Promise.all([
+                page.waitForResponse((r) => /\/status$/.test(r.url()) && r.request().method() === 'PATCH'),
+                page.getByRole('button', { name: /save changes/i }).click(),
+            ]);
+            await waitForManualStep(page);
             await page.reload();
+            await waitForManualStep(page);
             await expect(page.getByText('Working')).toBeVisible();
 
             const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
@@ -320,6 +431,8 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
                 }],
             });
 
+            const createdAtBeforeCalls: string = detail.createdAt;
+
             // 2. Same CDR sent twice (retry) -- must be a no-op the second time.
             const dupUniqueId = `e2e-dedup-${Date.now()}`;
             for (let i = 0; i < 2; i++) {
@@ -328,8 +441,10 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
                     data: basePayload(dupUniqueId),
                 });
                 expect(res.ok()).toBeTruthy();
+                await waitForManualStep(page, 2000);
             }
             await page.reload();
+            await waitForManualStep(page);
             await expect(page.getByText('Working')).toBeVisible(); // still Working -- duplicate did not reset it
 
             // 3. Genuinely new missed call -- must reset Working -> Pending.
@@ -339,9 +454,13 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
                 data: basePayload(newUniqueId),
             });
             expect(res.ok()).toBeTruthy();
+            await waitForManualStep(page);
 
-            await page.reload();
-            await expect(page.getByText('Pending')).toBeVisible();
+            const afterCallJson = await getBookingDetailJson(page, bookingUrl, true);
+            expect(afterCallJson.status).toBe('Pending');
+            // The new interaction may legitimately move lastInteractionAt, but
+            // createdAt (when the lead itself was first created) must not move.
+            expect(afterCallJson.createdAt).toBe(createdAtBeforeCalls);
 
             // 4. Assignment must be untouched by the reset.
             await expect(page.locator('text=Assignment').locator('..').getByText(process.env.E2E_AGENT_B_NAME || process.env.E2E_AGENT_A_NAME!)).toBeVisible();

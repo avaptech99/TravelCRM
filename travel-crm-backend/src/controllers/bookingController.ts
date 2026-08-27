@@ -729,8 +729,10 @@ export const updateBooking = asyncHandler(async (req: Request, res: Response) =>
 
     const t = createTimer(`updateBooking_${id}`);
 
-    // Prepare update object
-    const updateData: any = { ...req.body, lastInteractionAt: new Date() };
+    // Prepare update object -- built from the validated/whitelisted result.data,
+    // not raw req.body, so a client can't slip an unknown field (e.g. createdAt)
+    // straight into $set.
+    const updateData: any = { ...result.data, lastInteractionAt: new Date() };
     
     // Handle embedded contact snapshot sync
     if (req.body.contactPerson || req.body.contactNumber || req.body.requirements || req.body.interested !== undefined) {

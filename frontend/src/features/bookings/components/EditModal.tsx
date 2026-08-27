@@ -154,8 +154,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     {/* Status */}
                     {!isMarketer && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Status</label>
+                            <label htmlFor="edit-booking-status" className="text-sm font-medium text-slate-700">Status</label>
                             <select
+                                id="edit-booking-status"
                                 value={status}
                                 onChange={(e) => setStatus(e.target.value)}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
@@ -171,8 +172,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     {/* Interested */}
                     {!isMarketer && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Interested</label>
+                            <label htmlFor="edit-booking-interested" className="text-sm font-medium text-slate-700">Interested</label>
                             <select
+                                id="edit-booking-interested"
                                 value={interested}
                                 onChange={(e) => setInterested(e.target.value as 'Yes' | 'No')}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
@@ -186,8 +188,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                     {/* Assign To */}
                     {!isMarketer && canChangeAgent && (
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-slate-700">Assign To</label>
+                            <label htmlFor="edit-booking-assignee" className="text-sm font-medium text-slate-700">Assign To</label>
                             <select
+                                id="edit-booking-assignee"
                                 value={assignedToUserId}
                                 onChange={(e) => setAssignedToUserId(e.target.value)}
                                 className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
@@ -204,8 +207,9 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
 
                     {/* Add Comment */}
                     <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-slate-700">Add Remark / Comment (Optional)</label>
+                        <label htmlFor="edit-booking-comment" className="text-sm font-medium text-slate-700">Add Remark / Comment (Optional)</label>
                         <textarea
+                            id="edit-booking-comment"
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                             placeholder="Type any new updates or requirements..."

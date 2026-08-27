@@ -631,8 +631,10 @@ exports.updateBooking = (0, express_async_handler_1.default)(async (req, res) =>
         throw new Error('Invalid input');
     }
     const t = (0, perfLogger_1.createTimer)(`updateBooking_${id}`);
-    // Prepare update object
-    const updateData = { ...req.body, lastInteractionAt: new Date() };
+    // Prepare update object -- built from the validated/whitelisted result.data,
+    // not raw req.body, so a client can't slip an unknown field (e.g. createdAt)
+    // straight into $set.
+    const updateData = { ...result.data, lastInteractionAt: new Date() };
     // Handle embedded contact snapshot sync
     if (req.body.contactPerson || req.body.contactNumber || req.body.requirements || req.body.interested !== undefined) {
         // We'll update the contact object partially in the background or use $set with dot notation
