@@ -814,22 +814,11 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
         res.status(404);
         throw new Error('Booking not found');
     }
-    // Security Check: Agents can only claim/assign leads in their own group
-    if (req.user?.role !== 'ADMIN') {
-        const userGroups = req.user?.groups || [];
-        const bookingGroup = booking.assignedGroup || 'Package / LCC';
-        if (!userGroups.includes(bookingGroup)) {
-            res.status(403);
-            throw new Error(`You can only claim or assign leads belonging to the ${bookingGroup} department.`);
-        }
-    }
     const previousAssignedUserId = getObjectIdString(booking.assignedToUserId) || null;
     const newAssignedUserId = assignedToUserId || null;
     if (previousAssignedUserId !== newAssignedUserId) {
-        // Assigning directly to an agent (no separate department picker anymore) --
-        // keep assignedGroup in sync with the agent's own department for filtering/permissions.
-        const newAgentForGroup = newAssignedUserId ? await User_1.default.findById(newAssignedUserId).lean() : null;
-        const derivedGroup = newAgentForGroup?.groups?.[0];
+        // main-style assignment: assignedToUserId only, assignedGroup is untouched
+        const newAgent = newAssignedUserId ? await User_1.default.findById(newAssignedUserId).lean() : null;
         // Sync participantIds array
         const updatedParticipants = [
             booking.createdByUserId,
@@ -839,7 +828,6 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
             $set: {
                 assignedToUserId: newAssignedUserId,
                 participantIds: updatedParticipants,
-                ...(derivedGroup ? { assignedGroup: derivedGroup } : {}),
             }
         });
         let previousAgentName = 'Unassigned';
@@ -849,9 +837,8 @@ exports.assignBooking = (0, express_async_handler_1.default)(async (req, res) =>
                 previousAgentName = prevAgent.name;
             }
         }
-        const newAgentName = newAgentForGroup?.name || 'Unassigned';
-        const newAgentGroup = derivedGroup || 'Admin';
-        const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}(${newAgentGroup})`;
+        const newAgentName = newAgent?.name || 'Unassigned';
+        const commentText = `Agent changed: ${previousAgentName} ➔ ${newAgentName}`;
         await Comment_1.default.create({
             bookingId: id,
             userId: req.user?.id,
