@@ -157,7 +157,7 @@ exports.getBookings = (0, express_async_handler_1.default)(async (req, res) => {
         throw new Error('Not authorized');
     }
     const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, onlyCallLogs } = req.query;
-    const cacheKey = cache_1.CK.bookingList(req.query);
+    const cacheKey = cache_1.CK.bookingList(req.query, req.user?.id);
     const t = (0, perfLogger_1.createTimer)('getBookings');
     t.mark('checkCache');
     const cached = (0, cache_1.cacheGet)(cacheKey);

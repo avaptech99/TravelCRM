@@ -187,7 +187,7 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
     const { status, assignedTo, search, fromDate, toDate, travelDateFilter, page = '1', limit = '15', myBookings, outstandingOnly, group, cursor, sortBy, sortOrder, onlyCallLogs } = req.query;
 
 
-    const cacheKey = CK.bookingList(req.query);
+    const cacheKey = CK.bookingList(req.query, req.user?.id);
     
     const t = createTimer('getBookings');
     t.mark('checkCache');

@@ -41,7 +41,10 @@ exports.TTL = {
 // ─── Cache key builders — no more inline string templates ────────────────────
 exports.CK = {
     bookingDetail: (id) => `booking_${id}`,
-    bookingList: (params) => `bookings_${stableHash(params)}`,
+    // userId included: queries like myBookings=true/assignedTo mean something
+    // different per user, so the cache key must be scoped per user, not just
+    // per query-string -- otherwise different users' results collide.
+    bookingList: (params, userId) => `bookings_${userId || 'anon'}_${stableHash(params)}`,
     bookingStats: (userId) => `stats_${userId}`,
     bookingRecent: (userId) => `recent_${userId}`,
     bookingCalendar: (params) => `calendar_${stableHash(params)}`,
