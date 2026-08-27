@@ -44,15 +44,8 @@ export const Bookings: React.FC = () => {
     });
     const [isOutstandingOnly, setIsOutstandingOnly] = useState(searchParams.get('outstanding') === 'true');
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(searchParams.get('group') || null);
-    const [showFilters, setShowFilters] = useState(() => {
-        const hasStatus = selectedStatuses.length > 0;
-        const hasExtraAgents = isUnassignedPath 
-            ? selectedAgents.filter(a => a !== 'unassigned').length > 0 
-            : selectedAgents.length > 0;
-        const hasOutstanding = searchParams.get('outstanding') === 'true';
-        const hasGroup = !!searchParams.get('group');
-        return hasStatus || hasExtraAgents || hasOutstanding || hasGroup;
-    });
+    // Filters are disabled across the app -- see the Filters button below.
+    const showFilters = false;
 
     // Update local state when URL params or path changes (e.g., from sidebar links)
     useEffect(() => {
@@ -233,7 +226,7 @@ export const Bookings: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filter Panel */}
+            {/* Filter Panel -- disabled everywhere, along with the Filters button above */}
             {showFilters && !isAllLeadsPath && (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 mx-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">

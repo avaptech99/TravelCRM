@@ -17,7 +17,8 @@ export const MyBookings: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-    const [showFilters, setShowFilters] = useState(false);
+    // Filters are disabled -- see the Filters button below.
+    const showFilters = false;
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -33,8 +34,6 @@ export const MyBookings: React.FC = () => {
             prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
         );
     };
-
-    const activeFilterCount = selectedStatuses.length;
 
     return (
         <div className="space-y-4">
@@ -67,7 +66,7 @@ export const MyBookings: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filter Panel */}
+            {/* Filter Panel -- disabled, along with the Filters button above */}
             {showFilters && (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mx-2 space-y-4">
                     <div className="flex items-center justify-between">
