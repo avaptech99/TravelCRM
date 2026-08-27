@@ -223,15 +223,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
 
     // 2. Filters
     if (myBookings === 'true') {
-        const userId = new mongoose.Types.ObjectId(req.user?.id);
-        if (query.$or) {
-            // If already restricted by group/role, intersect with myBookings
-            const existingOr = query.$or;
-            query.$and = [{ $or: existingOr }, { participantIds: userId }];
-            delete query.$or;
-        } else {
-            query.participantIds = userId;
-        }
+        // Query assignedToUserId directly, not the participantIds array --
+        // participantIds is a denormalized cache that only stays correct if
+        // every assignment path rebuilds it; a booking assigned before that
+        // sync existed (or by any path that skipped it) has the right
+        // assignedToUserId but a stale participantIds, so My Leads dropped it.
+        query.assignedToUserId = new mongoose.Types.ObjectId(req.user?.id);
     }
 
     if (status) {

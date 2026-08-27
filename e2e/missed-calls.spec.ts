@@ -216,4 +216,27 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await page.getByRole('link', { name: 'Booked / EDT' }).click();
         await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
     });
+
+    // Regression: My Leads was querying the participantIds cache array instead
+    // of assignedToUserId directly, so a booking assigned before that array was
+    // in sync (or by a path that skipped it) never showed up here even though
+    // the assignment itself was correct everywhere else. Runs after the
+    // reassign test above, so the lead is now Agent B's -- check Agent B's
+    // My Leads instead, and that every returned record is genuinely theirs.
+    test('My Leads returns records by assignedToUserId, not group', async ({ page }) => {
+        test.skip(!AGENT_B_EMAIL || !AGENT_B_PASSWORD, 'E2E_AGENT_B_* not supplied');
+
+        await login(page, AGENT_B_EMAIL!, AGENT_B_PASSWORD!);
+        const [res] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?.*myBookings=true/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'My Leads' }).click(),
+        ]);
+        expect(res.ok()).toBeTruthy();
+        const body = await res.json();
+        expect(body.data.length).toBeGreaterThan(0);
+        for (const b of body.data) {
+            expect(b.assignedToUser?.name).toBe(process.env.E2E_AGENT_B_NAME);
+        }
+        await findLeadRow(page, LEAD_CODE!); // reassigned to Agent B earlier in this suite
+    });
 });
