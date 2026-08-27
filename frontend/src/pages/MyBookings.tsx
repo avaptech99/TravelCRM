@@ -57,20 +57,12 @@ export const MyBookings: React.FC = () => {
                         />
                     </div>
                     <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                            showFilters || activeFilterCount > 0
-                                ? 'bg-primary/10 border-primary/30 text-primary'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
+                        disabled
+                        title="Filters are disabled"
+                        className="flex items-center space-x-1.5 px-3 py-2 rounded-lg border text-sm font-medium bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed"
                     >
                         <Filter size={16} />
                         <span>Filters</span>
-                        {activeFilterCount > 0 && (
-                            <span className="bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                                {activeFilterCount}
-                            </span>
-                        )}
                     </button>
                 </div>
             </div>
