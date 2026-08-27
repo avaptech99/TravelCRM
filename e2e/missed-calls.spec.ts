@@ -10,6 +10,14 @@ async function findLeadRow(page: Page, code: string) {
     return row;
 }
 
+// selectOption({ label }) needs an exact string match, but AssignAgentModal
+// renders "name (email)" -- match by prefix and select the option's value instead.
+async function selectAgentByName(select: ReturnType<Page['getByRole']>, name: string) {
+    const value = await select.locator('option', { hasText: new RegExp(`^${name}\\s*(\\(|$)`) }).first().getAttribute('value');
+    if (!value) throw new Error(`No agent option found starting with "${name}"`);
+    await select.selectOption(value);
+}
+
 /**
  * Real E2E against the live main-2 deployment (frontend+backend+DB are the
  * same production system -- there is no separate staging environment).
@@ -79,7 +87,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
             (async () => {
-                await page.getByRole('combobox').selectOption({ label: new RegExp(process.env.E2E_AGENT_A_NAME || '.*') });
+                await selectAgentByName(page.getByRole('combobox'), process.env.E2E_AGENT_A_NAME!);
                 await page.getByRole('button', { name: /^assign$/i }).click();
             })(),
         ]);
@@ -142,7 +150,8 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         const [assignResponse] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/assign') && r.request().method() === 'PATCH'),
             (async () => {
-                await page.getByLabel('Assign To').selectOption({ label: new RegExp(process.env.E2E_AGENT_B_NAME || '.*') });
+                // EditModal's "Assign To" options are the plain agent name (no email), unlike AssignAgentModal
+                await page.getByLabel('Assign To').selectOption({ label: process.env.E2E_AGENT_B_NAME! });
                 await page.getByRole('button', { name: /save changes/i }).click();
             })(),
         ]);
