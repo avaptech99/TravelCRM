@@ -269,7 +269,10 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
 
         // Overview: must render without error/crash (no group-based zeroing).
-        await expect(page.getByRole('heading', { name: 'Dashboard' }).or(page.getByText('Overview'))).toBeVisible();
+        // The heading alone is unambiguous -- "Overview" text also appears in
+        // the sidebar link and the mobile nav label, so .or()'d together with
+        // it was a strict-mode violation (3 matches).
+        await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
         await expect(page.getByText(/error|failed to load/i)).not.toBeVisible();
 
         // All Leads: agent's total must equal admin's -- group membership must
