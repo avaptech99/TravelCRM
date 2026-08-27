@@ -211,10 +211,15 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         if (isAccount || isOperation) {
             query.status = 'Booked';
         } else if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            query.$or = [
-                { participantIds: new mongoose.Types.ObjectId(req.user.id) },
-                { assignedGroup: { $in: userGroups } }
-            ];
+            // Missed-call leads are a shared triage queue, not department-routed --
+            // don't gate them behind participantIds/assignedGroup like real bookings,
+            // or an agent with no department (or nothing assigned yet) sees nothing.
+            if (onlyCallLogs !== 'true') {
+                query.$or = [
+                    { participantIds: new mongoose.Types.ObjectId(req.user.id) },
+                    { assignedGroup: { $in: userGroups } }
+                ];
+            }
         } else if (req.user?.role === 'MARKETER') {
             query.participantIds = new mongoose.Types.ObjectId(req.user.id);
         }
