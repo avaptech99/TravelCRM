@@ -34,6 +34,15 @@ async function waitForManualStep(page: Page, ms = 5000) {
     await page.waitForTimeout(ms);
 }
 
+// BookingDetails' own Status control -- the status <select> is the only one
+// with a "Follow Up" option, so filtering on that uniquely targets it (the
+// page also has an Interested select and, in history, plain-text mentions of
+// status names like "Status updated from Working to Working" -- a bare
+// getByText('Working') matches those too and is a strict-mode violation).
+function statusControl(page: Page) {
+    return page.locator('select').filter({ has: page.locator('option[value="Follow Up"]') });
+}
+
 // Fetches the booking detail JSON the way the app itself does -- by waiting
 // for the real GET /api/bookings/:id response triggered by a goto/reload,
 // not a separate authenticated request (this app has no cookie session, so
@@ -197,7 +206,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
         await page.reload();
         await waitForManualStep(page);
-        await expect(page.getByText('Working')).toBeVisible();
+        await expect(statusControl(page)).toHaveValue('Working');
         // BookingDetails' own Interested control (separate from EditModal's) --
         // assert on its value, not visible text, since "Interested" is also an
         // option label when the value is 'No'.
@@ -420,7 +429,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             await waitForManualStep(page);
             await page.reload();
             await waitForManualStep(page);
-            await expect(page.getByText('Working')).toBeVisible();
+            await expect(statusControl(page)).toHaveValue('Working');
 
             const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
             const basePayload = (uniqueid: string) => ({
@@ -445,7 +454,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             }
             await page.reload();
             await waitForManualStep(page);
-            await expect(page.getByText('Working')).toBeVisible(); // still Working -- duplicate did not reset it
+            await expect(statusControl(page)).toHaveValue('Working'); // still Working -- duplicate did not reset it
 
             // 3. Genuinely new missed call -- must reset Working -> Pending.
             const newUniqueId = `e2e-newcall-${Date.now()}`;
