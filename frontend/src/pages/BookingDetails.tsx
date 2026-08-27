@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
-import { User, Clock, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Layers, Maximize2, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
+import { User, Clock, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Maximize2, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -589,19 +589,9 @@ export const BookingDetails: React.FC = () => {
 
                         <div className="mt-6 pt-6 border-t border-slate-200">
                             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Assignment</h2>
-                            <div className="space-y-4">
-                                <div className="flex items-center space-x-3 text-slate-700">
-                                    <User size={18} className="text-primary" />
-                                    <span>{booking.assignedToUser?.name || <span className="italic text-slate-400">Unassigned</span>}</span>
-                                </div>
-                                
-                                <div className="flex items-center space-x-3 text-slate-700">
-                                    <Layers size={18} className="text-slate-400" />
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Assigned Group</p>
-                                        <span className="text-sm font-medium">{booking.assignedGroup || <span className="italic text-slate-300">Not assigned</span>}</span>
-                                    </div>
-                                </div>
+                            <div className="flex items-center space-x-3 text-slate-700">
+                                <User size={18} className="text-primary" />
+                                <span>{booking.assignedToUser?.name || <span className="italic text-slate-400">Unassigned</span>}</span>
                             </div>
                         </div>
                     </div>
