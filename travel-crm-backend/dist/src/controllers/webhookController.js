@@ -73,8 +73,20 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
             // Only a missed call moves the lead to the top; answered/outbound calls just log a comment
             if (isMissedCall) {
                 const incomingTime = callTime || new Date();
+                let dirty = false;
                 if (!latestBooking.lastInteractionAt || new Date(incomingTime).getTime() > new Date(latestBooking.lastInteractionAt).getTime()) {
                     latestBooking.lastInteractionAt = incomingTime;
+                    dirty = true;
+                }
+                // A new missed call means the lead needs attention again -- reset it
+                // back to the front of the queue. Only 'Working' is defined as
+                // resettable; 'Booked'/'Sent'/'Follow Up' are left alone since they
+                // represent a deliberate later-stage decision, not "not yet handled".
+                if (latestBooking.status === 'Working') {
+                    latestBooking.status = 'Pending';
+                    dirty = true;
+                }
+                if (dirty) {
                     await latestBooking.save();
                 }
             }
@@ -189,6 +201,15 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         const billsec = parseInt(cdr.billsec || '0', 10);
         const uniqueId = cdr.uniqueid || cdr.uniqueId;
         if (!uniqueId) {
+            skippedCount++;
+            continue;
+        }
+        // GDMS can resend the same CDR (retries) -- a call already processed
+        // must not re-add its comment, re-bump lastInteractionAt, or re-reset
+        // status. Same event twice should be a no-op, not "another new call".
+        const alreadyProcessed = await MissedCall_1.default.findOne({ uniqueId, isProcessed: true }).lean();
+        if (alreadyProcessed) {
+            console.log(`[GDMS Webhook] Skipping already-processed CDR ${uniqueId}`);
             skippedCount++;
             continue;
         }

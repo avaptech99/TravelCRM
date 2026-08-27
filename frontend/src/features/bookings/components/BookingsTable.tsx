@@ -10,6 +10,7 @@ import api from '../../../api/client';
 import { useAuth } from '../../../context/AuthContext';
 import type { Booking } from '../../../types';
 import dayjs from 'dayjs';
+import { toCrmTz } from '../../../lib/formatDate';
 import { ActionDropdown } from './ActionDropdown';
 import { EditModal } from './EditModal';
 import { AssignAgentModal } from './AssignAgentModal';
@@ -229,10 +230,11 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
             cell: (info) => {
                 const date = info.getValue();
                 if (!date) return '-';
+                const torontoDate = toCrmTz(date);
                 return (
                     <div className="flex flex-col leading-tight">
-                        <span className="whitespace-nowrap">{dayjs(date).format('DD MMM YYYY')}</span>
-                        <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">{dayjs(date).format('hh:mm A')}</span>
+                        <span className="whitespace-nowrap">{torontoDate.format('DD MMM YYYY')}</span>
+                        <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">{torontoDate.format('hh:mm A')}</span>
                     </div>
                 );
             },

@@ -239,4 +239,109 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         }
         await findLeadRow(page, LEAD_CODE!); // reassigned to Agent B earlier in this suite
     });
+
+    // Created On must always read as America/Toronto local time, regardless of
+    // the machine running the test -- so the expected string is computed with
+    // an explicit IANA timezone (Intl), never the runner's own TZ.
+    test('Created On column displays America/Toronto date and time', async ({ page }) => {
+        await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+        const [bookingsRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'All Leads' }).click(),
+        ]);
+        const row = await findLeadRow(page, LEAD_CODE!);
+        const body = await bookingsRes.json();
+        const record = (body.data as any[]).find((b) => b.uniqueCode === LEAD_CODE);
+        const isoTimestamp: string = record.lastInteractionAt || record.createdAt;
+
+        const expectedDate = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Toronto', day: '2-digit', month: 'short', year: 'numeric',
+        }).format(new Date(isoTimestamp)).replace(/(\w+) (\d+), (\d+)/, '$2 $1 $3'); // -> "DD MMM YYYY"
+        // BookingsTable renders hh:mm A (dayjs) -- always 2-digit hour, matching
+        // Intl's hour:'2-digit' output. Don't strip the leading zero.
+        const expectedTime = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hour12: true,
+        }).format(new Date(isoTimestamp));
+
+        await expect(row.getByText(expectedDate)).toBeVisible();
+        // hh:mm AM/PM -- compare digits only, AM/PM casing/spacing is a display
+        // detail; the timezone-correctness is what this test exists to catch.
+        const rowText = (await row.textContent()) || '';
+        const displayedMinutes = rowText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)?.[0];
+        expect(displayedMinutes?.replace(/\s/g, '').toUpperCase()).toBe(expectedTime.replace(/\s/g, '').toUpperCase());
+    });
+
+    // Repeat missed call must reset status back to Pending, but a duplicate of
+    // the SAME CDR must not. Requires GDMS webhook credentials -- optional,
+    // since the running suite may not have access to them (see header comment).
+    test.describe('GDMS repeat missed call', () => {
+        const GDMS_USER = process.env.E2E_GDMS_WEBHOOK_USER;
+        const GDMS_PASS = process.env.E2E_GDMS_WEBHOOK_PASS;
+
+        test('new missed call resets Working back to Pending; duplicate CDR does not', async ({ page, request }) => {
+            test.skip(!GDMS_USER || !GDMS_PASS, 'E2E_GDMS_WEBHOOK_USER/PASS not supplied -- cannot call the real webhook.');
+
+            // 1. Admin: get the test lead's phone number and set status to Working.
+            await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+            await page.getByRole('link', { name: 'All Leads' }).click();
+            const row = await findLeadRow(page, LEAD_CODE!);
+            const [detailRes] = await Promise.all([
+                page.waitForResponse((r) => /\/api\/bookings\/[a-f0-9]{24}$/.test(r.url()) && r.request().method() === 'GET'),
+                row.click(),
+            ]);
+            const bookingUrl = page.url();
+            const bookingId = bookingUrl.match(/\/bookings\/([a-f0-9]{24})/)![1];
+
+            const detail = await detailRes.json();
+            const phone: string = detail.contact?.phone || detail.contactNumber;
+            expect(phone).toBeTruthy();
+
+            await page.getByTitle('Edit Lead Details').click();
+            await page.getByLabel('Status').selectOption('Working');
+            await page.getByRole('button', { name: /save changes/i }).click();
+            await page.reload();
+            await expect(page.getByText('Working')).toBeVisible();
+
+            const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
+            const basePayload = (uniqueid: string) => ({
+                cdr_root: [{
+                    uniqueid, src: phone, caller_name: phone,
+                    disposition: 'NO ANSWER', billsec: '0', duration: '12',
+                    start: new Date().toISOString(),
+                }],
+            });
+
+            // 2. Same CDR sent twice (retry) -- must be a no-op the second time.
+            const dupUniqueId = `e2e-dedup-${Date.now()}`;
+            for (let i = 0; i < 2; i++) {
+                const res = await request.post('/api/webhook/missed-call', {
+                    headers: { Authorization: auth },
+                    data: basePayload(dupUniqueId),
+                });
+                expect(res.ok()).toBeTruthy();
+            }
+            await page.reload();
+            await expect(page.getByText('Working')).toBeVisible(); // still Working -- duplicate did not reset it
+
+            // 3. Genuinely new missed call -- must reset Working -> Pending.
+            const newUniqueId = `e2e-newcall-${Date.now()}`;
+            const res = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: basePayload(newUniqueId),
+            });
+            expect(res.ok()).toBeTruthy();
+
+            await page.reload();
+            await expect(page.getByText('Pending')).toBeVisible();
+
+            // 4. Assignment must be untouched by the reset.
+            await expect(page.locator('text=Assignment').locator('..').getByText(process.env.E2E_AGENT_B_NAME || process.env.E2E_AGENT_A_NAME!)).toBeVisible();
+
+            // 5. No duplicate lead was created -- same booking id still resolves.
+            expect(page.url()).toContain(bookingId);
+
+            // 6. The new missed call is reflected in history.
+            await expect(page.getByText(/Missed Call from/i).last()).toBeVisible();
+        });
+    });
 });
