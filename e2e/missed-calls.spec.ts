@@ -1,5 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { login, logout } from './helpers/auth';
+
+// The table only renders one page (15 rows) at a time -- search instead of
+// scanning rows, so this works regardless of where the lead sorts.
+async function findLeadRow(page: Page, code: string) {
+    await page.getByPlaceholder('Search contact person/number...').fill(code);
+    const row = page.getByRole('row', { name: new RegExp(code) });
+    await expect(row).toBeVisible({ timeout: 10000 });
+    return row;
+}
 
 /**
  * Real E2E against the live main-2 deployment (frontend+backend+DB are the
@@ -47,8 +56,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         // Filters button must be locked on this view (pre-applied missed-call filter)
         await expect(page.getByRole('button', { name: /Filters/i })).toBeDisabled();
 
-        const row = page.getByRole('row', { name: new RegExp(LEAD_CODE!) });
-        await expect(row).toBeVisible();
+        const row = await findLeadRow(page, LEAD_CODE!);
         await row.click();
         await expect(page).toHaveURL(/\/bookings\/[a-f0-9]{24}/);
         leadUrl = page.url();
@@ -63,7 +71,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
     test('Admin assigns the lead to Agent A via the Assign icon', async ({ page }) => {
         await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
         await page.getByRole('link', { name: 'All Leads' }).click();
-        const row = page.getByRole('row', { name: new RegExp(LEAD_CODE!) });
+        const row = await findLeadRow(page, LEAD_CODE!);
 
         await row.getByTitle('Assign Agent').click();
         await expect(page.getByRole('heading', { name: 'Assign Agent' })).toBeVisible();
@@ -86,7 +94,7 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
     test('Agent A sees the lead under My Leads and it persists after refresh', async ({ page }) => {
         await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
         await page.getByRole('link', { name: 'My Leads' }).click();
-        await expect(page.getByRole('row', { name: new RegExp(LEAD_CODE!) })).toBeVisible();
+        await findLeadRow(page, LEAD_CODE!);
 
         await page.goto(leadUrl); // Flow 13: direct-URL refresh
         await page.reload();
@@ -146,6 +154,8 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await logout(page);
         await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
         await page.getByRole('link', { name: 'My Leads' }).click();
+        await page.getByPlaceholder('Search contact person/number...').fill(LEAD_CODE!);
+        await page.waitForTimeout(1000); // debounce
         await expect(page.getByRole('row', { name: new RegExp(LEAD_CODE!) })).not.toBeVisible();
     });
 
