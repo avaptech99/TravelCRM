@@ -58,24 +58,29 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };
 
+        // "Confirmed (EDT)" must match what the Booked/EDT page itself shows
+        // (status: 'Booked', no callDisposition filter) -- captured before the
+        // missed-call-only restriction below so it isn't affected by it.
+        const bookedQuery: any = { ...statsQuery, status: 'Booked' };
+
         // Total Bookings / New Enquiries reflect missed-call leads only
         statsQuery.callDisposition = 'MISSED';
 
         // Run all queries
-        const [statsResult, recentBookings, notifications, agentsCount] = await Promise.all([
+        const [statsResult, bookedCount, recentBookings, notifications, agentsCount] = await Promise.all([
             Booking.aggregate([
                 { $match: statsQuery },
                 {
                     $group: {
                         _id: null,
                         total: { $sum: 1 },
-                        booked: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
                         pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
                         working: { $sum: { $cond: [{ $eq: ['$status', 'Working'] }, 1, 0] } },
                         sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
                     }
                 }
             ]),
+            Booking.countDocuments(bookedQuery),
             Booking.find(recentQuery)
                 .select('uniqueCode status assignedToUserId contact destination travelDate amount createdAt travellers')
                 .sort({ updatedAt: -1 }) // Sort by modified date for "sync"
@@ -92,11 +97,11 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
 
         const stats = statsResult.length > 0 ? {
             total: statsResult[0].total,
-            booked: statsResult[0].booked,
+            booked: bookedCount,
             pending: statsResult[0].pending,
             working: statsResult[0].working,
             sent: statsResult[0].sent,
-        } : { total: 0, booked: 0, pending: 0, working: 0, sent: 0 };
+        } : { total: 0, booked: bookedCount, pending: 0, working: 0, sent: 0 };
 
         const mappedBookings = (recentBookings as any[]).map(b => {
             const contactName = b.contact?.name || 'Unknown';
