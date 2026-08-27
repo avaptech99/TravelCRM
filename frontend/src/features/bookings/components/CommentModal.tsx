@@ -9,7 +9,7 @@ import {
     DialogTitle,
 } from '../../../components/ui/dialog';
 import { toast } from 'sonner';
-import dayjs from 'dayjs';
+import { toCrmTz } from '../../../lib/formatDate';
 
 interface CommentModalProps {
     booking: Booking | null;
@@ -91,7 +91,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({ booking, isOpen, onC
                                 <div key={comment.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-semibold text-sm text-slate-800">{comment.createdBy.name}</span>
-                                        <span className="text-xs text-slate-500">{dayjs(comment.createdAt).format('DD MMM, HH:mm')}</span>
+                                        <span className="text-xs text-slate-500">{toCrmTz(comment.createdAt).format('DD MMM, HH:mm')}</span>
                                     </div>
                                     <p className="text-sm text-slate-700 whitespace-pre-wrap">{comment.text}</p>
                                 </div>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { toCrmTz } from '../lib/formatDate';
 import { AddUserModal } from '../features/users/components/AddUserModal';
 
 dayjs.extend(relativeTime);
@@ -196,7 +197,7 @@ export const Users: React.FC = () => {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                                    {dayjs(user.createdAt).format('MMM DD, YYYY')}
+                                                    {toCrmTz(user.createdAt).format('MMM DD, YYYY')}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
                                                     {user.role === 'AGENT' && (
@@ -336,7 +337,7 @@ export const Users: React.FC = () => {
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Joined On</span>
-                                                        <span className="text-xs font-semibold text-slate-700">{dayjs(user.createdAt).format('MMM DD, YYYY')}</span>
+                                                        <span className="text-xs font-semibold text-slate-700">{toCrmTz(user.createdAt).format('MMM DD, YYYY')}</span>
                                                     </div>
                                                 </div>
 

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 
 import dayjs from 'dayjs';
+import { toCrmTz } from '../lib/formatDate';
 
 interface StatCardProps {
     title: string;
@@ -583,7 +584,7 @@ export const Reports: React.FC = () => {
                                                         <td className="p-4 text-slate-500 text-[11px] truncate">{p.companyName || '—'}</td>
                                                         <td className="p-4 text-right">
                                                             <div className="text-emerald-600 font-bold text-xs">₹{p.amount.toLocaleString()}</div>
-                                                            <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{dayjs(p.date).format('DD MMM YYYY')}</div>
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{toCrmTz(p.date).format('DD MMM YYYY')}</div>
                                                         </td>
                                                     </tr>
                                                 ))}

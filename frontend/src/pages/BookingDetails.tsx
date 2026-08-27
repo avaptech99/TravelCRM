@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
-import dayjs from 'dayjs';
+import { toCrmTz } from '../lib/formatDate';
 import { User, Clock, CreditCard, MessageSquare, Plus, X, ShieldCheck, Check, Maximize2, Building2, UserCircle, UserPlus, Phone, Mail, Edit2, ArrowLeft } from 'lucide-react';
 import { EditModal } from '../features/bookings/components/EditModal';
 import { useAuth } from '../context/AuthContext';
@@ -241,7 +241,7 @@ export const BookingDetails: React.FC = () => {
                             Booking for {booking.contactPerson}
                         </h1>
                         <p className="text-slate-500 text-xs sm:text-sm mt-1">
-                            Created on {dayjs(booking.createdAt).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
+                            Created on {toCrmTz(booking.createdAt).format('MMM DD, YYYY h:mm A')} by {booking.createdByUser?.name}
                         </p>
                         {booking.finalQuotation && (
                             <div className="flex flex-wrap gap-2 mt-2">
@@ -452,7 +452,7 @@ export const BookingDetails: React.FC = () => {
                                                     <span className="text-xs font-semibold text-slate-900">{item.createdBy?.name || 'User'}</span>
                                                     <span className="text-[10px] text-slate-400 flex items-center shrink-0">
                                                         <Clock size={10} className="mr-1" />
-                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                        {toCrmTz(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md break-words whitespace-pre-wrap">
@@ -467,7 +467,7 @@ export const BookingDetails: React.FC = () => {
                                                 <div className="flex justify-end mb-1">
                                                     <span className="text-[10px] text-slate-400 flex items-center shrink-0">
                                                         <Clock size={10} className="mr-1" />
-                                                        {dayjs(item.createdAt).format('MMM DD, h:mm A')}
+                                                        {toCrmTz(item.createdAt).format('MMM DD, h:mm A')}
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-slate-500 bg-slate-100/50 p-2 rounded border border-slate-100 break-words whitespace-pre-wrap">
@@ -680,7 +680,7 @@ export const BookingDetails: React.FC = () => {
                                                         </span>
                                                         <span className="text-[10px] text-slate-400 font-medium flex items-center">
                                                             <Clock size={10} className="mr-1" />
-                                                            {dayjs(item.createdAt).format('MMM DD, YYYY h:mm A')}
+                                                            {toCrmTz(item.createdAt).format('MMM DD, YYYY h:mm A')}
                                                         </span>
                                                     </div>
                                                     <div className="text-sm text-slate-700 bg-slate-50/50 p-4 rounded-xl break-words whitespace-pre-wrap font-medium border border-slate-100 shadow-sm">
@@ -696,7 +696,7 @@ export const BookingDetails: React.FC = () => {
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">System Activity</span>
                                                         <span className="text-[10px] text-slate-400 font-medium flex items-center">
                                                             <Clock size={10} className="mr-1" />
-                                                            {dayjs(item.createdAt).format('MMM DD, YYYY h:mm A')}
+                                                            {toCrmTz(item.createdAt).format('MMM DD, YYYY h:mm A')}
                                                         </span>
                                                     </div>
                                                     <div className="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-100 break-words whitespace-pre-wrap italic">

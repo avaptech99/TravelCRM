@@ -515,7 +515,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                                                 <span className="font-medium mr-1">Created by</span>
                                                 <strong className="text-slate-700">{booking.createdByUser?.name || 'Unknown'}</strong>
                                                 <span className="mx-1.5">on</span>
-                                                <strong className="text-slate-700">{booking.createdAt ? dayjs(booking.createdAt).format('DD MMM YYYY') : '-'}</strong>
+                                                <strong className="text-slate-700">{booking.createdAt ? toCrmTz(booking.createdAt).format('DD MMM YYYY') : '-'}</strong>
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-4">
