@@ -20,6 +20,7 @@ import {
 import { countryCodes } from '../utils/countryCodes';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
+import { toCrmTz } from '../lib/formatDate';
 
 const quotationSuffixes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -1616,7 +1617,7 @@ export const BookingTravelers: React.FC = () => {
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-slate-700">{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                                    <span className="text-slate-500 text-[10px]">{new Date(payment.date).toLocaleDateString()}</span>
+                                                    <span className="text-slate-500 text-[10px]">{toCrmTz(payment.date).format('DD MMM YYYY')}</span>
                                                 </div>
                                                 <div className="h-6 w-px bg-slate-200"></div>
                                                 <div className="flex flex-col">

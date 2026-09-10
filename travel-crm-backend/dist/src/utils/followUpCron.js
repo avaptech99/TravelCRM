@@ -41,6 +41,20 @@ exports.startFollowUpCron = startFollowUpCron;
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Notification_1 = __importDefault(require("../models/Notification"));
 const sseManager_1 = require("../sse/sseManager");
+// followUpDate is stored as UTC-midnight of whatever calendar date the agent
+// picked (new Date("2026-09-15") from a plain <input type="date">) -- it's a
+// pure calendar day, not a real instant. "Today" must be compared using that
+// same convention, sourced from Toronto's calendar date -- using the
+// server's own local clock (Render runs in UTC) meant "today" could be off
+// by a day for a few hours around midnight UTC (~8PM/7PM Toronto).
+const CRM_TIMEZONE = 'America/Toronto';
+function torontoTodayYMD() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: CRM_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const get = (type) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+    return { year: get('year'), month: get('month'), day: get('day') };
+}
 /**
  * Check for bookings with "Follow Up" status where followUpDate is today or overdue.
  * Create a notification for the assigned agent (or creator if unassigned).
@@ -48,9 +62,10 @@ const sseManager_1 = require("../sse/sseManager");
  */
 async function processFollowUpReminders() {
     try {
-        const now = new Date();
-        // End of today (23:59:59)
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        const { year, month, day } = torontoTodayYMD();
+        // End of today (23:59:59), Toronto calendar date, UTC-midnight
+        // convention to match how followUpDate itself is stored.
+        const endOfToday = new Date(Date.UTC(year, month - 1, day, 23, 59, 59));
         // Find all bookings that are "Follow Up" with a followUpDate that has arrived
         const dueBookings = await Booking_1.default.find({
             status: 'Follow Up',
@@ -68,7 +83,7 @@ async function processFollowUpReminders() {
                 continue;
             const contactName = booking.contact?.name || 'Unknown Contact';
             // Check if we already sent a notification for this booking today
-            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+            const startOfToday = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
             const existingNotification = await Notification_1.default.findOne({
                 bookingId: booking._id,
                 userId: targetUserId,
