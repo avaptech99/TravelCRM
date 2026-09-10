@@ -28,12 +28,9 @@ const getPhoneLeadUser = async () => {
     }
     return user;
 };
-// The server runs in UTC (Render's default), so Date.prototype.getHours()/
-// getDate() etc. returned raw UTC time -- these comment strings (embedded
-// directly as text, not reformatted client-side) showed e.g. "Start: 07:19"
-// for a call that was actually 3:19 AM in Toronto. Format explicitly in
-// America/Toronto instead of relying on the runtime's local timezone.
 const CRM_TIMEZONE = 'America/Toronto';
+// Format a real UTC instant for display in Toronto time. Native Intl, no
+// dependency on the server process's own local timezone.
 const torontoParts = (date) => {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: CRM_TIMEZONE,
@@ -50,6 +47,43 @@ const formatTime = (date) => {
     const p = torontoParts(date);
     return `${p.hour}:${p.minute}`;
 };
+// The PBX (GDMS/UCM) is configured for America/Toronto and sends CDR
+// timestamps as bare strings with no timezone marker (e.g.
+// "2026-09-10 05:11:10") -- that string IS Toronto wall-clock time. Parsing
+// it with plain `new Date(str)` doesn't know that; it's interpreted using
+// whatever timezone the running Node process itself considers "local"
+// (Render, not configured for Toronto), so the resulting Date silently
+// represented the wrong UTC instant -- off by the full 4-5h DST-dependent
+// offset, baked into `createdAt`/`lastInteractionAt` at write time, not just
+// a display bug. Parse the components explicitly as Toronto wall-clock time
+// and convert to the correct UTC instant, independent of server config.
+const TORONTO_DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/;
+function parsePbxTimestamp(pbxStr) {
+    if (!pbxStr)
+        return null;
+    const m = pbxStr.match(TORONTO_DATETIME_RE);
+    if (!m) {
+        // Not the bare "YYYY-MM-DD HH:mm:ss" shape GDMS sends -- fall back to
+        // normal parsing (e.g. an already-tagged ISO string with an offset/Z).
+        const fallback = new Date(pbxStr);
+        return isNaN(fallback.getTime()) ? null : fallback;
+    }
+    const [, yStr, moStr, dStr, hStr, miStr, sStr] = m;
+    const y = parseInt(yStr, 10), mo = parseInt(moStr, 10), d = parseInt(dStr, 10);
+    const h = parseInt(hStr, 10), mi = parseInt(miStr, 10), s = parseInt(sStr, 10);
+    // Toronto is UTC-4 (EDT) or UTC-5 (EST) depending on DST -- try both and
+    // keep whichever one, formatted back through the IANA zone, reproduces
+    // the exact wall-clock time the PBX reported (correctly handles the
+    // DST transition dates themselves too).
+    for (const offsetHours of [4, 5]) {
+        const guess = new Date(Date.UTC(y, mo - 1, d, h + offsetHours, mi, s));
+        const p = torontoParts(guess);
+        if (parseInt(p.year) === y && parseInt(p.month) === mo && parseInt(p.day) === d && parseInt(p.hour) === h && parseInt(p.minute) === mi) {
+            return guess;
+        }
+    }
+    return new Date(Date.UTC(y, mo - 1, d, h + 4, mi, s)); // fallback: assume EDT
+}
 // A UCM ring group (action_type "RINGGROUP[...]") fans one call out to every
 // member extension. Only the extension that actually answers should count;
 // every other extension gets its own NO ANSWER leg with its own webhook call,
@@ -350,8 +384,8 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         const callerNumber = finalCallerNumber;
         const callerName = finalCallerName;
         disposition = finalDisposition;
-        const callTime = cdr.start ? new Date(cdr.start) : new Date();
-        const endTime = cdr.end ? new Date(cdr.end) : null;
+        const callTime = parsePbxTimestamp(cdr.start) || new Date();
+        const endTime = parsePbxTimestamp(cdr.end);
         const duration = parseInt(cdr.duration || '0', 10);
         if (!callerNumber) {
             skippedCount++;
