@@ -25,6 +25,18 @@ const getPhoneLeadUser = async () => {
 const formatDate = (date: Date) => `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 const formatTime = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
+// A UCM ring group (action_type "RINGGROUP[...]") fans one call out to every
+// member extension. Only the extension that actually answers should count;
+// every other extension gets its own NO ANSWER leg with its own webhook call,
+// but UCM already tells us the call was picked up elsewhere via `reason` --
+// no need to buffer/wait for a sibling ANSWERED event, this leg alone is
+// enough to know it must not be logged as missed.
+const wasAnsweredOnAnotherExtension = (cdr: any): boolean => {
+    const actionType = String(cdr.action_type || '');
+    const reason = String(cdr.reason || '').toLowerCase();
+    return /^ringgroup/i.test(actionType) && reason.includes('answered elsewhere');
+};
+
 const processCallIntoCRM = async (
     callerNumber: string,
     callerName: string,
@@ -33,7 +45,8 @@ const processCallIntoCRM = async (
     duration: number,
     billsec: number,
     disposition: string,
-    pbxCallId: string
+    pbxCallId: string,
+    answeredExtension?: string
 ) => {
     const phoneLeadUser = await getPhoneLeadUser();
     const normalizedNumber = callerNumber.replace(/[\s\-\(\)\+]/g, '');
@@ -62,12 +75,34 @@ const processCallIntoCRM = async (
     const dateStr = formatDate(callTime);
     const startStr = formatTime(callTime);
     const endStr = endTime ? formatTime(endTime) : 'N/A';
-    const commentText = `${callType} from ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s`;
+    const answeredBySuffix = callType === 'Answered Call' && answeredExtension ? ` | Answered by ext. ${answeredExtension}` : '';
+    const commentText = `${callType} from ${finalName} on ${dateStr} | Start: ${startStr} | End: ${endStr} | Duration: ${duration}s | Billsec: ${billsec}s${answeredBySuffix}`;
 
     // Existing contact — add comment to latest booking & bump lastInteractionAt to callTime so entry moves to TOP
     if (contact) {
         const latestBooking = await Booking.findOne({ primaryContactId: contact._id }).sort({ createdAt: -1 });
         if (latestBooking) {
+            // A genuinely-missed ring group call (no extension answers) still
+            // fires one webhook leg per rung extension -- without this, each
+            // leg would log its own "Missed Call from ..." comment for what is
+            // really one physical call. Treat legs within a few seconds of an
+            // already-logged missed call on this lead as the same call.
+            if (callType === 'Missed Call') {
+                const RING_GROUP_WINDOW_MS = 20000;
+                const incoming = callTime || new Date();
+                const alreadyLogged = await Comment.findOne({
+                    bookingId: latestBooking._id,
+                    text: { $regex: '^Missed Call from' },
+                    createdAt: {
+                        $gte: new Date(incoming.getTime() - RING_GROUP_WINDOW_MS),
+                        $lte: new Date(incoming.getTime() + RING_GROUP_WINDOW_MS),
+                    },
+                }).lean();
+                if (alreadyLogged) {
+                    return { action: 'duplicate_ring_group_leg', contactId: contact._id, bookingId: latestBooking._id };
+                }
+            }
+
             await Comment.create({
                 bookingId: latestBooking._id,
                 userId: phoneLeadUser._id,
@@ -267,8 +302,18 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
             continue;
         }
 
+        // This extension's leg didn't answer, but a sibling extension in the
+        // same ring group did -- the call was handled, not missed. The
+        // sibling's own leg (disposition ANSWERED) is what logs the real
+        // interaction; this leg must not create a false "missed call".
+        if (disposition !== 'OUTBOUND' && wasAnsweredOnAnotherExtension(cdr)) {
+            console.log(`[GDMS Webhook] Skipping ${callerNumber} leg on ${cdr.dst} -- answered on another ring group extension`);
+            skippedCount++;
+            continue;
+        }
+
         try {
-            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId);
+            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, cdr.dst);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
 
             await MissedCall.findOneAndUpdate(

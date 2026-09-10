@@ -492,5 +492,68 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             // 6. The new missed call is reflected in history.
             await expect(page.getByText(/Missed Call from/i).last()).toBeVisible();
         });
+
+        // Regression for the ring-group false-missed-call bug: UCM ring group
+        // 6400 fans one call out to every member extension. The extension(s)
+        // that don't answer each fire their own NO ANSWER webhook leg -- UCM
+        // marks those with reason "answered elsewhere" when a sibling
+        // extension picked up, which must never be logged as missed. A call
+        // where nobody in the group answers still produces one leg per rung
+        // extension and must log exactly once, not once per extension.
+        test('ring group: sibling-answered leg is not logged as missed; a genuinely unanswered multi-leg call logs once', async ({ page, request }) => {
+            test.skip(!GDMS_USER || !GDMS_PASS, 'E2E_GDMS_WEBHOOK_USER/PASS not supplied -- cannot call the real webhook.');
+
+            await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+            await page.getByRole('link', { name: 'All Leads' }).click();
+            const row = await findLeadRow(page, LEAD_CODE!);
+            const [detailRes] = await Promise.all([
+                page.waitForResponse((r) => /\/api\/bookings\/[a-f0-9]{24}$/.test(r.url()) && r.request().method() === 'GET'),
+                row.click(),
+            ]);
+            const bookingUrl = page.url();
+            const detail = await detailRes.json();
+            const phone: string = detail.contact?.phone || detail.contactNumber;
+            expect(phone).toBeTruthy();
+            const commentCountBefore = (detail.comments || []).length;
+
+            const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
+            const ringGroupLeg = (uniqueid: string, dst: string, reason: string) => ({
+                cdr_root: [{
+                    uniqueid, src: phone, caller_name: phone, dst,
+                    disposition: 'NO ANSWER', billsec: '0', duration: '2',
+                    action_type: 'RINGGROUP[6400]', reason,
+                    start: new Date().toISOString(),
+                }],
+            });
+
+            // A sibling extension answered this call -- must not be logged as missed.
+            const res1 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: ringGroupLeg(`e2e-ringgroup-answered-${Date.now()}`, '1018', 'answered elsewhere'),
+            });
+            expect(res1.ok()).toBeTruthy();
+            await waitForManualStep(page, 3000);
+
+            const afterAnsweredElsewhere = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterAnsweredElsewhere.comments || []).length).toBe(commentCountBefore);
+
+            // Nobody answers -- 2 legs of the SAME physical call (no "answered
+            // elsewhere" reason on either) -- must still log exactly ONE comment.
+            const now = Date.now();
+            const res2 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: ringGroupLeg(`e2e-ringgroup-miss-a-${now}`, '1001', ''),
+            });
+            expect(res2.ok()).toBeTruthy();
+            const res3 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: ringGroupLeg(`e2e-ringgroup-miss-b-${now}`, '1002', ''),
+            });
+            expect(res3.ok()).toBeTruthy();
+            await waitForManualStep(page, 3000);
+
+            const afterGenuineMiss = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterGenuineMiss.comments || []).length).toBe(commentCountBefore + 1);
+        });
     });
 });
