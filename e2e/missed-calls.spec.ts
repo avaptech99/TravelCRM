@@ -626,6 +626,59 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
 
             const afterRetry = await getBookingDetailJson(page, bookingUrl, true);
             expect((afterRetry.comments || []).length).toBe(commentCountBefore + 1);
+
+            // Leg 1's own delayed resolution fires ~6s after it was received
+            // (FORK_CDR_WAIT_MS). By now it should have found leg 2 as a
+            // sibling and NOT logged a second, duplicate missed-call comment.
+            await waitForManualStep(page, 6000);
+            const afterForkCdrResolved = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterForkCdrResolved.comments || []).length).toBe(commentCountBefore + 1);
+        });
+
+        // Regression for the corrected root cause: a ForkCDR leg is NOT always
+        // a placeholder -- a DID still on old-style single-leg routing (no
+        // ring group) produces the exact same ForkCDR/DIAL/NO ANSWER signature
+        // as its ONLY leg, and that NO ANSWER is the real, final outcome. It
+        // must still be logged as missed once no sibling ring-group leg shows
+        // up within the wait window.
+        test('ring group: a lone ForkCDR leg with no sibling is still logged as missed (old-style single-leg DID)', async ({ page, request }) => {
+            test.skip(!GDMS_USER || !GDMS_PASS, 'E2E_GDMS_WEBHOOK_USER/PASS not supplied -- cannot call the real webhook.');
+
+            await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+            await page.getByRole('link', { name: 'All Leads' }).click();
+            const row = await findLeadRow(page, LEAD_CODE!);
+            const [detailRes] = await Promise.all([
+                page.waitForResponse((r) => /\/api\/bookings\/[a-f0-9]{24}$/.test(r.url()) && r.request().method() === 'GET'),
+                row.click(),
+            ]);
+            const bookingUrl = page.url();
+            const detail = await detailRes.json();
+            const phone: string = detail.contact?.phone || detail.contactNumber;
+            expect(phone).toBeTruthy();
+            const commentCountBefore = (detail.comments || []).length;
+
+            const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
+            const res = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: {
+                    cdr_root: [{
+                        uniqueid: `e2e-lone-forkcdr-${Date.now()}`, src: phone, caller_name: phone, dst: '19059551200',
+                        disposition: 'NO ANSWER', billsec: '0', duration: '0',
+                        dcontext: 'ext-did-1', lastapp: 'ForkCDR', action_type: 'DIAL', reason: '',
+                        start: new Date().toISOString(),
+                    }],
+                },
+            });
+            expect(res.ok()).toBeTruthy();
+
+            // Right away: not yet resolved, no comment yet.
+            const immediately = await getBookingDetailJson(page, bookingUrl, true);
+            expect((immediately.comments || []).length).toBe(commentCountBefore);
+
+            // After the wait window with no sibling: must be logged as missed.
+            await waitForManualStep(page, 7000);
+            const afterWait = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterWait.comments || []).length).toBe(commentCountBefore + 1);
         });
     });
 });

@@ -7,6 +7,9 @@ import Comment from '../models/Comment';
 import Notification from '../models/Notification';
 import MissedCall from '../models/MissedCall';
 import appCache, { CacheInvalidation } from '../utils/cache';
+import { runBG } from '../utils/background';
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ponytail: Helper for Phone Lead system user
 const getPhoneLeadUser = async () => {
@@ -206,6 +209,49 @@ const processCallIntoCRM = async (
     return { action: 'lead_created', contactId: (contact as any)._id, bookingId: booking._id };
 };
 
+// How long to wait, once a ForkCDR placeholder leg arrives, to see whether a
+// sibling ring-group leg (same base uniqueid) shows up before deciding this
+// leg's NO ANSWER is the real, final outcome. Real payloads showed every
+// ring-group leg of a call arriving within ~1s of each other, so this is
+// generous margin, not a guess at UCM's ring timeout.
+const FORK_CDR_WAIT_MS = 6000;
+
+const finalizeLeg = async (
+    legKey: string,
+    uniqueId: string,
+    callerNumber: string,
+    callerName: string,
+    callTime: Date,
+    endTime: Date | null,
+    duration: number,
+    billsec: number,
+    disposition: string,
+    dst: string,
+    rawCdr: any
+): Promise<void> => {
+    const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, dst);
+    console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
+    await MissedCall.findOneAndUpdate(
+        { uniqueId: legKey },
+        {
+            callerNumber,
+            callerName,
+            calledNumber: dst || '',
+            callTime,
+            endTime,
+            duration,
+            billsec,
+            disposition: rawCdr.disposition || 'UNKNOWN',
+            uniqueId: legKey,
+            channel: rawCdr.channel || '',
+            userfield: rawCdr.userfield || '',
+            rawPayload: rawCdr, // still carries the true call-level uniqueid
+            isProcessed: true,
+        },
+        { upsert: true, new: true }
+    );
+};
+
 export const receiveMissedCall = asyncHandler(async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Basic ')) {
@@ -314,18 +360,47 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         }
 
         // Asterisk's ForkCDR() application splits off a synthetic tracking
-        // CDR the instant a call enters DID routing, before it's even been
-        // fanned out to a ring group / extension -- it always reports
-        // NO ANSWER with zero duration (start === answer === end) regardless
-        // of what actually happens to the call afterward. The REAL outcome
-        // is the leg(s) that follow with lastapp "Dial". Without this check,
-        // every inbound call -- even ones a human genuinely answers -- would
-        // log a false "missed call" from this placeholder alone, since it's
-        // typically the first leg received and arrives before the real
-        // outcome is known.
+        // CDR the instant a call enters DID routing. Two genuinely different
+        // situations produce the EXACT same signature (dcontext "ext-did-1",
+        // action_type "DIAL", lastapp "ForkCDR", NO ANSWER, zero duration):
+        // (1) this DID still uses old-style single-leg routing, and this IS
+        //     the whole call -- its NO ANSWER is the real, final outcome.
+        // (2) this DID now fans into a ring group, and this is just a
+        //     placeholder fired before any extension has even started
+        //     ringing -- real ring-group legs with the SAME uniqueid are
+        //     about to follow, and THEY carry the true outcome.
+        // Can't tell which one this is synchronously -- wait briefly for a
+        // sibling ring-group leg before deciding, per the ring-group brief's
+        // buffered-write approach.
         if (String(cdr.lastapp || '').toLowerCase() === 'forkcdr') {
-            console.log(`[GDMS Webhook] Skipping ${callerNumber} -- ForkCDR routing placeholder, not a real outcome`);
-            skippedCount++;
+            await MissedCall.findOneAndUpdate(
+                { uniqueId: legKey },
+                {
+                    callerNumber, callerName, calledNumber: cdr.dst || '', callTime, endTime,
+                    duration, billsec, disposition: cdr.disposition || 'UNKNOWN', uniqueId: legKey,
+                    channel: cdr.channel || '', userfield: cdr.userfield || '', rawPayload: cdr,
+                    isProcessed: false,
+                },
+                { upsert: true }
+            );
+
+            const capturedCdr = cdr;
+            setTimeout(() => {
+                runBG(`forkCdrResolve_${legKey}`, async () => {
+                    const sibling = await MissedCall.findOne({
+                        uniqueId: { $regex: new RegExp(`^${escapeRegExp(uniqueId)}_`), $ne: legKey },
+                    }).lean();
+                    if (sibling) {
+                        console.log(`[GDMS Webhook] ForkCDR leg ${legKey} confirmed a routing placeholder -- ring-group sibling handled the real outcome`);
+                        await MissedCall.updateOne({ uniqueId: legKey }, { isProcessed: true });
+                        return;
+                    }
+                    console.log(`[GDMS Webhook] ForkCDR leg ${legKey} has no ring-group sibling after ${FORK_CDR_WAIT_MS}ms -- old-style single-leg DID, logging as missed`);
+                    await finalizeLeg(legKey, uniqueId, callerNumber, callerName, callTime, endTime, duration, billsec, disposition, capturedCdr.dst, capturedCdr);
+                });
+            }, FORK_CDR_WAIT_MS);
+
+            skippedCount++; // not synchronously integrated -- resolved in the background above
             continue;
         }
 
@@ -340,28 +415,7 @@ export const receiveMissedCall = asyncHandler(async (req: Request, res: Response
         }
 
         try {
-            const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, cdr.dst);
-            console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
-
-            await MissedCall.findOneAndUpdate(
-                { uniqueId: legKey },
-                {
-                    callerNumber,
-                    callerName,
-                    calledNumber: cdr.dst || '',
-                    callTime,
-                    endTime,
-                    duration: parseInt(cdr.duration || '0', 10),
-                    billsec,
-                    disposition: cdr.disposition || 'UNKNOWN',
-                    uniqueId: legKey,
-                    channel: cdr.channel || '',
-                    userfield: cdr.userfield || '',
-                    rawPayload: cdr, // still carries the true call-level uniqueid
-                    isProcessed: true,
-                },
-                { upsert: true, new: true }
-            );
+            await finalizeLeg(legKey, uniqueId, callerNumber, callerName, callTime, endTime, duration, billsec, disposition, cdr.dst, cdr);
             processedCount++;
         } catch (err: any) {
             console.error(`[GDMS Webhook] Error processing CDR ${uniqueId}:`, err.message);
