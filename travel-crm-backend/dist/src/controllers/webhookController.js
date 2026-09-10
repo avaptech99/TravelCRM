@@ -13,6 +13,7 @@ const Notification_1 = __importDefault(require("../models/Notification"));
 const MissedCall_1 = __importDefault(require("../models/MissedCall"));
 const cache_1 = require("../utils/cache");
 const background_1 = require("../utils/background");
+const sseManager_1 = require("../sse/sseManager");
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // ponytail: Helper for Phone Lead system user
 const getPhoneLeadUser = async () => {
@@ -125,6 +126,15 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
                 }
             }
             cache_1.CacheInvalidation.onBookingWrite(latestBooking._id.toString());
+            // ✅ Notify agents watching this lead live -- GDMS writes went
+            // straight to the DB with no SSE push, so a connected agent never
+            // saw the new comment/status reset until they manually refreshed.
+            (0, sseManager_1.pushBookingEvent)('comment_added', {
+                bookingId: latestBooking._id.toString(),
+                assignedToUserId: String(latestBooking.assignedToUserId || ''),
+                assignedGroup: latestBooking.assignedGroup || '',
+                createdByUserId: String(latestBooking.createdByUserId || ''),
+            });
             return { action: 'comment_added', contactId: contact._id, bookingId: latestBooking._id };
         }
     }
@@ -149,6 +159,15 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
             await existingBooking.save();
         }
         cache_1.CacheInvalidation.onBookingWrite(existingBooking._id.toString());
+        if (updated) {
+            (0, sseManager_1.pushBookingEvent)('booking_updated', {
+                bookingId: existingBooking._id.toString(),
+                assignedToUserId: String(existingBooking.assignedToUserId || ''),
+                assignedGroup: existingBooking.assignedGroup || '',
+                createdByUserId: String(existingBooking.createdByUserId || ''),
+                changes: { callDisposition: existingBooking.callDisposition, lastInteractionAt: existingBooking.lastInteractionAt },
+            });
+        }
         return { action: updated ? 'lead_updated' : 'lead_exists_no_update', contactId: contact?._id, bookingId: existingBooking._id };
     }
     if (!contact) {
@@ -184,6 +203,15 @@ const processCallIntoCRM = async (callerNumber, callerName, callTime, endTime, d
         createdAt: callTime || new Date(),
     });
     cache_1.CacheInvalidation.onBookingWrite(booking._id.toString());
+    // ✅ New lead from GDMS -- refresh Overview/All Leads lists live, same as
+    // a manually-created booking already does.
+    (0, sseManager_1.pushBookingEvent)('booking_created', {
+        bookingId: booking._id.toString(),
+        status: booking.status,
+        assignedToUserId: '',
+        assignedGroup: '',
+        createdByUserId: String(booking.createdByUserId || ''),
+    });
     return { action: 'lead_created', contactId: contact._id, bookingId: booking._id };
 };
 // How long to wait, once a ForkCDR placeholder leg arrives, to see whether a
