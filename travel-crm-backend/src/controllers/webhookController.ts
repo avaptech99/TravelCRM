@@ -26,8 +26,28 @@ const getPhoneLeadUser = async () => {
     return user;
 };
 
-const formatDate = (date: Date) => `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-const formatTime = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+// The server runs in UTC (Render's default), so Date.prototype.getHours()/
+// getDate() etc. returned raw UTC time -- these comment strings (embedded
+// directly as text, not reformatted client-side) showed e.g. "Start: 07:19"
+// for a call that was actually 3:19 AM in Toronto. Format explicitly in
+// America/Toronto instead of relying on the runtime's local timezone.
+const CRM_TIMEZONE = 'America/Toronto';
+const torontoParts = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: CRM_TIMEZONE,
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(date);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') };
+};
+const formatDate = (date: Date) => {
+    const p = torontoParts(date);
+    return `${p.day}/${p.month}/${p.year}`;
+};
+const formatTime = (date: Date) => {
+    const p = torontoParts(date);
+    return `${p.hour}:${p.minute}`;
+};
 
 // A UCM ring group (action_type "RINGGROUP[...]") fans one call out to every
 // member extension. Only the extension that actually answers should count;
