@@ -236,12 +236,23 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
             skippedCount++;
             continue;
         }
-        // GDMS can resend the same CDR (retries) -- a call already processed
-        // must not re-add its comment, re-bump lastInteractionAt, or re-reset
-        // status. Same event twice should be a no-op, not "another new call".
-        const alreadyProcessed = await MissedCall_1.default.findOne({ uniqueId, isProcessed: true }).lean();
+        // `uniqueid` identifies the whole call, NOT one webhook leg -- real
+        // production payloads confirmed every leg of a single call (the
+        // initial DID leg, plus every ring-group extension's own leg) shares
+        // the exact same uniqueid. Deduping on uniqueid alone meant the
+        // FIRST leg received (typically the DID leg, which reports NO ANSWER
+        // immediately, before the ring group has even started ringing) got
+        // logged and marked processed -- and every subsequent leg, including
+        // the one that would show the call was genuinely ANSWERED, was
+        // silently skipped as "already processed". Dedup on uniqueid + the
+        // leg's own destination (dst) instead -- still catches a true GDMS
+        // retry of the same leg, no longer conflates different legs of the
+        // same call. (Reuses the existing MissedCall.uniqueId column/unique
+        // index as-is -- no schema change, just a more specific key value.)
+        const legKey = `${uniqueId}_${cdr.dst || 'unknown'}`;
+        const alreadyProcessed = await MissedCall_1.default.findOne({ uniqueId: legKey, isProcessed: true }).lean();
         if (alreadyProcessed) {
-            console.log(`[GDMS Webhook] Skipping already-processed CDR ${uniqueId}`);
+            console.log(`[GDMS Webhook] Skipping already-processed CDR leg ${legKey}`);
             skippedCount++;
             continue;
         }
@@ -271,6 +282,21 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
             skippedCount++;
             continue;
         }
+        // Asterisk's ForkCDR() application splits off a synthetic tracking
+        // CDR the instant a call enters DID routing, before it's even been
+        // fanned out to a ring group / extension -- it always reports
+        // NO ANSWER with zero duration (start === answer === end) regardless
+        // of what actually happens to the call afterward. The REAL outcome
+        // is the leg(s) that follow with lastapp "Dial". Without this check,
+        // every inbound call -- even ones a human genuinely answers -- would
+        // log a false "missed call" from this placeholder alone, since it's
+        // typically the first leg received and arrives before the real
+        // outcome is known.
+        if (String(cdr.lastapp || '').toLowerCase() === 'forkcdr') {
+            console.log(`[GDMS Webhook] Skipping ${callerNumber} -- ForkCDR routing placeholder, not a real outcome`);
+            skippedCount++;
+            continue;
+        }
         // This extension's leg didn't answer, but a sibling extension in the
         // same ring group did -- the call was handled, not missed. The
         // sibling's own leg (disposition ANSWERED) is what logs the real
@@ -283,7 +309,7 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
         try {
             const result = await processCallIntoCRM(callerNumber, callerName, callTime, endTime, duration, billsec, disposition, uniqueId, cdr.dst);
             console.log(`[GDMS Webhook] ${result.action} for ${callerNumber} (${disposition})`);
-            await MissedCall_1.default.findOneAndUpdate({ uniqueId }, {
+            await MissedCall_1.default.findOneAndUpdate({ uniqueId: legKey }, {
                 callerNumber,
                 callerName,
                 calledNumber: cdr.dst || '',
@@ -292,10 +318,10 @@ exports.receiveMissedCall = (0, express_async_handler_1.default)(async (req, res
                 duration: parseInt(cdr.duration || '0', 10),
                 billsec,
                 disposition: cdr.disposition || 'UNKNOWN',
-                uniqueId,
+                uniqueId: legKey,
                 channel: cdr.channel || '',
                 userfield: cdr.userfield || '',
-                rawPayload: cdr,
+                rawPayload: cdr, // still carries the true call-level uniqueid
                 isProcessed: true,
             }, { upsert: true, new: true });
             processedCount++;

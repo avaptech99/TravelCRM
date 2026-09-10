@@ -555,5 +555,77 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
             const afterGenuineMiss = await getBookingDetailJson(page, bookingUrl, true);
             expect((afterGenuineMiss.comments || []).length).toBe(commentCountBefore + 1);
         });
+
+        // Regression for the exact real-world payload shape: every leg of one
+        // physical call -- the initial DID-routing placeholder AND every
+        // ring-group extension leg -- shares the SAME uniqueid (confirmed
+        // against real GDMS logs). A dedup keyed on uniqueid alone treats the
+        // first leg received (the ForkCDR placeholder, always NO ANSWER
+        // regardless of true outcome) as "the call", and silently drops every
+        // leg after it -- including whichever leg carries the real outcome.
+        test('ring group: legs sharing one uniqueid are each evaluated independently, and the ForkCDR placeholder leg is ignored', async ({ page, request }) => {
+            test.skip(!GDMS_USER || !GDMS_PASS, 'E2E_GDMS_WEBHOOK_USER/PASS not supplied -- cannot call the real webhook.');
+
+            await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+            await page.getByRole('link', { name: 'All Leads' }).click();
+            const row = await findLeadRow(page, LEAD_CODE!);
+            const [detailRes] = await Promise.all([
+                page.waitForResponse((r) => /\/api\/bookings\/[a-f0-9]{24}$/.test(r.url()) && r.request().method() === 'GET'),
+                row.click(),
+            ]);
+            const bookingUrl = page.url();
+            const detail = await detailRes.json();
+            const phone: string = detail.contact?.phone || detail.contactNumber;
+            expect(phone).toBeTruthy();
+            const commentCountBefore = (detail.comments || []).length;
+
+            const auth = 'Basic ' + Buffer.from(`${GDMS_USER}:${GDMS_PASS}`).toString('base64');
+            const sharedUniqueId = `e2e-sharedcall-${Date.now()}`;
+            const leg = (dst: string, overrides: Record<string, any>) => ({
+                cdr_root: [{
+                    uniqueid: sharedUniqueId, src: phone, caller_name: phone, dst,
+                    disposition: 'NO ANSWER', billsec: '0', duration: '0',
+                    start: new Date().toISOString(),
+                    ...overrides,
+                }],
+            });
+
+            // Leg 1: the ForkCDR DID-routing placeholder -- fires first, same
+            // uniqueid as everything that follows, always NO ANSWER. Must not
+            // create a "missed call" comment by itself.
+            const res1 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: leg('19059551200', { dcontext: 'ext-did-1', lastapp: 'ForkCDR', action_type: 'DIAL', reason: '' }),
+            });
+            expect(res1.ok()).toBeTruthy();
+
+            const afterForkCdr = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterForkCdr.comments || []).length).toBe(commentCountBefore);
+
+            // Leg 2: a real ring-group extension leg, SAME uniqueid as leg 1,
+            // different dst, genuinely didn't answer. Must be evaluated on its
+            // own -- not skipped as "already processed" because of leg 1.
+            const res2 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: leg('1001', { dcontext: 'ext-group', lastapp: 'Dial', action_type: 'RINGGROUP[6400]', reason: '' }),
+            });
+            expect(res2.ok()).toBeTruthy();
+            await waitForManualStep(page, 3000);
+
+            const afterRealLeg = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterRealLeg.comments || []).length).toBe(commentCountBefore + 1);
+
+            // Leg 3: same uniqueid AND same dst as leg 2 -- a true GDMS retry
+            // of the identical leg. Must still be a no-op.
+            const res3 = await request.post('/api/webhook/missed-call', {
+                headers: { Authorization: auth },
+                data: leg('1001', { dcontext: 'ext-group', lastapp: 'Dial', action_type: 'RINGGROUP[6400]', reason: '' }),
+            });
+            expect(res3.ok()).toBeTruthy();
+            await waitForManualStep(page, 2000);
+
+            const afterRetry = await getBookingDetailJson(page, bookingUrl, true);
+            expect((afterRetry.comments || []).length).toBe(commentCountBefore + 1);
+        });
     });
 });
