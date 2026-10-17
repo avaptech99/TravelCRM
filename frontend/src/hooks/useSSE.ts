@@ -106,7 +106,6 @@ export function useSSE(token: string | null) {
           queryClient.invalidateQueries({ queryKey: ['booking', data.bookingId] });
           break;
 
-        case 'passenger_added':
         case 'comment_added':
         case 'booking_verified':
           queryClient.invalidateQueries({ queryKey: ['booking', data.bookingId] });
@@ -167,7 +166,7 @@ export function useSSE(token: string | null) {
     const eventTypes: string[] = [
       'connected', 'heartbeat', 'booking_created', 'booking_updated',
       'booking_deleted', 'status_changed', 'booking_assigned',
-      'payment_added', 'payment_deleted', 'passenger_added',
+      'payment_added', 'payment_deleted',
       'comment_added', 'booking_verified', 'notification_new',
       'analytics_stale', 'shutdown', 'replaced',
     ];

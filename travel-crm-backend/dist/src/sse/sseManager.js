@@ -55,42 +55,10 @@ function pushToAll(event, data) {
     return sent;
 }
 // ─── Push to users who can see a specific booking ─────────────────────────────
-// Mirrors role-based visibility logic:
-//   ADMIN    → sees all
-//   AGENT    → sees assigned or group bookings
-//   MARKETER → sees bookings they created
+// Every role can see every lead, so booking events go to every connected
+// client (no ownership/role scoping). Payload fields kept for callers.
 function pushBookingEvent(event, data) {
     clients.forEach(client => {
-        const { role, groups, userId } = client;
-        const roleLower = role.toLowerCase();
-        if (roleLower === 'admin') {
-            safePush(client, event, data);
-            return;
-        }
-        if (roleLower === 'agent' || roleLower === 'manager' || roleLower === 'visa' || roleLower === 'ticketing') {
-            const isAssigned = data.assignedToUserId === userId;
-            const isInGroup = data.assignedGroup && groups.includes(data.assignedGroup);
-            if (isAssigned || isInGroup) {
-                safePush(client, event, data);
-            }
-            return;
-        }
-        if (roleLower === 'marketer') {
-            if (data.createdByUserId === userId) {
-                safePush(client, event, data);
-            }
-            return;
-        }
-        if (roleLower === 'operation' || roleLower === 'account') {
-            // These roles usually see only 'Booked' status bookings, but for SSE updates
-            // we'll push if it's relevant to what they can see.
-            // Simplification: if it's 'Booked' status, they might be interested.
-            if (data.status === 'Booked') {
-                safePush(client, event, data);
-            }
-            return;
-        }
-        // fallback — push to everyone if role not specifically handled
         safePush(client, event, data);
     });
 }

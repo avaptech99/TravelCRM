@@ -11,19 +11,16 @@ import {
 } from '../../../components/ui/dialog';
 import api from '../../../api/client';
 import type { Booking } from '../../../types';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 
 interface EditModalProps {
     booking: Booking | null;
     isOpen: boolean;
     onClose: () => void;
-    onStatusChangeToBooked: (booking: Booking) => void;
 }
 
-export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, onStatusChangeToBooked }) => {
+export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose }) => {
     const queryClient = useQueryClient();
-    const navigate = useNavigate();
 
     const [status, setStatus] = useState<string>('');
     const [assignedToUserId, setAssignedToUserId] = useState<string>('');
@@ -85,9 +82,8 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
                 await Promise.all(promises);
             }
 
-            return { oldStatus: booking.status, newStatus: status };
         },
-        onSuccess: (data) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['bookings'] });
 
             let message = 'Booking updated successfully!';
@@ -95,12 +91,6 @@ export const EditModal: React.FC<EditModalProps> = ({ booking, isOpen, onClose, 
             toast.success(message);
 
             onClose();
-
-            // Trigger traveler page redirect if status changed to Booked AND no travelers exist yet
-            if (data?.newStatus === 'Booked' && data?.oldStatus !== 'Booked' && booking && (!booking.travelers || booking.travelers.length === 0)) {
-                navigate(`/bookings/${booking.id}/travelers`);
-                onStatusChangeToBooked({ ...booking, status: 'Booked' }); // keep for any other side effects, but navigation happens
-            }
         },
         onError: (err: any) => {
             const errorMessage = err.response?.data?.message || err.message || 'Failed to update booking.';

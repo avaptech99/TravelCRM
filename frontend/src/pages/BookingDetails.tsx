@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { toCrmTz } from '../lib/formatDate';
@@ -24,7 +24,6 @@ export const BookingDetails: React.FC = () => {
     const [isEditingReqs, setIsEditingReqs] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
-    const navigate = useNavigate();
     const [editReqsText, setEditReqsText] = useState('');
     const [commentText, setCommentText] = useState('');
     const { user } = useAuth();
@@ -271,13 +270,7 @@ export const BookingDetails: React.FC = () => {
                         <>
                             <select
                                 value={booking.status}
-                                onChange={(e) => {
-                                    if (e.target.value === 'Booked') {
-                                        navigate(`/bookings/${id}/travelers`);
-                                    } else {
-                                        updateStatusMutation.mutate(e.target.value);
-                                    }
-                                }}
+                                onChange={(e) => updateStatusMutation.mutate(e.target.value)}
                                 disabled={updateStatusMutation.isPending}
                                 className={`px-3 py-1.5 rounded-full text-sm font-bold border-2 focus:outline-none focus:ring-opacity-50 transition-colors cursor-pointer disabled:opacity-50 ${booking.status === 'Booked' ? 'bg-green-100 text-green-800 border-green-200 focus:ring-green-500' :
                                     booking.status === 'Working' ? 'bg-purple-100 text-purple-800 border-purple-200 focus:ring-purple-500' :
@@ -604,7 +597,6 @@ export const BookingDetails: React.FC = () => {
                     booking={booking}
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
-                    onStatusChangeToBooked={() => {}}
                 />
             )}
 

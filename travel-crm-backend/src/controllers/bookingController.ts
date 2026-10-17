@@ -17,7 +17,6 @@ import {
     updateBookingStatusSchema,
     assignBookingSchema,
     createCommentSchema,
-    createPassengersSchema,
     updateBookingSchema,
     createPaymentSchema,
 } from '../types';
@@ -80,18 +79,8 @@ export const getBookingStats = asyncHandler(async (req: Request, res: Response) 
         return;
     }
 
+    // Every authenticated role sees all leads -- no role/ownership filter on reads.
     const query: any = {};
-    const userGroups = req.user?.groups || [];
-    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
-    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
-
-    if (isAccount || isOperation) {
-        query.status = 'Booked';
-    } else if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = new mongoose.Types.ObjectId(req.user.id);
-    } else if (req.user?.role === 'MARKETER') {
-        query.createdByUserId = new mongoose.Types.ObjectId(req.user.id);
-    }
 
     const t = createTimer('getBookingStats');
     t.mark('dbQuery');
@@ -137,17 +126,6 @@ export const getRecentBookings = asyncHandler(async (req: Request, res: Response
     }
 
     const query: any = {};
-    const userGroups = req.user?.groups || [];
-    const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
-    const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
-
-    if (isAccount || isOperation) {
-        query.status = 'Booked';
-    } else if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = req.user.id;
-    } else if (req.user?.role === 'MARKETER') {
-        query.createdByUserId = req.user.id;
-    }
 
     const bookings = await Booking.find(query)
         .select('uniqueCode status assignedToUserId contact segments totalAmount createdAt')
@@ -200,28 +178,12 @@ export const getBookings = asyncHandler(async (req: Request, res: Response) => {
         return;
     }
 
+    // Every authenticated role sees ALL leads -- no role/ownership/group filter
+    // on reads. "My Leads" (myBookings=true, below) is the only user-chosen
+    // narrowing, and it scopes by assignedToUserId.
     const query: any = {};
-    const userGroups = req.user?.groups || [];
 
-    // 1. Mandatory Visibility Restrictions
-    if (req.user?.role !== 'ADMIN') {
-        const isAccount = userGroups.some(g => g.toLowerCase().trim() === 'account') || req.user?.role === 'ACCOUNT';
-        const isOperation = userGroups.some(g => g.toLowerCase().trim() === 'operation') || req.user?.role === 'OPERATION';
-
-        if (isAccount || isOperation) {
-            query.status = 'Booked';
-        } else if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            // No department/group gate on visibility -- All Leads, Unassigned, and
-            // Booked/EDT are shared views, not routed by assignedGroup. An agent
-            // with no department (or nothing assigned) must still see them.
-            // "My Leads" (myBookings=true, below) is the only agent-scoped view,
-            // and it scopes by participantIds/assignedToUserId, not group.
-        } else if (req.user?.role === 'MARKETER') {
-            query.participantIds = new mongoose.Types.ObjectId(req.user.id);
-        }
-    }
-
-    // 2. Filters
+    // Filters
     if (myBookings === 'true') {
         // Query assignedToUserId directly, not the participantIds array --
         // participantIds is a denormalized cache that only stays correct if
@@ -368,27 +330,9 @@ export const getBookingById = asyncHandler(async (req: Request, res: Response) =
     // Check cache first
     const cached = cacheGet<any>(cacheKey);
     
-    const checkAuth = (b: any) => {
-        if (req.user?.role === 'ADMIN') return true;
-
-        const creatorId = (b.createdByUserId as any)?._id?.toString() || b.createdByUserId?.toString();
-
-        // Same open visibility as the list views (All Leads etc.) -- not
-        // group-gated, so an agent who can see a lead in a list can also open it.
-        if (req.user?.role === 'AGENT' || req.user?.role === 'VISA' || req.user?.role === 'TICKETING') {
-            return true;
-        }
-
-        if (req.user?.role === 'MARKETER') {
-            return creatorId === String(req.user?.id);
-        }
-
-        if (req.user?.role === 'OPERATION' || req.user?.role === 'ACCOUNT') {
-            return b.status === 'Booked';
-        }
-
-        return false;
-    };
+    // Same open visibility as the list views: every authenticated role can
+    // open any lead (route is behind `protect`, so req.user is always set).
+    const checkAuth = (_b: any) => !!req.user;
 
     const t = createTimer(`getBookingById_${id}`);
     t.mark('checkCache');
@@ -1254,111 +1198,6 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
     res.json(comments);
 });
 
-// @desc    Add passengers to a booking
-// @route   POST /api/bookings/:id/passengers
-// @access  Private
-export const addPassengers = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-
-    const inputData = Array.isArray(req.body) ? req.body : [req.body];
-    const result = createPassengersSchema.safeParse(inputData);
-
-    if (!result.success) {
-        res.status(400);
-        throw new Error('Invalid passenger data');
-    }
-
-    if (req.user?.role === 'MARKETER') {
-        res.status(403);
-        throw new Error('Marketers are not authorized to add passengers');
-    }
-
-    const passengersData = result.data.map(p => ({
-        ...p,
-        bookingId: id,
-    }));
-
-    const t = createTimer(`addPassengers_${id}`);
-    
-    // ✅ PRIMARY WRITE - Only await
-    const createdPassengers = await Passenger.insertMany(passengersData);
-
-    // ✅ BUST CACHE IMMEDIATELY
-    CacheInvalidation.onBookingDetailWrite(id);
-    
-    t.end({ count: passengersData.length });
-    res.status(201).json(createdPassengers);
-
-    // BACKGROUND: Logging and thorough invalidation
-    setImmediate(() => runBG(`addPassengers_sideEffects_${id}`, async () => {
-        await Comment.create({
-            bookingId: id,
-            userId: req.user?.id,
-            text: `Added ${passengersData.length} passenger(s).`
-        });
-        
-        pushBookingEvent('passenger_added', {
-            bookingId: id,
-            count: passengersData.length,
-        });
-    }));
-});
-
-// @desc    Update (replace) passengers for a booking
-// @route   PUT /api/bookings/:id/passengers
-// @access  Private
-export const updatePassengers = asyncHandler(async (req: Request, res: Response) => {
-    const startTime = Date.now();
-    const { id } = req.params;
-
-    const inputData = Array.isArray(req.body) ? req.body : [req.body];
-    const result = createPassengersSchema.safeParse(inputData);
-
-    if (!result.success) {
-        res.status(400);
-        throw new Error('Invalid passenger data');
-    }
-
-    const booking = await Booking.findById(id).lean();
-
-    if (!booking) {
-        res.status(404);
-        throw new Error('Booking not found');
-    }
-
-    if (req.user?.role === 'MARKETER') {
-        res.status(403);
-        throw new Error('Marketers are not authorized to update passengers');
-    }
-
-    if (req.user?.role === 'AGENT' && getObjectIdString(booking.assignedToUserId) !== req.user.id) {
-        res.status(403);
-        throw new Error('Not authorized to update passengers for this booking');
-    }
-
-    const passengersData = result.data.map(p => ({
-        ...p,
-        bookingId: id,
-    }));
-
-    const dbStart = Date.now();
-    await Passenger.deleteMany({ bookingId: id });
-    const createdPassengers = await Passenger.insertMany(passengersData);
-    const dbTime = Date.now() - dbStart;
-
-    const totalTime = Date.now() - startTime;
-    console.log(`[PASSENGER PERF] Update Passengers - Total: ${totalTime}ms | DB (Del+Ins): ${dbTime}ms | Count: ${passengersData.length}`);
-
-    // ✅ BUST CACHE IMMEDIATELY
-    CacheInvalidation.onBookingDetailWrite(id);
-    res.json(createdPassengers);
-
-    // BACKGROUND: Logging and cache invalidation - Removed technical timeline logging
-    setImmediate(() => runBG(`updatePassengers_sideEffects_${id}`, async () => {
-        // Invalidation handled synchronously
-    }));
-});
-
 // @desc    Add a payment to a booking
 // @route   POST /api/bookings/:id/payments
 // @access  Private
@@ -1498,10 +1337,6 @@ export const getCalendarBookings = asyncHandler(async (req: Request, res: Respon
     const query: any = {
         'segments.0.departureDate': { $gte: startDate, $lte: endDate },
     };
-
-    if (req.user?.role === 'AGENT') {
-        query.assignedToUserId = req.user.id;
-    }
 
     const bookings = await Booking.find(query)
         .select('uniqueCode status segments contact')

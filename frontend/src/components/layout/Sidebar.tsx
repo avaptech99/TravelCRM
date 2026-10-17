@@ -9,13 +9,15 @@ export const Sidebar: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
 
+    // Every role can see all leads, so every lead-list link is shown to every role.
+    const ALL_ROLES = ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT'];
     const navItems = [
-        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
-        { label: 'All Leads', path: '/bookings', icon: <FileText size={20} />, roles: ['ADMIN', 'AGENT', 'VISA', 'TICKETING'] },
-        { label: 'My Leads', path: '/mybooking', icon: <UserSquare size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING'] },
-        { label: 'Unassigned', path: '/unassignedbooking', icon: <Users size={20} />, roles: ['ADMIN', 'AGENT'] },
-        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ['ADMIN', 'AGENT', 'OPERATION', 'ACCOUNT'] },
-        { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={20} />, roles: ALL_ROLES },
+        { label: 'All Leads', path: '/bookings', icon: <FileText size={20} />, roles: ALL_ROLES },
+        { label: 'My Leads', path: '/mybooking', icon: <UserSquare size={20} />, roles: ALL_ROLES },
+        { label: 'Unassigned', path: '/unassignedbooking', icon: <Users size={20} />, roles: ALL_ROLES },
+        { label: 'Booked / EDT', path: '/booked', icon: <CheckCircle size={20} />, roles: ALL_ROLES },
+        { label: 'Travel Calendar', path: '/calendar', icon: <Calendar size={20} />, roles: ALL_ROLES },
         { label: 'Users', path: '/users', icon: <Users size={20} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN', 'ACCOUNT'] },
         { label: 'Settings', path: '/settings', icon: <SettingsIcon size={20} />, roles: ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT'] },

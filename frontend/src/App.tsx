@@ -15,7 +15,6 @@ const Bookings = lazy(() => import('./pages/Bookings').then(module => ({ default
 const CalendarView = lazy(() => import('./pages/CalendarView').then(module => ({ default: module.CalendarView })));
 const BookingDetails = lazy(() => import('./pages/BookingDetails').then(module => ({ default: module.BookingDetails })));
 
-const BookingTravelers = lazy(() => import('./pages/BookingTravelers').then(module => ({ default: module.BookingTravelers })));
 const BookedEDT = lazy(() => import('./pages/BookedEDT').then(module => ({ default: module.BookedEDT })));
 const Reports = lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
 const Users = lazy(() => import('./pages/Users').then(module => ({ default: module.Users })));
@@ -57,7 +56,6 @@ function App() {
                   <Route path="/calendar" element={<CalendarView />} />
                   <Route path="/bookings/:id" element={<BookingDetails />} />
 
-                  <Route path="/bookings/:id/travelers" element={<BookingTravelers />} />
                   <Route path="/booked" element={<BookedEDT />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/users" element={<Users />} />

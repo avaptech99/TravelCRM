@@ -14,12 +14,11 @@ interface StatusUpdateModalProps {
     booking: Booking | null;
     isOpen: boolean;
     onClose: () => void;
-    onStatusChangeToBooked?: (booking: Booking) => void;
 }
 
 const STATUSES = ['Pending', 'Working', 'Sent', 'Booked'];
 
-export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, isOpen, onClose, onStatusChangeToBooked }) => {
+export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, isOpen, onClose }) => {
     const queryClient = useQueryClient();
 
     const mutation = useMutation({
@@ -51,7 +50,6 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ booking, i
         onSuccess: (_, variables) => {
             toast.success('Status updated successfully');
             if (variables === 'Booked' && booking) {
-                onStatusChangeToBooked?.(booking);
             }
         },
         onError: (err: any, _variables, context) => {

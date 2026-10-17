@@ -213,6 +213,35 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         await expect(page.locator('select').filter({ has: page.locator('option[value="Yes"]') })).toHaveValue('Yes');
     });
 
+    // Changing status to Booked must only update the status -- it used to
+    // navigate to /bookings/:id/travelers (page now removed entirely).
+    test('Status -> Booked stays on the booking page and the travelers route is gone', async ({ page }) => {
+        await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+        await page.goto(leadUrl);
+        await waitForManualStep(page);
+
+        const [statusRes] = await Promise.all([
+            page.waitForResponse((r) => /\/status$/.test(r.url()) && r.request().method() === 'PATCH'),
+            statusControl(page).selectOption('Booked'),
+        ]);
+        expect(statusRes.ok()).toBeTruthy();
+        await waitForManualStep(page);
+
+        await expect(page).toHaveURL(leadUrl);
+        expect(page.url()).not.toContain('/travelers');
+        await expect(statusControl(page)).toHaveValue('Booked');
+
+        // Put it back so later tests' Working/Pending assumptions still hold.
+        await Promise.all([
+            page.waitForResponse((r) => /\/status$/.test(r.url()) && r.request().method() === 'PATCH'),
+            statusControl(page).selectOption('Working'),
+        ]);
+
+        // Old /travelers URL no longer renders a travelers page.
+        await page.goto(`${leadUrl}/travelers`);
+        await expect(page.getByText(/Update Travelers|Traveler Details/i)).toHaveCount(0);
+    });
+
     // FLOW 11 -- reassign, verify old assignee loses it, new one gets it, assignedGroup untouched
     test('Reassign from Agent A to Agent B does not touch assignedGroup', async ({ page }) => {
         test.skip(!AGENT_B_EMAIL || !AGENT_B_PASSWORD, 'E2E_AGENT_B_* not supplied');
@@ -283,6 +312,24 @@ test.describe.serial('Missed-call GDMS lifecycle (main-2, real backend+DB)', () 
         ]);
         const agentTotal = (await agentBookingsRes.json()).meta?.total;
         expect(agentTotal).toBe(adminTotal);
+
+        // Booked/EDT list: an agent must get the same total as admin (all leads,
+        // no role/ownership filter). Compare via the real API response.
+        const [agentBookedRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?.*status=Booked/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'Booked / EDT' }).click(),
+        ]);
+        expect(agentBookedRes.ok()).toBeTruthy();
+        const agentBookedTotal = (await agentBookedRes.json()).meta?.total;
+        await logout(page);
+        await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+        const [adminBookedRes] = await Promise.all([
+            page.waitForResponse((r) => /\/bookings\?.*status=Booked/.test(r.url()) && r.request().method() === 'GET'),
+            page.getByRole('link', { name: 'Booked / EDT' }).click(),
+        ]);
+        expect(agentBookedTotal).toBe((await adminBookedRes.json()).meta?.total);
+        await logout(page);
+        await login(page, AGENT_A_EMAIL!, AGENT_A_PASSWORD!);
 
         // Unassigned
         await page.getByRole('link', { name: 'Unassigned' }).click();

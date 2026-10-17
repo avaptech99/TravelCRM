@@ -647,7 +647,6 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({ statusFilter, agen
                 booking={activeEditBooking}
                 isOpen={!!activeEditBooking}
                 onClose={() => setActiveEditBooking(null)}
-                onStatusChangeToBooked={() => { }}
             />
 
             <AssignAgentModal

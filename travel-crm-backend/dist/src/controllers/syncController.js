@@ -8,7 +8,6 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Notification_1 = __importDefault(require("../models/Notification"));
 const User_1 = __importDefault(require("../models/User"));
-const mongoose_1 = __importDefault(require("mongoose"));
 const cache_1 = __importDefault(require("../utils/cache"));
 const perfLogger_1 = require("../utils/perfLogger");
 // Request deduplication for sync fetches
@@ -43,16 +42,7 @@ exports.getGlobalSync = (0, express_async_handler_1.default)(async (req, res) =>
     const fetchPromise = (async () => {
         const statsQuery = {};
         const recentQuery = {};
-        // Optimized visibility query using participantIds covering index
-        const userIdObj = new mongoose_1.default.Types.ObjectId(userId);
-        if (userRole === 'MARKETER') {
-            statsQuery.participantIds = userIdObj;
-            recentQuery.participantIds = userId;
-        }
-        else if (userRole === 'OPERATION' || userRole === 'ACCOUNT') {
-            statsQuery.status = 'Booked';
-            recentQuery.status = 'Booked';
-        }
+        // Every authenticated role sees all leads -- no role/ownership filter.
         // Only fetch bookings modified in the last 48 hours for "recent" list (indexed by updatedAt)
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
         recentQuery.updatedAt = { $gte: since };

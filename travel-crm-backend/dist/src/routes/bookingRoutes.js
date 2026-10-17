@@ -29,9 +29,6 @@ router.route('/:id/assign')
 router.route('/:id/comments')
     .get(bookingController_1.getComments)
     .post(bookingController_1.addComment);
-router.route('/:id/passengers')
-    .post(bookingController_1.addPassengers)
-    .put(bookingController_1.updatePassengers);
 router.get('/:id/activity', bookingController_1.getBookingActivity);
 router.patch('/:id/verify', bookingController_1.verifyBooking);
 router.route('/:id/payments')

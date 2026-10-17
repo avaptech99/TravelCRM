@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createPaymentSchema = exports.createPassengersSchema = exports.passengerSchema = exports.createCommentSchema = exports.assignBookingSchema = exports.updateBookingStatusSchema = exports.updateBookingSchema = exports.createBookingSchema = exports.createUserSchema = exports.loginSchema = void 0;
+exports.createPaymentSchema = exports.createCommentSchema = exports.assignBookingSchema = exports.updateBookingStatusSchema = exports.updateBookingSchema = exports.createBookingSchema = exports.createUserSchema = exports.loginSchema = void 0;
 const zod_1 = require("zod");
 exports.loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
@@ -93,24 +93,6 @@ exports.assignBookingSchema = zod_1.z.object({
 exports.createCommentSchema = zod_1.z.object({
     text: zod_1.z.string().min(1),
 });
-exports.passengerSchema = zod_1.z.object({
-    name: zod_1.z.string().min(1),
-    phoneNumber: zod_1.z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits').optional().or(zod_1.z.literal('')),
-    email: zod_1.z.string().email().optional().or(zod_1.z.literal('')),
-    dob: zod_1.z.string().optional(),
-    anniversary: zod_1.z.string().optional(),
-    // Legacy fields accepted for backward compat (frontend may still send them during transition)
-    country: zod_1.z.string().optional(),
-    flightFrom: zod_1.z.string().optional(),
-    flightTo: zod_1.z.string().optional(),
-    departureTime: zod_1.z.string().optional(),
-    arrivalTime: zod_1.z.string().optional(),
-    tripType: zod_1.z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
-    returnDate: zod_1.z.string().optional(),
-    returnDepartureTime: zod_1.z.string().optional(),
-    returnArrivalTime: zod_1.z.string().optional(),
-});
-exports.createPassengersSchema = zod_1.z.array(exports.passengerSchema);
 exports.createPaymentSchema = zod_1.z.object({
     amount: zod_1.z.number().positive(),
     paymentMethod: zod_1.z.string().min(1),

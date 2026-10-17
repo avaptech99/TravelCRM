@@ -3,7 +3,6 @@ import asyncHandler from 'express-async-handler';
 import Booking from '../models/Booking';
 import Notification from '../models/Notification';
 import User from '../models/User';
-import mongoose from 'mongoose';
 import appCache from '../utils/cache';
 import { createTimer } from '../utils/perfLogger';
 
@@ -43,16 +42,7 @@ export const getGlobalSync = asyncHandler(async (req: Request, res: Response) =>
         const statsQuery: any = {};
         const recentQuery: any = {};
         
-        // Optimized visibility query using participantIds covering index
-        const userIdObj = new mongoose.Types.ObjectId(userId);
-        
-        if (userRole === 'MARKETER') {
-            statsQuery.participantIds = userIdObj;
-            recentQuery.participantIds = userId;
-        } else if (userRole === 'OPERATION' || userRole === 'ACCOUNT') {
-            statsQuery.status = 'Booked';
-            recentQuery.status = 'Booked';
-        }
+        // Every authenticated role sees all leads -- no role/ownership filter.
 
         // Only fetch bookings modified in the last 48 hours for "recent" list (indexed by updatedAt)
         const since = new Date(Date.now() - 48 * 60 * 60 * 1000);

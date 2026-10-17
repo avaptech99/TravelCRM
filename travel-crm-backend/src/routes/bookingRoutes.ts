@@ -7,10 +7,8 @@ import {
     assignBooking,
     addComment,
     getComments,
-    addPassengers,
     deleteBooking,
     updateBooking,
-    updatePassengers,
     addPayment,
     getPayments,
     deletePayment,
@@ -54,10 +52,6 @@ router.route('/:id/assign')
 router.route('/:id/comments')
     .get(getComments)
     .post(addComment);
-
-router.route('/:id/passengers')
-    .post(addPassengers)
-    .put(updatePassengers);
 
 router.get('/:id/activity', getBookingActivity);
 router.patch('/:id/verify', verifyBooking);

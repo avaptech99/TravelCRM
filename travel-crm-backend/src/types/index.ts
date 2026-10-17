@@ -98,26 +98,6 @@ export const createCommentSchema = z.object({
     text: z.string().min(1),
 });
 
-export const passengerSchema = z.object({
-    name: z.string().min(1),
-    phoneNumber: z.string().regex(/^\+\d{1,4}\d{10}$/, 'Phone number must have country code and 10 digits').optional().or(z.literal('')),
-    email: z.string().email().optional().or(z.literal('')),
-    dob: z.string().optional(),
-    anniversary: z.string().optional(),
-    // Legacy fields accepted for backward compat (frontend may still send them during transition)
-    country: z.string().optional(),
-    flightFrom: z.string().optional(),
-    flightTo: z.string().optional(),
-    departureTime: z.string().optional(),
-    arrivalTime: z.string().optional(),
-    tripType: z.enum(['one-way', 'round-trip', 'multi-city']).optional(),
-    returnDate: z.string().optional(),
-    returnDepartureTime: z.string().optional(),
-    returnArrivalTime: z.string().optional(),
-});
-
-export const createPassengersSchema = z.array(passengerSchema);
-
 export const createPaymentSchema = z.object({
     amount: z.number().positive(),
     paymentMethod: z.string().min(1),

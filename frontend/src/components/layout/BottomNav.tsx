@@ -8,16 +8,18 @@ export const BottomNav: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
 
+    // Every role can see all leads, so every lead-list link is shown to every role.
+    const ALL_ROLES = ['ADMIN', 'AGENT', 'MARKETER', 'VISA', 'TICKETING', 'OPERATION', 'ACCOUNT'];
     const navItems = [
-        { label: 'Overview', path: '/', icon: <LayoutDashboard size={18} />, roles: ['ADMIN', 'AGENT', 'MARKETER'] },
-        { label: 'All Bookings', path: '/bookings', icon: <FileText size={18} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Overview', path: '/', icon: <LayoutDashboard size={18} />, roles: ALL_ROLES },
+        { label: 'All Bookings', path: '/bookings', icon: <FileText size={18} />, roles: ALL_ROLES },
         { 
             label: user?.role === 'MARKETER' ? 'My Leads' : 'My Bookings', 
             path: '/my-bookings', 
             icon: <UserSquare size={18} />, 
-            roles: ['AGENT', 'MARKETER'] 
+            roles: ALL_ROLES 
         },
-        { label: 'Calendar', path: '/calendar', icon: <Calendar size={18} />, roles: ['ADMIN', 'AGENT'] },
+        { label: 'Calendar', path: '/calendar', icon: <Calendar size={18} />, roles: ALL_ROLES },
         { label: 'Users', path: '/users', icon: <Users size={18} />, roles: ['ADMIN'] },
         { label: 'Reports', path: '/reports', icon: <BarChart3 size={18} />, roles: ['ADMIN'] },
     ];
